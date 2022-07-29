@@ -13,16 +13,17 @@ def create_schema(img_shape):
     img_shape = tuple((img_shape[0], img_shape[1], 3)) # swappity
     print(img_shape)
     dims = []
-    for i,ext in enumerate(img_shape):
-        tile = 1024 if i < 2 else 1
-        dims.append(
-            tiledb.Dim(domain=(0,ext-1), dtype=np.uint64, tile=tile)
-        )
+
+    dims.append(
+        tiledb.Dim(name="X", domain=(0,img_shape[0]-1), dtype=np.uint64, tile=1024)
+    )
+    dims.append(
+            tiledb.Dim(name="Y", domain=(0,img_shape[1]-1), dtype=np.uint64, tile=1024)
+    )
 
     filters = [tiledb.ZstdFilter(level=0)]
-    #filters = None
     attr = tiledb.Attr(
-        name='', dtype='uint8', filters=filters
+        name='rgb', dtype=[("", 'uint8'), ("", 'uint8'), ("", 'uint8')], filters=filters
     )
 
     schema = tiledb.ArraySchema(
@@ -56,8 +57,9 @@ def convert_image(input_img_path, img_group_path, doit=True, level_min=0):
 
             slide_data = img.read_region((0,0), level, dims).convert("RGB")
             data = np.array(slide_data).swapaxes(0,1)
+            newdata = data.view(dtype=np.dtype([("", 'uint8'), ("", 'uint8'), ("", 'uint8')]))
             with tiledb.open(output_img_path, "w") as A:
-                A[:] = data
+                A[:] = newdata
 
     # Write group metadata
     with tiledb.Group(img_group_path, "w") as G:
