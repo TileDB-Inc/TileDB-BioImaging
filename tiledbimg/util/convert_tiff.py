@@ -20,6 +20,7 @@ def page_shapes(f: TiffFile):
 
     """
     Opens a Tiff-supported image and returns shape information
+
     :param f: path to the the Tiff-supported image
     :return: NumPy array of the shapes
     """
@@ -30,6 +31,7 @@ def pad_width_to_tile(w, tile):
 
     """
     Reads the width and tile size and alculates padded width
+
     :param w: width
     :param tile: tile size 
     :return: the calculated padded shape
@@ -42,6 +44,7 @@ def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
 
     """
     Reads shape information, calculates padded shapes, and creates ArraySchema 
+
     :param shape: input shape   
     :return: TileDB array
     """
@@ -71,6 +74,7 @@ class OMETiffConverter(ImageConverter):
         """
         Convert a Tiff-supported image to a TileDB Group of Arrays, one
         per level.
+        
         :param input_path: path to the Tiff-supported image
         :param output_group_path: path to the TildDB group of arrays
         """
