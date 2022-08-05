@@ -19,8 +19,8 @@ class OpenSlideConverter(ImageConverter):
         Convert a OpenSlide-supported image to a TileDB Group of Arrays, one
         per level.
 
-        :param input_path: path to the OpenSlide-supported image
-        :param output_group_path: path to the TildDB group of arrays
+        :param input_img_path: path to the OpenSlide-supported image
+        :param img_group_path: path to the TildDB group of arrays
         
         """
         img = osd.OpenSlide(input_img_path)
