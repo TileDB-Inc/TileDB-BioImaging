@@ -51,21 +51,25 @@ class OpenSlideConverter(ImageConverter):
             G.meta["level_downsamples"] = img.level_downsamples
 
 def convert_image(input_img_path, img_group_path, doit=True, level_min=0):
+    
     """
     Convert an OpenSlide-supported image to a TileDB Group of Arrays, one
     per level.
 
     Usage: convert_image(img_uri, output_uri, doit=True)
     """
+
     converter = ImageConverter()
     converter.convert(input_img_path, img_group_path)
 
 
 def convert_all(path, output_path, level_min=0):
+    
     """
     Batch convert a group of .svs files in `path` to TileDB image array groups
     in `output_path`.
     """
+    
     paths = glob.glob(f"{path}/*.svs")
 
     print(f"found {len(paths)} .svs files in '{path}'")

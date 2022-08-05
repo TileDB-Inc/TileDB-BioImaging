@@ -37,7 +37,6 @@ def pad_width_to_tile(w, tile):
     :return: the calculated padded shape
     """
 
-
     return np.max([w + w % tile, tile])
 
 def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
@@ -74,11 +73,10 @@ class OMETiffConverter(ImageConverter):
         """
         Convert a Tiff-supported image to a TileDB Group of Arrays, one
         per level.
-        
+
         :param input_path: path to the Tiff-supported image
         :param output_group_path: path to the TildDB group of arrays
         """
-        
         
         tiff = tifffile.TiffFile(input_path)
 
