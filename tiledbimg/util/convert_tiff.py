@@ -17,12 +17,37 @@ from tiledbimg.util.common import ImageConverter
 # - create ArraySchema
 
 def page_shapes(f: TiffFile):
+
+    """
+    Opens a Tiff-supported image and returns shape information
+
+    :param f: path to the the Tiff-supported image
+    :return: NumPy array of the shapes
+    """
+
     return [p.shape for p in f.pages]
 
 def pad_width_to_tile(w, tile):
+
+    """
+    Reads the width and tile size and alculates padded width
+
+    :param w: width
+    :param tile: tile size 
+    :return: the calculated padded shape
+    """
+
     return np.max([w + w % tile, tile])
 
 def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
+
+    """
+    Reads shape information, calculates padded shapes, and creates ArraySchema 
+
+    :param shape: input shape   
+    :return: TileDB array
+    """
+
     xmax = pad_width_to_tile(shape[0], tile_x)
     ymax = pad_width_to_tile(shape[1], tile_y)
     dims = [
@@ -44,6 +69,15 @@ def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
 class OMETiffConverter(ImageConverter):
 
     def convert_image(self, input_path, output_group_path, level_min=0):
+        
+        """
+        Convert a Tiff-supported image to a TileDB Group of Arrays, one
+        per level.
+
+        :param input_path: path to the Tiff-supported image
+        :param output_group_path: path to the TildDB group of arrays
+        """
+        
         tiff = tifffile.TiffFile(input_path)
 
         tiledb.group_create(output_group_path)
