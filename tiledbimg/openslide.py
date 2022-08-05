@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Tuple, List, Dict
 from numbers import Number
 
+ATTRIBUTE_VALUE_NAME = 'rgb'
+
 @dataclass
 class LevelInfo:
     level: int
@@ -77,9 +79,10 @@ class TileDBOpenSlide:
         #)
 
         print(f"[DEBUG] slide_group_uri: {slide_group_uri}")
+        breakpoint()
         with tiledb.Group(slide_group_uri) as G:
             group_meta = G.meta
-            level_downsamples = G.meta["level_downsamples"]
+            level_downsamples = G.meta.get("level_downsamples", None)
             group_dirs = [g.uri for g in G]
 
         #group_dirs = [os.path.abspath(p) for p in group_dirs]
@@ -123,8 +126,20 @@ class TileDBOpenSlide:
     :param size: region size (w, h)
     :return: NumPy array of the selected region
     """
-    def read_region(self):
-        raise NotImplementedError("fix me")
+    def read_region(self, xy, level, wh):
+        x,y = xy
+        w,h = wh
+
+        uri = self._level_infos[level].uri
+
+        with tiledb.open(uri) as A:
+            data = A[x:x+w, y:y+h]
+            data = data[ATTRIBUTE_VALUE_NAME]
+
+        return data
+
+        # TMP Hack to return usable image from OME-TIFF conversion
+        #return data.view("uint8").reshape((data.shape[0], data.shape[1], 3))
 
     """
     Returns the highest resolution dimensions for the specified image array.
@@ -199,11 +214,7 @@ class SlideInfo:
         x,y = xy
         w,h = wh
 
-        uri = self.slide._level_infos[level].uri
-
-        with tiledb.open(uri) as A:
-            data = A[x:x+w, y:y+h]
-            return data
+        return self.slide.read_region((x,y), level, (w,h))
 
     """
     Returns the current target downsample *level*.
