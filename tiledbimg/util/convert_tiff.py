@@ -18,12 +18,43 @@ from tiledbimg.util.common import ImageConverter
 # - create ArraySchema
 
 def page_shapes(f: TiffFile):
+
+    """
+    Documentation for page_shapes function
+
+    :param f: 
+    :return: NumPy array
+
+    """
+
     return [p.shape for p in f.pages]
 
 def pad_width_to_tile(w, tile):
+
+    """
+    Documentation for pad_width_to_tile function
+
+    :param w:
+    :param tile: 
+    :return: NumPy array
+    
+    """
+
+
     return np.max([w + w % tile, tile])
 
 def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
+
+    """
+    Documentation for level_schemas function
+
+    :param shape:
+    :param tile_x:
+    :param tile_y:  
+    :return: TileDB array
+    
+    """
+
     xmax = pad_width_to_tile(shape[0], tile_x)
     ymax = pad_width_to_tile(shape[1], tile_y)
     dims = [
@@ -45,6 +76,17 @@ def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
 class OMETiffConverter(ImageConverter):
 
     def convert_image(self, input_path, output_group_path, level_min=0):
+        
+        """
+        Documentation for convert_image function
+
+        :param input_path:
+        :param output_group_path: 
+        :param level_min: 
+        
+        """
+        
+        
         tiff = tifffile.TiffFile(input_path)
 
         tiledb.group_create(output_group_path)

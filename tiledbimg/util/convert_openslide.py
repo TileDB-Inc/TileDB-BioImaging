@@ -1,4 +1,3 @@
-# Task: Add documentation 
 from attr import attrs
 import tiledb
 import numpy as np
@@ -11,7 +10,19 @@ from concurrent.futures import ProcessPoolExecutor
 from common import ImageConverter, create_schema
 
 class OpenSlideConverter(ImageConverter):
+
+    
+
     def convert(self, input_img_path, img_group_path, level_min=0):
+        
+        """
+        Documentation for convert function
+
+        :param input_img_path: 
+        :param img_group_path: 
+        :param level_min=0:  
+        
+        """
         img = osd.OpenSlide(input_img_path)
 
         tiledb.group_create(img_group_path)
