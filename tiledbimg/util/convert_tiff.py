@@ -78,11 +78,11 @@ class OMETiffConverter(ImageConverter):
     def convert_image(self, input_path, output_group_path, level_min=0):
         
         """
-        Documentation for convert_image function
+        Convert a Tiff-supported image to a TileDB Group of Arrays, one
+        per level.
 
-        :param input_path:
-        :param output_group_path: 
-        :param level_min: 
+        :param input_path: path to the Tiff-supported image
+        :param output_group_path: path to the TildDB group of arrays
         
         """
         

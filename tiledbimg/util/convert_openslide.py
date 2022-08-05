@@ -16,11 +16,11 @@ class OpenSlideConverter(ImageConverter):
     def convert(self, input_img_path, img_group_path, level_min=0):
         
         """
-        Documentation for convert function
+        Convert a OpenSlide-supported image to a TileDB Group of Arrays, one
+        per level.
 
-        :param input_img_path: 
-        :param img_group_path: 
-        :param level_min=0:  
+        :param input_path: path to the OpenSlide-supported image
+        :param output_group_path: path to the TildDB group of arrays
         
         """
         img = osd.OpenSlide(input_img_path)
