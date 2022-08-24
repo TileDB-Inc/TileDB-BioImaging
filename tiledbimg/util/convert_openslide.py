@@ -11,16 +11,24 @@ from common import ImageConverter, create_schema
 
 
 class OpenSlideConverter(ImageConverter):
-    def convert(self, input_img_path, img_group_path, level_min=0):
 
+    
+
+    def convert(self, input_img_path, img_group_path, level_min=0):
         """
         Convert a OpenSlide-supported image to a TileDB Group of Arrays, one
         per level.
 
         :param input_img_path: path to the OpenSlide-supported image
         :param img_group_path: path to the TildDB group of arrays
+
         :param level_min: minimum level of the image to be converted, by default set to 0 to convert all levels.
         """
+
+
+        :param level_min: minimum level of the image to be converted, by default set to 0 to convert all levels. 
+        """
+        
 
         img = osd.OpenSlide(input_img_path)
 
