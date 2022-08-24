@@ -34,7 +34,8 @@ class LevelInfo:
             return int(exp.split("_")[-1])
         except Exception as exc:
             raise ValueError(f"Invalid level filename: {s}") from exc
-
+    
+    
     @classmethod
     def from_array(cls, path, level=None) -> 'LevelInfo':
         if level is None:
@@ -48,6 +49,8 @@ class LevelInfo:
             a.schema
         )
 
+
+        
 
 class TileDBOpenSlide:
     _level_dimensions: List[Tuple[int]]
@@ -71,6 +74,9 @@ class TileDBOpenSlide:
                 self._level_dimensions == x._level_dimensions and
                 self._level_downsamples == x._level_downsamples and
                 self._level_infos == x._level_infos)
+
+
+                
 
     @classmethod
     def from_group_uri(cls, slide_group_uri, ctx=None):
@@ -166,6 +172,12 @@ class TileDBOpenSlide:
     @property
     def level_info(self):
         return self._level_infos
+    
+    
+    def level_info_equals(self, input): 
+        return tuple(range(len(self._level_dimensions))) == input[0] and self._level_dimensions == input[1]
+        
+             
 
 @dataclass
 class SlideInfo:

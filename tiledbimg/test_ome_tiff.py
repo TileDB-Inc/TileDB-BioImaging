@@ -8,9 +8,9 @@ import tifffile
 from open_slide import TileDBOpenSlide, LevelInfo, SlideInfo
 
 
-ometiff_uri = "../CMU-1-Small-Region.ome.tiff"
-svstiff_uri = "../CMU-1-Small-Region.svs.tiff"
-g_uri = "../CMU-1-Small-Region.tiledb"
+ometiff_uri = "../data/CMU-1-Small-Region.ome.tiff"
+svstiff_uri = "../data/CMU-1-Small-Region.svs.tiff"
+g_uri = "../data/CMU-1-Small-Region.tiledb"
 
 
 def test_ome_tiff():
@@ -20,6 +20,10 @@ def test_ome_tiff():
    t = TileDBOpenSlide.from_group_uri(g_uri)
 
 #ToDo: We need to find better test data. This data has already been downsampled without preserving the original levels.
+
+   assert(
+        t.level_info_equals([(0,1,2) , ((2220, 2967), (387, 463), (1280, 431))]) == True 
+    )
 
    assert(
         t.level_count == 3
@@ -34,10 +38,10 @@ def test_ome_tiff():
    assert(
         t.level_downsamples == None
     )
+     
+     
+     
 
-   assert(
-        t.level_info == [LevelInfo(level=0, shape=(2220, 2967)), LevelInfo(level=1, shape=(387, 463)), LevelInfo(level=2, shape=(1280, 431))]
-    )
 
 
 

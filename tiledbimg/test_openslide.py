@@ -27,6 +27,7 @@ def test_open_slide():
     for l_num,l_info in enumerate(t._level_infos):
         _check_level_info(l_num, l_info)
 
+
     os_img = osld.open_slide(svs_uri)
     assert(
         t.dimensions == os_img.dimensions
