@@ -45,6 +45,11 @@ class LevelInfo:
 
         return cls(path, level, a.schema)
 
+    def __eq__(self, input):
+        if not type(input) is LevelInfo:
+            raise TypeError("Object types to compare should be the same")
+        return self.level == input.level and self.dimensions == input.dimensions
+
 
 class TileDBOpenSlide:
     _level_dimensions: List[Tuple[int]]
@@ -62,6 +67,8 @@ class TileDBOpenSlide:
         self._group_metadata = group_metadata
 
     def __eq__(self, x: "TileDBOpenSlide"):
+        if not type(x) is TileDBOpenSlide:
+            raise TypeError("Object types to compare should be the same")
         return (
             self.dimensions == x.dimensions
             and self._level_dimensions == x._level_dimensions
@@ -71,9 +78,6 @@ class TileDBOpenSlide:
 
     @classmethod
     def from_group_uri(cls, slide_group_uri, ctx=None):
-        # group_dirs = glob.glob(
-        #    slide_group + "/l_*.tdb"
-        # )
 
         print(f"[DEBUG] slide_group_uri: {slide_group_uri}")
         breakpoint()
@@ -81,9 +85,6 @@ class TileDBOpenSlide:
             group_meta = G.meta
             level_downsamples = G.meta.get("level_downsamples", None)
             group_dirs = [g.uri for g in G]
-
-        # group_dirs = [os.path.abspath(p) for p in group_dirs]
-        # groups = [os.path.splitext(os.path.basename(g))[0] for g in group_dirs]
 
         level_infos = []
         group_dirs.sort()
@@ -131,9 +132,6 @@ class TileDBOpenSlide:
 
         return data
 
-        # TMP Hack to return usable image from OME-TIFF conversion
-        # return data.view("uint8").reshape((data.shape[0], data.shape[1], 3))
-
     """
     Returns the highest resolution dimensions for the specified image array.
     """
@@ -162,13 +160,6 @@ class TileDBOpenSlide:
     @property
     def level_info(self):
         return self._level_infos
-
-    def level_info_equals(self, input):
-        return (
-            tuple(range(len(self._level_dimensions))) == input[0]
-            and self._level_dimensions == input[1]
-        )
-
 
 @dataclass
 class SlideInfo:

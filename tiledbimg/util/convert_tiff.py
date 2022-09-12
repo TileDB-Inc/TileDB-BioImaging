@@ -35,16 +35,11 @@ def pad_width_to_tile(w, tile):
     Reads the width and tile size and alculates padded width
 
     :param w: width
-
     :param tile: tile size
-
-    :param tile: tile size 
-
     :return: the calculated padded shape
     """
 
     return np.max([w + w % tile, tile])
-
 
 
 def level_schema(shape: Sequence[int], tile_x=1024, tile_y=1024):
@@ -53,14 +48,6 @@ def level_schema(shape: Sequence[int], tile_x=1024, tile_y=1024):
     Reads shape information, calculates padded shapes, and creates ArraySchema
 
     :param shape: input shape
-
-def level_schema(shape: Sequence[int], tile_x = 1024, tile_y = 1024):
-
-    """
-    Reads shape information, calculates padded shapes, and creates ArraySchema 
-
-    :param shape: input shape   
-
     :return: TileDB array
     """
 
