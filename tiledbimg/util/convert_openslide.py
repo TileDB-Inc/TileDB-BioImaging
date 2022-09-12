@@ -21,15 +21,8 @@ class OpenSlideConverter(ImageConverter):
 
         :param input_img_path: path to the OpenSlide-supported image
         :param img_group_path: path to the TildDB group of arrays
-
         :param level_min: minimum level of the image to be converted, by default set to 0 to convert all levels.
         """
-
-
-        :param level_min: minimum level of the image to be converted, by default set to 0 to convert all levels. 
-        """
-        
-
         img = osd.OpenSlide(input_img_path)
 
         tiledb.group_create(img_group_path)
