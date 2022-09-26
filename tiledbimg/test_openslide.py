@@ -1,7 +1,5 @@
-#%%
 import os
 
-import numpy as np
 import openslide as osld
 import tiledb
 from tdb.tdbopenslide import LevelInfo, SlideInfo, TileDBOpenSlide
@@ -9,7 +7,7 @@ from tdb.tdbopenslide import LevelInfo, SlideInfo, TileDBOpenSlide
 g_uri = "/Users/inorton/work/scratch/2022/0711-jnj-path-demo/test4-small/convert-test/C3N-02572-22.tdg"
 svs_uri = "/Users/inorton/work/scratch/2022/0711-jnj-path-demo/test4-small/convert-test/C3N-02572-22.svs"
 
-#%%
+
 def _check_level_info(num, info):
     assert info.level == num
     assert tiledb.object_type(info.uri) == "array"
@@ -22,7 +20,6 @@ def test_level_info():
     _check_level_info(0, l0_info)
 
 
-#%%
 def test_open_slide():
     t = TileDBOpenSlide.from_group_uri(g_uri)
 
@@ -67,10 +64,3 @@ def test_slide_info():
 
     assert slinfo.factor == factor
     assert slinfo.slide == TileDBOpenSlide.from_group_uri(g_uri)
-
-
-# %%
-# %%
-import pytest
-
-pytest.main()

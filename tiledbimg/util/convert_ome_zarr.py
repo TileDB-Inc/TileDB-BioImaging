@@ -1,8 +1,4 @@
 import os
-import sys
-
-# import tifffile
-# from tifffile import TiffFile
 from typing import Sequence
 
 import numpy as np
@@ -85,7 +81,6 @@ class OMEZarrConverter(ImageConverter):
         :param output_group_path: path to the TildDB group of arrays
         """
 
-        # tiff = tifffile.TiffFile(input_path)
         zarr = zarr.open(input_path)
         level_count = len(zarr)
 

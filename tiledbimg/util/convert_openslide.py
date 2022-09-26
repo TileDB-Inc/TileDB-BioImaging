@@ -1,12 +1,10 @@
 import glob
 import os
-import shutil
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import openslide as osd
 import tiledb
-from attr import attrs
 from common import ImageConverter, create_schema
 
 

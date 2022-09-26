@@ -1,9 +1,6 @@
-import os
-
 import numpy as np
-import openslide as osld
 import tiledb
-from open_slide import LevelInfo, SlideInfo, TileDBOpenSlide
+from open_slide import LevelInfo, TileDBOpenSlide
 
 omezarr_uri = "../data/CMU-1-Small-Region.ome.zarr"
 g_uri = "../data/CMU-1-Small-Region-Zarr.tiledb"
@@ -98,4 +95,4 @@ def test_ome_zarr():
     assert t.level_count == 3
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples == None
+    assert t.level_downsamples is None
