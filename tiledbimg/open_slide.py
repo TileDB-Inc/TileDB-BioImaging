@@ -161,6 +161,7 @@ class TileDBOpenSlide:
     def level_info(self):
         return self._level_infos
 
+
 @dataclass
 class SlideInfo:
     factor: int  # scale factor
