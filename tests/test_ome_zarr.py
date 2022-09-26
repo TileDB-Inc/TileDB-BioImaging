@@ -1,14 +1,13 @@
 import numpy as np
 import tiledb
-from open_slide import LevelInfo, TileDBOpenSlide
 
-omezarr_uri = "../data/CMU-1-Small-Region.ome.zarr"
-g_uri = "../data/CMU-1-Small-Region-Zarr.tiledb"
+from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
+
+from . import get_path
 
 
 def test_ome_zarr():
-
-    t = TileDBOpenSlide.from_group_uri(g_uri)
+    t = TileDBOpenSlide.from_group_uri(get_path("CMU-1-Small-Region-Zarr.tiledb"))
 
     Reference_Schema = []
 

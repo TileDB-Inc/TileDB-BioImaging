@@ -1,21 +1,21 @@
 import numpy as np
 import tiledb
-from open_slide import LevelInfo, TileDBOpenSlide
 
-g_uri = "../data/CMU-1-Small-Region.tiledb"
+from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
+
+from . import get_path
 
 
 def test_ome_tiff():
-    # ToDo: We need to find better test data. This data has already been downsampled without preserving the original levels.
+    # TODO: We need to find better test data.
+    # This data has already been downsampled without preserving the original levels.
 
     # import openslide as osld
     # import tifffile
-    # ometiff_uri = "../data/CMU-1-Small-Region.ome.tiff"
-    # svstiff_uri = "../data/CMU-1-Small-Region.svs.tiff"
-    # ometiff_img = tifffile.TiffFile(ometiff_uri)
-    # os_img = osld.open_slide(svstiff_uri)
+    # ometiff_img = tifffile.TiffFile(get_path("CMU-1-Small-Region.ome.tiff"))
+    # os_img = osld.open_slide(get_path("CMU-1-Small-Region.svs.tiff"))
 
-    t = TileDBOpenSlide.from_group_uri(g_uri)
+    t = TileDBOpenSlide.from_group_uri(get_path("CMU-1-Small-Region.tiledb"))
 
     Reference_Schema = []
 

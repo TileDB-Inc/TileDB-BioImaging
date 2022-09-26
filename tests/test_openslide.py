@@ -2,10 +2,13 @@ import os
 
 import openslide as osld
 import tiledb
-from tdb.tdbopenslide import LevelInfo, SlideInfo, TileDBOpenSlide
 
-g_uri = "/Users/inorton/work/scratch/2022/0711-jnj-path-demo/test4-small/convert-test/C3N-02572-22.tdg"
-svs_uri = "/Users/inorton/work/scratch/2022/0711-jnj-path-demo/test4-small/convert-test/C3N-02572-22.svs"
+from tiledbimg.open_slide import LevelInfo, SlideInfo, TileDBOpenSlide
+
+from . import download_from_s3
+
+g_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.tdg"
+svs_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs"
 
 
 def _check_level_info(num, info):
@@ -26,7 +29,7 @@ def test_open_slide():
     for l_num, l_info in enumerate(t._level_infos):
         _check_level_info(l_num, l_info)
 
-    os_img = osld.open_slide(svs_uri)
+    os_img = osld.open_slide(download_from_s3(svs_uri))
     assert t.dimensions == os_img.dimensions
     assert t.level_count == os_img.level_count
     assert t.level_dimensions == os_img.level_dimensions
