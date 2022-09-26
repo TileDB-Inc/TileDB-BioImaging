@@ -1,15 +1,13 @@
-import tiledb
-import numpy as np
-
-import tifffile
-from tifffile import TiffFile
+import os
 from typing import Sequence
 
-import os, sys
+import numpy as np
+import tifffile
+import tiledb
+from tifffile import TiffFile
 
 from tiledbimg.util.common import ImageConverter
 
-#%%
 # outline
 # - open file
 # - collect shape information
@@ -89,7 +87,7 @@ class OMETiffConverter(ImageConverter):
         level_count = len(tiff.series)
         uris = []
         for level in range(level_count)[level_min:]:
-            dims = tiff.series[level].shape
+            # dims = tiff.series[level].shape
 
             output_img_path = self.output_level_path(output_group_path, level)
 
@@ -116,7 +114,6 @@ class OMETiffConverter(ImageConverter):
                 G.add(level_subdir, relative=True)
 
 
-#%%
 """
 data_path = "/Users/inorton/work/scratch/2022/0725-gt-histopath-demo/test1"
 #img_path = os.path.join(data_path, "C3N-02572-22.svs")

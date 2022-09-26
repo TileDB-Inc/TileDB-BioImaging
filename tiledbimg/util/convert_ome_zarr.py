@@ -1,11 +1,10 @@
-import tiledb
-import numpy as np
-
-# import tifffile
-# from tifffile import TiffFile
+import os
 from typing import Sequence
+
+import numpy as np
+import tiledb
 import zarr
-import os, sys
+
 from tiledbimg.util.common import ImageConverter
 
 # outline
@@ -82,7 +81,6 @@ class OMEZarrConverter(ImageConverter):
         :param output_group_path: path to the TildDB group of arrays
         """
 
-        # tiff = tifffile.TiffFile(input_path)
         zarr = zarr.open(input_path)
         level_count = len(zarr)
 

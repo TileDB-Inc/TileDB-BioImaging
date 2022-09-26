@@ -1,8 +1,8 @@
-import tiledb
-import numpy as np
-
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
+
+import numpy as np
+import tiledb
 
 
 @dataclass

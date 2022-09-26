@@ -1,19 +1,14 @@
-from attr import attrs
-import tiledb
-import numpy as np
-import glob, os, shutil
-
-import openslide as osd
-
+import glob
+import os
 from concurrent.futures import ProcessPoolExecutor
 
+import numpy as np
+import openslide as osd
+import tiledb
 from common import ImageConverter, create_schema
 
 
 class OpenSlideConverter(ImageConverter):
-
-    
-
     def convert(self, input_img_path, img_group_path, level_min=0):
         """
         Convert a OpenSlide-supported image to a TileDB Group of Arrays, one
