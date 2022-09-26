@@ -1,13 +1,12 @@
-from dataclasses import dataclass
-import tiledb
-import numpy as np
 import glob
 import os
-
-from pathlib import Path
-
-from typing import Tuple, List, Dict
+from dataclasses import dataclass
 from numbers import Number
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import numpy as np
+import tiledb
 
 ATTRIBUTE_VALUE_NAME = "rgb"
 

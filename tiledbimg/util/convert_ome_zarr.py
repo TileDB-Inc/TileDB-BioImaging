@@ -1,11 +1,14 @@
-import tiledb
-import numpy as np
+import os
+import sys
 
 # import tifffile
 # from tifffile import TiffFile
 from typing import Sequence
+
+import numpy as np
+import tiledb
 import zarr
-import os, sys
+
 from tiledbimg.util.common import ImageConverter
 
 # outline

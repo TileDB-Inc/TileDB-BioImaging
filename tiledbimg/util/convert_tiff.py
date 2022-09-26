@@ -1,11 +1,11 @@
-import tiledb
-import numpy as np
-
-import tifffile
-from tifffile import TiffFile
+import os
+import sys
 from typing import Sequence
 
-import os, sys
+import numpy as np
+import tifffile
+import tiledb
+from tifffile import TiffFile
 
 from tiledbimg.util.common import ImageConverter
 

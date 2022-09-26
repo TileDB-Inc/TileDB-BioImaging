@@ -1,4 +1,5 @@
-from . import *
 import sys
+
+from . import *
 
 sys.path.append(".")

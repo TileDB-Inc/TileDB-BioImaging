@@ -1,10 +1,11 @@
-import tiledb
-import numpy as np
 import os
+
+import numpy as np
 import openslide as osld
 import pytest
 import tifffile
-from open_slide import TileDBOpenSlide, LevelInfo, SlideInfo
+import tiledb
+from open_slide import LevelInfo, SlideInfo, TileDBOpenSlide
 
 ometiff_uri = "../data/CMU-1-Small-Region.ome.tiff"
 svstiff_uri = "../data/CMU-1-Small-Region.svs.tiff"

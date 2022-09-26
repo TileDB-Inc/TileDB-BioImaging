@@ -1,8 +1,9 @@
-import numpy as np
 import os
+
+import numpy as np
 import openslide as osld
 import tiledb
-from open_slide import TileDBOpenSlide, LevelInfo, SlideInfo
+from open_slide import LevelInfo, SlideInfo, TileDBOpenSlide
 
 omezarr_uri = "../data/CMU-1-Small-Region.ome.zarr"
 g_uri = "../data/CMU-1-Small-Region-Zarr.tiledb"

@@ -1,11 +1,10 @@
 #%%
-import tiledb
-import numpy as np
 import os
+
+import numpy as np
 import openslide as osld
-
-from tdb.tdbopenslide import TileDBOpenSlide, LevelInfo, SlideInfo
-
+import tiledb
+from tdb.tdbopenslide import LevelInfo, SlideInfo, TileDBOpenSlide
 
 g_uri = "/Users/inorton/work/scratch/2022/0711-jnj-path-demo/test4-small/convert-test/C3N-02572-22.tdg"
 svs_uri = "/Users/inorton/work/scratch/2022/0711-jnj-path-demo/test4-small/convert-test/C3N-02572-22.svs"
