@@ -6,7 +6,7 @@ from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
 from . import get_path
 
 
-def test_ome_zarr():
+def test_ome_zarr() -> None:
     t = TileDBOpenSlide.from_group_uri(get_path("CMU-1-Small-Region-Zarr.tiledb"))
 
     Reference_Schema = []

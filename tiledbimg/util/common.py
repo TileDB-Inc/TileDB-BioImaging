@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import Any, Tuple
 
 import numpy as np
 import tiledb
@@ -19,16 +20,16 @@ class ImageConverter(object):
     tile_y: int = 1024
 
     @staticmethod
-    def output_level_path(base_path, level):
+    def output_level_path(base_path: str, level: int) -> str:
         return os.path.join(base_path, f"l_{level}.tdb")
 
-    def level_tile(self, shape):
+    def level_tile(self, shape: Tuple[Any, ...]) -> LevelTile:
         level_tile = LevelTile(
             np.min((self.tile_x, shape[0])), np.min((self.tile_y, shape[1]))
         )
         return level_tile
 
-    def create_schema(self, img_shape):
+    def create_schema(self, img_shape: Tuple[Any, ...]) -> tiledb.ArraySchema:
         img_shape = tuple((img_shape[0], img_shape[1], 3))  # swappity
         print("Processing level with shape: ", img_shape)
         dims = []

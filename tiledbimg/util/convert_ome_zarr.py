@@ -14,7 +14,7 @@ from tiledbimg.util.common import ImageConverter
 # - create ArraySchema
 
 
-def page_shapes(f: zarr):
+def page_shapes(f: zarr) -> np.array:
 
     """
     Opens a Zarr-supported image and returns shape information
@@ -26,7 +26,7 @@ def page_shapes(f: zarr):
     return [p.shape for p in f.pages]
 
 
-def pad_width_to_tile(w, tile):
+def pad_width_to_tile(w: int, tile: int) -> np.int32:
 
     """
     Reads the width and tile size and alculates padded width
@@ -39,7 +39,9 @@ def pad_width_to_tile(w, tile):
     return np.max([w + w % tile, tile])
 
 
-def level_schema(shape: Sequence[int], tile_x=1024, tile_y=1024):
+def level_schema(
+    shape: Sequence[int], tile_x: int = 1024, tile_y: int = 1024
+) -> tiledb.ArraySchema:
 
     """
     Reads shape information, calculates padded shapes, and creates ArraySchema
@@ -69,7 +71,9 @@ def level_schema(shape: Sequence[int], tile_x=1024, tile_y=1024):
 
 
 class OMEZarrConverter(ImageConverter):
-    def convert_image(self, input_path, output_group_path, level_min=0):
+    def convert_image(
+        self, input_path: str, output_group_path: str, level_min: int = 0
+    ) -> None:
 
         import zarr
 

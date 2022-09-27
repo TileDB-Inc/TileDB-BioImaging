@@ -6,7 +6,7 @@ from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
 from . import get_path
 
 
-def test_ome_tiff():
+def test_ome_tiff() -> None:
     # TODO: We need to find better test data.
     # This data has already been downsampled without preserving the original levels.
 

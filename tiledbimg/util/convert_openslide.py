@@ -7,9 +7,13 @@ import openslide as osd
 import tiledb
 from common import ImageConverter, create_schema
 
+DEBUG = False
+
 
 class OpenSlideConverter(ImageConverter):
-    def convert(self, input_img_path, img_group_path, level_min=0):
+    def convert(
+        self, input_img_path: str, img_group_path: str, level_min: int = 0
+    ) -> None:
         """
         Convert a OpenSlide-supported image to a TileDB Group of Arrays, one
         per level.
@@ -47,7 +51,9 @@ class OpenSlideConverter(ImageConverter):
             G.meta["level_downsamples"] = img.level_downsamples
 
 
-def convert_image(input_img_path, img_group_path, doit=True, level_min=0):
+def convert_image(
+    input_img_path: str, img_group_path: str, doit: bool = True, level_min: int = 0
+) -> None:
 
     """
     Convert an OpenSlide-supported image to a TileDB Group of Arrays, one
@@ -60,7 +66,7 @@ def convert_image(input_img_path, img_group_path, doit=True, level_min=0):
     converter.convert(input_img_path, img_group_path)
 
 
-def convert_all(path, output_path, level_min=0):
+def convert_all(path: str, output_path: str, level_min: int = 0) -> None:
 
     """
     Batch convert a group of .svs files in `path` to TileDB image array groups
@@ -84,7 +90,7 @@ def convert_all(path, output_path, level_min=0):
 
             print(f"output name: {group_path}")
 
-            if True:
+            if not DEBUG:
                 TP.submit(convert_image, p, group_path, doit=True, level_min=level_min)
             else:
                 # debugging

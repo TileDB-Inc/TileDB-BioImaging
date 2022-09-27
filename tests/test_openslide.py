@@ -11,19 +11,19 @@ g_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.tdg"
 svs_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs"
 
 
-def _check_level_info(num, info):
+def _check_level_info(num: int, info: "LevelInfo") -> None:
     assert info.level == num
     assert tiledb.object_type(info.uri) == "array"
     assert isinstance(info.schema, tiledb.ArraySchema)
 
 
-def test_level_info():
+def test_level_info() -> None:
     l0_uri = os.path.join(g_uri, "l_0.tdb")
     l0_info = LevelInfo.from_array(l0_uri, 0)
     _check_level_info(0, l0_info)
 
 
-def test_open_slide():
+def test_open_slide() -> None:
     t = TileDBOpenSlide.from_group_uri(g_uri)
 
     for l_num, l_info in enumerate(t._level_infos):
@@ -61,7 +61,7 @@ def test_open_slide():
     )
 
 
-def test_slide_info():
+def test_slide_info() -> None:
     factor = 32
     slinfo = SlideInfo.from_group_uri(factor, g_uri)
 
