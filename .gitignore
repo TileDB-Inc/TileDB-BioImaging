@@ -1,2 +1,17 @@
+*.pyc
 .idea
+.eggs/
+*.egg-info/
+build/
+dist/
+*.DS_Store
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+
+# setuptools-scm
+tiledbimg/version.py
+
+# Unit test / coverage reports
+.coverage
