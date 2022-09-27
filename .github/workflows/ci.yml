@@ -8,16 +8,35 @@ jobs:
     timeout-minutes: 10
     strategy:
       fail-fast: false
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
+    - name: Install Conda environment with Micromamba
+      uses: mamba-org/provision-with-micromamba@main
       with:
-        python-version: "3.7"
+        environment-file: false
+        environment-name: test
+        channels: conda-forge
+        cache-downloads: true
+        extra-specs: |
+          python=3.7
+          openslide
+          pre-commit
+          pytest-cov
+          boto3
 
     - name: Run pre-commit hooks
-      run: |
-        pip install pre-commit
-        pre-commit run -a
+      run: pre-commit run -a
+
+    - name: Install package
+      run: pip install -e .[full]
+
+    - name: Run tests with coverage
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: pytest -v --cov=tiledbimg --cov-report=term-missing --durations=0 tests/
