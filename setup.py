@@ -2,7 +2,7 @@ import setuptools
 
 zarr = ["zarr"]
 openslide = ["openslide-python"]
-tiff = ["tiff"]
+tiff = ["tiffile"]
 full = sorted({*zarr, *openslide, *tiff})
 
 setuptools.setup(
