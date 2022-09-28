@@ -1,5 +1,5 @@
 import os
-from typing import Any, Tuple
+from typing import Sequence
 
 import numpy as np
 import tifffile
@@ -27,7 +27,7 @@ def page_shapes(f: TiffFile) -> np.ndarray:
     return [p.shape for p in f.pages]
 
 
-def pad_width_to_tile(w: int, tile: int) -> Any:
+def pad_width_to_tile(w: int, tile: int) -> int:
 
     """
     Reads the width and tile size and calculates padded width
@@ -37,11 +37,11 @@ def pad_width_to_tile(w: int, tile: int) -> Any:
     :return: the calculated padded shape
     """
 
-    return np.max([w + w % tile, tile])
+    return max([w + w % tile, tile])
 
 
 def level_schema(
-    shape: Tuple[int, ...], tile_x: int = 1024, tile_y: int = 1024
+    shape: Sequence[int], tile_x: int = 1024, tile_y: int = 1024
 ) -> tiledb.ArraySchema:
 
     """

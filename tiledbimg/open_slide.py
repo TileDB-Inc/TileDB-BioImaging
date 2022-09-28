@@ -15,7 +15,7 @@ Number = Union[int, float]
 class LevelInfo:
     level: int
     schema: tiledb.ArraySchema
-    dimensions: Tuple[int]
+    dimensions: Sequence[int]
     uri: str
 
     def __init__(self, abspath: str, level: int, schema: tiledb.ArraySchema) -> None:
@@ -52,7 +52,7 @@ class LevelInfo:
 
 @dataclass
 class TileDBOpenSlide:
-    _level_dimensions: Sequence[Tuple[int, ...]]
+    _level_dimensions: Sequence[Sequence[int]]
     _level_downsamples: Sequence[float]
     _level_infos: Sequence[LevelInfo]
     _group_metadata: Mapping[str, Any]
@@ -61,7 +61,7 @@ class TileDBOpenSlide:
         self,
         level_infos: Sequence[LevelInfo],
         level_downsamples: Sequence[float],
-        level_dimensions: Sequence[Tuple[int, ...]],
+        level_dimensions: Sequence[Sequence[int]],
         group_metadata: Mapping[str, Any],
     ) -> None:
 
@@ -113,7 +113,7 @@ class TileDBOpenSlide:
     """
 
     @property
-    def level_dimensions(self) -> Sequence[Tuple[int, ...]]:
+    def level_dimensions(self) -> Sequence[Sequence[int]]:
         return self._level_dimensions
 
     """
@@ -144,7 +144,7 @@ class TileDBOpenSlide:
     """
 
     @property
-    def dimensions(self) -> Tuple[int, ...]:
+    def dimensions(self) -> Sequence[int]:
         return self._level_infos[0].dimensions[:2]
 
     """
@@ -220,7 +220,7 @@ class SlideInfo:
     """
 
     def read_region(
-        self, xy: Tuple[int, ...], level: int, wh: Tuple[int, ...]
+        self, xy: Sequence[int], level: int, wh: Sequence[int]
     ) -> np.ndarray:
         x, y = xy
         w, h = wh

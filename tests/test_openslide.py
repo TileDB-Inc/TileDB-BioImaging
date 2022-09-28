@@ -13,7 +13,7 @@ g_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.tdg"
 svs_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs"
 
 
-def _check_level_info(num: int, info: LevelInfo):
+def _check_level_info(num, info):
     assert info.level == num
     assert tiledb.object_type(info.uri) == "array"
     assert isinstance(info.schema, tiledb.ArraySchema)
