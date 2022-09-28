@@ -1,9 +1,7 @@
 import os
-from typing import Sequence
 
 import numpy as np
 import tiledb
-import zarr
 
 from .base import ImageConverter
 
@@ -12,62 +10,6 @@ from .base import ImageConverter
 # - collect shape information
 # - calculate padded shapes
 # - create ArraySchema
-
-
-def page_shapes(f: zarr) -> np.ndarray:
-
-    """
-    Opens a Zarr-supported image and returns shape information
-
-    :param f: path to the the Zarr-supported image
-    :return: NumPy array of the shapes
-    """
-
-    return [p.shape for p in f.pages]
-
-
-def pad_width_to_tile(w: int, tile: int) -> int:
-
-    """
-    Reads the width and tile size and alculates padded width
-
-    :param w: width
-    :param tile: tile size
-    :return: the calculated padded shape
-    """
-
-    return max([w + w % tile, tile])
-
-
-def level_schema(
-    shape: Sequence[int], tile_x: int = 1024, tile_y: int = 1024
-) -> tiledb.ArraySchema:
-
-    """
-    Reads shape information, calculates padded shapes, and creates ArraySchema
-
-    :param shape: input shape
-    :return: TileDB array
-    """
-
-    xmax = pad_width_to_tile(shape[0], tile_x)
-    ymax = pad_width_to_tile(shape[1], tile_y)
-    dims = [
-        tiledb.Dim("X", domain=(0, xmax), tile=tile_x, dtype=np.uint64),
-        tiledb.Dim("Y", domain=(0, ymax), tile=tile_y, dtype=np.uint64),
-    ]
-    domain = tiledb.Domain(*dims)
-    attr = tiledb.Attr(
-        name="",
-        dtype=np.uint16,
-        filters=tiledb.FilterList(
-            [
-                tiledb.ZstdFilter(level=7),
-            ]
-        ),
-    )
-    schema = tiledb.ArraySchema(attrs=[attr], domain=domain, sparse=False)
-    return schema
 
 
 class OMEZarrConverter(ImageConverter):
