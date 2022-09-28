@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
@@ -34,7 +36,7 @@ class LevelInfo:
             raise ValueError(f"Invalid level filename: {s}") from exc
 
     @classmethod
-    def from_array(cls, path: str, level: Optional[int] = None) -> "LevelInfo":
+    def from_array(cls, path: str, level: Optional[int] = None) -> LevelInfo:
         if level is None:
             level = cls.parse_level(path)
 
@@ -42,7 +44,7 @@ class LevelInfo:
 
         return cls(path, level, a.schema)
 
-    def __eq__(self, input: object) -> bool:
+    def __eq__(self, input: Any) -> bool:
         if not type(input) is LevelInfo:
             raise TypeError("Object types to compare should be the same")
         return self.level == input.level and self.dimensions == input.dimensions
@@ -50,17 +52,17 @@ class LevelInfo:
 
 @dataclass
 class TileDBOpenSlide:
-    _level_dimensions: Tuple[Tuple[int, ...], ...]
+    _level_dimensions: Sequence[Tuple[int, ...]]
     _level_downsamples: Sequence[float]
     _level_infos: Sequence[LevelInfo]
-    _group_metadata: Mapping[Any, Any]
+    _group_metadata: Mapping[str, Any]
 
     def __init__(
         self,
         level_infos: Sequence[LevelInfo],
         level_downsamples: Sequence[float],
-        level_dimensions: Tuple[Tuple[int, ...], ...],
-        group_metadata: Mapping[Any, Any],
+        level_dimensions: Sequence[Tuple[int, ...]],
+        group_metadata: Mapping[str, Any],
     ) -> None:
 
         self._level_infos = level_infos
@@ -68,7 +70,7 @@ class TileDBOpenSlide:
         self._level_downsamples = level_downsamples
         self._group_metadata = group_metadata
 
-    def __eq__(self, x: object) -> bool:
+    def __eq__(self, x: Any) -> bool:
         if not type(x) is TileDBOpenSlide:
             raise TypeError("Object types to compare should be the same")
         return (
@@ -81,7 +83,7 @@ class TileDBOpenSlide:
     @classmethod
     def from_group_uri(
         cls, slide_group_uri: str, ctx: tiledb.Ctx = None
-    ) -> "TileDBOpenSlide":
+    ) -> TileDBOpenSlide:
 
         print(f"[DEBUG] slide_group_uri: {slide_group_uri}")
         with tiledb.Group(slide_group_uri) as G:
@@ -111,7 +113,7 @@ class TileDBOpenSlide:
     """
 
     @property
-    def level_dimensions(self) -> Tuple[Tuple[int, ...], ...]:
+    def level_dimensions(self) -> Sequence[Tuple[int, ...]]:
         return self._level_dimensions
 
     """
@@ -124,8 +126,8 @@ class TileDBOpenSlide:
     """
 
     def read_region(
-        self, xy: Tuple[Any, Any], level: int, wh: Tuple[Any, Any]
-    ) -> np.array:
+        self, xy: Tuple[int, int], level: int, wh: Tuple[int, int]
+    ) -> np.ndarray:
         x, y = xy
         w, h = wh
 
@@ -201,7 +203,7 @@ class SlideInfo:
     Return image data for a given layer with memoization.
     """
 
-    def read_level(self, level: int) -> np.array:
+    def read_level(self, level: int) -> np.ndarray:
         if level in self._level_data_cache:
             return self._level_data_cache[level]
 
@@ -218,8 +220,8 @@ class SlideInfo:
     """
 
     def read_region(
-        self, xy: Tuple[Any, ...], level: int, wh: Tuple[Any, ...]
-    ) -> np.array:
+        self, xy: Tuple[int, ...], level: int, wh: Tuple[int, ...]
+    ) -> np.ndarray:
         x, y = xy
         w, h = wh
 
@@ -234,6 +236,6 @@ class SlideInfo:
         return self._downsample_level
 
     @classmethod
-    def from_group_uri(cls, factor: Number, uri: str) -> "SlideInfo":
+    def from_group_uri(cls, factor: Number, uri: str) -> SlideInfo:
         tdb_slide = TileDBOpenSlide.from_group_uri(uri)
         return cls(factor, tdb_slide)

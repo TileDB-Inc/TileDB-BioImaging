@@ -1,5 +1,5 @@
 import os
-from typing import Sequence
+from typing import Any, Tuple
 
 import numpy as np
 import tifffile
@@ -15,7 +15,7 @@ from tiledbimg.util.common import ImageConverter
 # - create ArraySchema
 
 
-def page_shapes(f: TiffFile) -> np.array:
+def page_shapes(f: TiffFile) -> np.ndarray:
 
     """
     Opens a Tiff-supported image and returns shape information
@@ -27,7 +27,7 @@ def page_shapes(f: TiffFile) -> np.array:
     return [p.shape for p in f.pages]
 
 
-def pad_width_to_tile(w: int, tile: int) -> np.int32:
+def pad_width_to_tile(w: int, tile: int) -> Any:
 
     """
     Reads the width and tile size and calculates padded width
@@ -41,7 +41,7 @@ def pad_width_to_tile(w: int, tile: int) -> np.int32:
 
 
 def level_schema(
-    shape: Sequence[int], tile_x: int = 1024, tile_y: int = 1024
+    shape: Tuple[int, ...], tile_x: int = 1024, tile_y: int = 1024
 ) -> tiledb.ArraySchema:
 
     """

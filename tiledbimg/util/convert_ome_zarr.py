@@ -1,5 +1,5 @@
 import os
-from typing import Sequence
+from typing import Any, Tuple
 
 import numpy as np
 import tiledb
@@ -14,7 +14,7 @@ from tiledbimg.util.common import ImageConverter
 # - create ArraySchema
 
 
-def page_shapes(f: zarr) -> np.array:
+def page_shapes(f: zarr) -> np.ndarray:
 
     """
     Opens a Zarr-supported image and returns shape information
@@ -26,7 +26,7 @@ def page_shapes(f: zarr) -> np.array:
     return [p.shape for p in f.pages]
 
 
-def pad_width_to_tile(w: int, tile: int) -> np.int32:
+def pad_width_to_tile(w: int, tile: int) -> Any:
 
     """
     Reads the width and tile size and alculates padded width
@@ -40,7 +40,7 @@ def pad_width_to_tile(w: int, tile: int) -> np.int32:
 
 
 def level_schema(
-    shape: Sequence[int], tile_x: int = 1024, tile_y: int = 1024
+    shape: Tuple[int, ...], tile_x: int = 1024, tile_y: int = 1024
 ) -> tiledb.ArraySchema:
 
     """
