@@ -5,7 +5,8 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 import openslide as osd
 import tiledb
-from common import ImageConverter, create_schema
+
+from .base import ImageConverter
 
 DEBUG = False
 
@@ -34,7 +35,7 @@ class OpenSlideConverter(ImageConverter):
 
             print(f"img_path: {input_img_path} -- img_group_path: {img_group_path}")
 
-            schema = create_schema(dims)
+            schema = self.create_schema(dims)
             tiledb.Array.create(output_img_path, schema)
 
             slide_data = img.read_region((0, 0), level, dims).convert("RGB")
@@ -62,7 +63,7 @@ def convert_image(
     Usage: convert_image(img_uri, output_uri, doit=True)
     """
 
-    converter = ImageConverter()
+    converter = OpenSlideConverter()
     converter.convert(input_img_path, img_group_path)
 
 

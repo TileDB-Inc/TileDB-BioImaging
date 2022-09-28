@@ -4,9 +4,8 @@ from typing import Sequence
 import numpy as np
 import tifffile
 import tiledb
-from tifffile import TiffFile
 
-from tiledbimg.util.common import ImageConverter
+from .base import ImageConverter
 
 # outline
 # - open file
@@ -15,7 +14,7 @@ from tiledbimg.util.common import ImageConverter
 # - create ArraySchema
 
 
-def page_shapes(f: TiffFile) -> np.ndarray:
+def page_shapes(f: tifffile.TiffFile) -> np.ndarray:
 
     """
     Opens a Tiff-supported image and returns shape information

@@ -5,7 +5,7 @@ import numpy as np
 import tiledb
 import zarr
 
-from tiledbimg.util.common import ImageConverter
+from .base import ImageConverter
 
 # outline
 # - open file
