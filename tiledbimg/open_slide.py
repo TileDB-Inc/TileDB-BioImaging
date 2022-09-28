@@ -1,22 +1,24 @@
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
-from numbers import Number
-from typing import Dict, List, Tuple
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import tiledb
 
 ATTRIBUTE_VALUE_NAME = "rgb"
+Number = Union[int, float]
 
 
 @dataclass
 class LevelInfo:
     level: int
     schema: tiledb.ArraySchema
-    dimensions: Tuple[int]
+    dimensions: Sequence[int]
     uri: str
 
-    def __init__(self, abspath, level, schema):
+    def __init__(self, abspath: str, level: int, schema: tiledb.ArraySchema) -> None:
         self.uri = abspath
         self.level = level
         self.schema = schema
@@ -26,7 +28,7 @@ class LevelInfo:
         return f"""LevelInfo(level={self.level}, shape={self.schema.shape})"""
 
     @staticmethod
-    def parse_level(s: str):
+    def parse_level(s: str) -> int:
         exp = os.path.splitext(os.path.basename(s))[0]
         try:
             return int(exp.split("_")[-1])
@@ -34,7 +36,7 @@ class LevelInfo:
             raise ValueError(f"Invalid level filename: {s}") from exc
 
     @classmethod
-    def from_array(cls, path, level=None) -> "LevelInfo":
+    def from_array(cls, path: str, level: Optional[int] = None) -> LevelInfo:
         if level is None:
             level = cls.parse_level(path)
 
@@ -42,28 +44,33 @@ class LevelInfo:
 
         return cls(path, level, a.schema)
 
-    def __eq__(self, input):
+    def __eq__(self, input: Any) -> bool:
         if not type(input) is LevelInfo:
             raise TypeError("Object types to compare should be the same")
         return self.level == input.level and self.dimensions == input.dimensions
 
 
+@dataclass
 class TileDBOpenSlide:
-    _level_dimensions: List[Tuple[int]]
-    _level_downsamples: List[float]
-    _level_infos: List[LevelInfo]
-    _group_metadat: Dict
+    _level_dimensions: Sequence[Sequence[int]]
+    _level_downsamples: Sequence[float]
+    _level_infos: Sequence[LevelInfo]
+    _group_metadata: Mapping[str, Any]
 
     def __init__(
-        self, level_infos, level_downsamples, level_dimensions, group_metadata
-    ):
+        self,
+        level_infos: Sequence[LevelInfo],
+        level_downsamples: Sequence[float],
+        level_dimensions: Sequence[Sequence[int]],
+        group_metadata: Mapping[str, Any],
+    ) -> None:
 
         self._level_infos = level_infos
         self._level_dimensions = level_dimensions
         self._level_downsamples = level_downsamples
         self._group_metadata = group_metadata
 
-    def __eq__(self, x: "TileDBOpenSlide"):
+    def __eq__(self, x: Any) -> bool:
         if not type(x) is TileDBOpenSlide:
             raise TypeError("Object types to compare should be the same")
         return (
@@ -74,7 +81,9 @@ class TileDBOpenSlide:
         )
 
     @classmethod
-    def from_group_uri(cls, slide_group_uri, ctx=None):
+    def from_group_uri(
+        cls, slide_group_uri: str, ctx: tiledb.Ctx = None
+    ) -> TileDBOpenSlide:
 
         print(f"[DEBUG] slide_group_uri: {slide_group_uri}")
         with tiledb.Group(slide_group_uri) as G:
@@ -96,7 +105,7 @@ class TileDBOpenSlide:
     """
 
     @property
-    def level_count(self):
+    def level_count(self) -> int:
         return len(self._level_dimensions)
 
     """
@@ -104,7 +113,7 @@ class TileDBOpenSlide:
     """
 
     @property
-    def level_dimensions(self):
+    def level_dimensions(self) -> Sequence[Sequence[int]]:
         return self._level_dimensions
 
     """
@@ -116,7 +125,9 @@ class TileDBOpenSlide:
     :return: NumPy array of the selected region
     """
 
-    def read_region(self, xy, level, wh):
+    def read_region(
+        self, xy: Tuple[int, int], level: int, wh: Tuple[int, int]
+    ) -> np.ndarray:
         x, y = xy
         w, h = wh
 
@@ -133,14 +144,14 @@ class TileDBOpenSlide:
     """
 
     @property
-    def dimensions(self):
+    def dimensions(self) -> Sequence[int]:
         return self._level_infos[0].dimensions[:2]
 
     """
     Returns level
     """
 
-    def get_best_level_for_downsample(self, factor: Number):
+    def get_best_level_for_downsample(self, factor: Number) -> Any:
         lls = np.array(self._level_downsamples)
         lla = np.where(lls < factor)[0]
         return lla.max() if len(lla) > 0 else 0
@@ -150,21 +161,26 @@ class TileDBOpenSlide:
     """
 
     @property
-    def level_downsamples(self):
+    def level_downsamples(self) -> Sequence[float]:
         return self._level_downsamples
 
     @property
-    def level_info(self):
+    def level_info(self) -> Sequence[LevelInfo]:
         return self._level_infos
 
 
 @dataclass
 class SlideInfo:
-    factor: int  # scale factor
+    factor: Number  # scale factor
     slide: TileDBOpenSlide
-    _level_data_cache: Dict
+    _level_data_cache: MutableMapping[Any, Any]
 
-    def __init__(self, factor, slide, level_cache=None):
+    def __init__(
+        self,
+        factor: Number,
+        slide: TileDBOpenSlide,
+        level_cache: MutableMapping[Any, Any] = {},
+    ) -> None:
         self.factor = factor
         self.slide = slide
         self._downsample_level = self.slide.get_best_level_for_downsample(factor)
@@ -175,19 +191,19 @@ class SlideInfo:
         else:
             self._level_data_cache = dict()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         slide_dims = self.slide.level_dimensions
         return f"""SlideInfo(factor={self.factor}, slide_level_dims={slide_dims})"""
 
     @property
-    def slide_number(self):
+    def slide_number(self) -> int:
         return 1
 
     """
     Return image data for a given layer with memoization.
     """
 
-    def read_level(self, level: int):
+    def read_level(self, level: int) -> np.ndarray:
         if level in self._level_data_cache:
             return self._level_data_cache[level]
 
@@ -203,7 +219,9 @@ class SlideInfo:
     Read region
     """
 
-    def read_region(self, xy, level, wh):
+    def read_region(
+        self, xy: Sequence[int], level: int, wh: Sequence[int]
+    ) -> np.ndarray:
         x, y = xy
         w, h = wh
 
@@ -214,10 +232,10 @@ class SlideInfo:
     """
 
     @property
-    def target_downsample_level(self):
+    def target_downsample_level(self) -> Any:
         return self._downsample_level
 
     @classmethod
-    def from_group_uri(cls, factor, uri):
+    def from_group_uri(cls, factor: Number, uri: str) -> SlideInfo:
         tdb_slide = TileDBOpenSlide.from_group_uri(uri)
         return cls(factor, tdb_slide)
