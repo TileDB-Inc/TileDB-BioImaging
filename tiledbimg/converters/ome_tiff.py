@@ -1,6 +1,3 @@
-import os
-
-import numpy as np
 import tifffile
 import tiledb
 
@@ -15,24 +12,9 @@ class OMETiffConverter(ImageConverter):
     ) -> None:
         tiledb.group_create(output_group_path)
         tiff_series = tifffile.TiffFile(input_path).series
-        level_count = len(tiff_series)
         uris = []
-        for level in range(level_min, level_count):
+        for level in range(level_min, len(tiff_series)):
             data = tiff_series[level].asarray().swapaxes(0, 2)
-            data = np.ascontiguousarray(data)
-            data = data.view(
-                dtype=np.dtype([("", "uint8"), ("", "uint8"), ("", "uint8")])
-            )
-
-            uri = self.output_level_path(output_group_path, level)
-            schema = self.create_schema(data.shape)
-            tiledb.Array.create(uri, schema)
-            with tiledb.open(uri, "w") as A:
-                A[:] = data
-            uris.append(uri)
-
-        with tiledb.Group(output_group_path, "w") as G:
-            G.meta["original_filename"] = input_path
-            # TODO G.meta["level_downsamples"] = level_count
-            for level_uri in uris:
-                G.add(os.path.basename(level_uri), relative=True)
+            uris.append(self._write_level(output_group_path, level, data))
+        # TODO: level_downsamples
+        self._write_metadata(output_group_path, input_path, uris=uris)
