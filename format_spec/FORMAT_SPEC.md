@@ -13,3 +13,4 @@ title: Format Specification
    * [File Hierarchy](./array_file_hierarchy.md)
    * [Array Schema](./array_schema.md)
    * [Fragment](./fragment.md)
+   * [Array Metadata](./metadata.md)
