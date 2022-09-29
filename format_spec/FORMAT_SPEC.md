@@ -12,4 +12,4 @@ title: Format Specification
 * **Array**
    * [File Hierarchy](./array_file_hierarchy.md)
    * [Array Schema](./array_schema.md)
-   * * [Fragment](./fragment.md)
+   * [Fragment](./fragment.md)
