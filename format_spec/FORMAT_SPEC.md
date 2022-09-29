@@ -15,4 +15,5 @@ title: Format Specification
    * [Fragment](./fragment.md)
    * [Array Metadata](./metadata.md)
    * [Tile](./tile.md)
+   * [Generic Tile](./generic_tile.md)
 
