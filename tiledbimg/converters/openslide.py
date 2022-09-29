@@ -12,28 +12,20 @@ DEBUG = False
 
 
 class OpenSlideConverter(ImageConverter):
-    def convert(
-        self, input_img_path: str, img_group_path: str, level_min: int = 0
+    def convert_image(
+        self, input_path: str, output_group_path: str, level_min: int = 0
     ) -> None:
-        """
-        Convert a OpenSlide-supported image to a TileDB Group of Arrays, one
-        per level.
+        img = osd.OpenSlide(input_path)
 
-        :param input_img_path: path to the OpenSlide-supported image
-        :param img_group_path: path to the TildDB group of arrays
-        :param level_min: minimum level of the image to be converted, by default set to 0 to convert all levels.
-        """
-        img = osd.OpenSlide(input_img_path)
-
-        tiledb.group_create(img_group_path)
+        tiledb.group_create(output_group_path)
 
         # Build image arrays
         for level in range(img.level_count)[level_min:]:
             dims = img.level_dimensions[level]
 
-            output_img_path = self.output_level_path(img_group_path, level)
+            output_img_path = self.output_level_path(output_group_path, level)
 
-            print(f"img_path: {input_img_path} -- img_group_path: {img_group_path}")
+            print(f"img_path: {input_path} -- output_group_path: {output_group_path}")
 
             schema = self.create_schema(dims)
             tiledb.Array.create(output_img_path, schema)
@@ -47,13 +39,13 @@ class OpenSlideConverter(ImageConverter):
                 A[:] = newdata
 
         # Write group metadata
-        with tiledb.Group(img_group_path, "w") as G:
-            G.meta["original_filename"] = input_img_path
+        with tiledb.Group(output_group_path, "w") as G:
+            G.meta["original_filename"] = input_path
             G.meta["level_downsamples"] = img.level_downsamples
 
 
 def convert_image(
-    input_img_path: str, img_group_path: str, doit: bool = True, level_min: int = 0
+    input_path: str, output_group_path: str, doit: bool = True, level_min: int = 0
 ) -> None:
 
     """
@@ -64,7 +56,7 @@ def convert_image(
     """
 
     converter = OpenSlideConverter()
-    converter.convert(input_img_path, img_group_path)
+    converter.convert_image(input_path, output_group_path)
 
 
 def convert_all(path: str, output_path: str, level_min: int = 0) -> None:
