@@ -8,9 +8,11 @@ import tiledb
 
 
 class ImageConverter(ABC):
-    def __init__(self, tile_x: int = 1024, tile_y: int = 1024):
-        self.tile_x = tile_x
-        self.tile_y = tile_y
+    _rgb_dtype = np.dtype([("", "uint8"), ("", "uint8"), ("", "uint8")])
+
+    def __init__(self, max_x_tile: int = 1024, max_y_tile: int = 1024):
+        self.max_x_tile = max_x_tile
+        self.max_y_tile = max_y_tile
 
     @abstractmethod
     def convert_image(
@@ -65,33 +67,50 @@ class ImageConverter(ABC):
             for input_path in input_paths:
                 self.convert_image(input_path, get_group_path(input_path), level_min)
 
-    def create_schema(self, img_shape: Sequence[Any]) -> tiledb.ArraySchema:
-        # FIXME: The next line is either redundant or wrong
-        img_shape = tuple((img_shape[0], img_shape[1], 3))  # swappity
+    def _write_level(self, output_group_path: str, level: int, data: np.ndarray) -> str:
+        assert data.ndim == 3 and data.shape[2] == 3, data.shape
+        uri = os.path.join(output_group_path, f"l_{level}.tdb")
+        schema = self.__get_schema(*data.shape[:2])
+        tiledb.Array.create(uri, schema)
+        with tiledb.open(uri, "w") as A:
+            A[:] = np.ascontiguousarray(data).view(dtype=self._rgb_dtype)
+        return uri
+
+    @staticmethod
+    def _write_metadata(
+        output_group_path: str,
+        input_path: str,
+        level_downsamples: Any = None,
+        uris: Sequence[str] = (),
+    ) -> None:
+        with tiledb.Group(output_group_path, "w") as G:
+            G.meta["original_filename"] = input_path
+            if level_downsamples is not None:
+                G.meta["level_downsamples"] = level_downsamples
+            for level_uri in uris:
+                G.add(os.path.basename(level_uri), relative=True)
+
+    def __get_schema(self, x_size: int, y_size: int) -> tiledb.ArraySchema:
         return tiledb.ArraySchema(
             domain=tiledb.Domain(
                 tiledb.Dim(
                     name="X",
-                    domain=(0, img_shape[0] - 1),
+                    domain=(0, x_size - 1),
                     dtype=np.uint64,
-                    tile=min(self.tile_x, img_shape[0]),
+                    tile=min(x_size, self.max_x_tile),
                 ),
                 tiledb.Dim(
                     name="Y",
-                    domain=(0, img_shape[1] - 1),
+                    domain=(0, y_size - 1),
                     dtype=np.uint64,
-                    tile=min(self.tile_y, img_shape[1]),
+                    tile=min(y_size, self.max_y_tile),
                 ),
             ),
             attrs=[
                 tiledb.Attr(
                     name="rgb",
-                    dtype=[("", "uint8"), ("", "uint8"), ("", "uint8")],
+                    dtype=self._rgb_dtype,
                     filters=[tiledb.ZstdFilter(level=0)],
                 )
             ],
         )
-
-    @staticmethod
-    def output_level_path(base_path: str, level: int) -> str:
-        return os.path.join(base_path, f"l_{level}.tdb")
