@@ -5,11 +5,8 @@ This repo contains python code to work with TileDB arrays and biomedical data.
 
 ## Installation 
 ``
-pip install tiledb-bioimaging
+pip install .[full]
 ``
-
-## Technologies Used
-- Python - version 3.10
 
 ## Features
 - Convert data from standard biomedical image formats to group of TileDB arrays
@@ -22,14 +19,3 @@ pip install tiledb-bioimaging
 
 ## Project Status
 Project is: _in progress_
-
-
-
-
-
-
-
-
-
-
-
