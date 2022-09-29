@@ -6,31 +6,27 @@ from .base import ImageConverter
 
 
 class OpenSlideConverter(ImageConverter):
+    """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
+
     def convert_image(
         self, input_path: str, output_group_path: str, level_min: int = 0
     ) -> None:
-        img = osd.OpenSlide(input_path)
-
         tiledb.group_create(output_group_path)
-
-        # Build image arrays
-        for level in range(img.level_count)[level_min:]:
+        img = osd.OpenSlide(input_path)
+        for level in range(level_min, img.level_count):
             dims = img.level_dimensions[level]
-
-            output_img_path = self.output_level_path(output_group_path, level)
-
-            print(f"img_path: {input_path} -- output_group_path: {output_group_path}")
-
-            schema = self.create_schema(dims)
-            tiledb.Array.create(output_img_path, schema)
-
-            slide_data = img.read_region((0, 0), level, dims).convert("RGB")
-            data = np.array(slide_data).swapaxes(0, 1)
-            newdata = data.view(
+            data = img.read_region((0, 0), level, dims).convert("RGB")
+            data = np.asarray(data).swapaxes(0, 1)
+            data = np.ascontiguousarray(data)
+            data = data.view(
                 dtype=np.dtype([("", "uint8"), ("", "uint8"), ("", "uint8")])
             )
-            with tiledb.open(output_img_path, "w") as A:
-                A[:] = newdata
+
+            uri = self.output_level_path(output_group_path, level)
+            schema = self.create_schema(data.shape)
+            tiledb.Array.create(uri, schema)
+            with tiledb.open(uri, "w") as A:
+                A[:] = data
 
         # Write group metadata
         with tiledb.Group(output_group_path, "w") as G:
