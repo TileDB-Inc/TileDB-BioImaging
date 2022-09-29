@@ -1,19 +1,28 @@
 import os
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 from typing import Any, Sequence
 
 import numpy as np
 import tiledb
 
 
-@dataclass(frozen=True)
-class ImageConverter(object):
-    tile_x: int = 1024
-    tile_y: int = 1024
+class ImageConverter(ABC):
+    def __init__(self, tile_x: int = 1024, tile_y: int = 1024):
+        self.tile_x = tile_x
+        self.tile_y = tile_y
 
-    @staticmethod
-    def output_level_path(base_path: str, level: int) -> str:
-        return os.path.join(base_path, f"l_{level}.tdb")
+    @abstractmethod
+    def convert_image(
+        self, input_path: str, output_group_path: str, level_min: int = 0
+    ) -> None:
+        """
+        Convert an image to a TileDB Group of Arrays, one per level.
+
+        :param input_path: path to the input image
+        :param output_group_path: path to the TildDB group of arrays
+        :param level_min: minimum level of the image to be converted. By default set to 0
+            to convert all levels.
+        """
 
     def create_schema(self, img_shape: Sequence[Any]) -> tiledb.ArraySchema:
         # FIXME: The next line is either redundant or wrong
@@ -41,3 +50,7 @@ class ImageConverter(object):
                 )
             ],
         )
+
+    @staticmethod
+    def output_level_path(base_path: str, level: int) -> str:
+        return os.path.join(base_path, f"l_{level}.tdb")
