@@ -17,3 +17,6 @@ title: Format Specification
    * [Tile](./tile.md)
    * [Generic Tile](./generic_tile.md)
 
+* **Group**
+   * [File Hierarchy](./group_file_hierarchy.md)
+
