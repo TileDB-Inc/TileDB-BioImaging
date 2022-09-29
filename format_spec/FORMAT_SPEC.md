@@ -14,3 +14,5 @@ title: Format Specification
    * [Array Schema](./array_schema.md)
    * [Fragment](./fragment.md)
    * [Array Metadata](./metadata.md)
+   * [Tile](./tile.md)
+
