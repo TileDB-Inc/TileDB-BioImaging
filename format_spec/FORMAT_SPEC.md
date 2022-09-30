@@ -19,4 +19,3 @@ title: Format Specification
 
 * **Group**
    * [File Hierarchy](./group_file_hierarchy.md)
-
