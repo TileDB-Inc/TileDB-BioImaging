@@ -1,10 +1,26 @@
 import os
 from abc import ABC, abstractmethod
 from concurrent import futures
-from typing import Any, Optional, Sequence
+from typing import Optional, Sequence
 
 import numpy as np
 import tiledb
+
+
+class ImageReader(ABC):
+    @property
+    @abstractmethod
+    def level_count(self) -> int:
+        """Return the number of levels for this multi-resolution image"""
+
+    @property
+    @abstractmethod
+    def level_downsamples(self) -> Sequence[float]:
+        """Return the scale factor for each level"""
+
+    @abstractmethod
+    def level_image(self, level: int) -> np.ndarray:
+        """Return the image for the given level as (x, y, RGB) 3D numpy array"""
 
 
 class ImageConverter(ABC):
@@ -14,7 +30,6 @@ class ImageConverter(ABC):
         self.max_x_tile = max_x_tile
         self.max_y_tile = max_y_tile
 
-    @abstractmethod
     def convert_image(
         self, input_path: str, output_group_path: str, level_min: int = 0
     ) -> None:
@@ -26,6 +41,29 @@ class ImageConverter(ABC):
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
         """
+        tiledb.group_create(output_group_path)
+        reader = self._get_image_reader(input_path)
+
+        # Create a TileDB array for each level in range(level_min, reader.level_count)
+        uris = []
+        for level in range(level_min, reader.level_count):
+            image = reader.level_image(level)
+            assert image.ndim == 3 and image.shape[2] == 3, image.shape
+            uri = os.path.join(output_group_path, f"l_{level}.tdb")
+            schema = self.__get_schema(*image.shape[:2])
+            tiledb.Array.create(uri, schema)
+            with tiledb.open(uri, "w") as A:
+                A[:] = np.ascontiguousarray(image).view(dtype=self._rgb_dtype)
+            uris.append(uri)
+
+        # Write metadata
+        with tiledb.Group(output_group_path, "w") as G:
+            G.meta["original_filename"] = input_path
+            level_downsamples = reader.level_downsamples
+            if level_downsamples:
+                G.meta["level_downsamples"] = level_downsamples
+            for level_uri in uris:
+                G.add(os.path.basename(level_uri), relative=True)
 
     def convert_images(
         self,
@@ -67,28 +105,9 @@ class ImageConverter(ABC):
             for input_path in input_paths:
                 self.convert_image(input_path, get_group_path(input_path), level_min)
 
-    def _write_level(self, output_group_path: str, level: int, data: np.ndarray) -> str:
-        assert data.ndim == 3 and data.shape[2] == 3, data.shape
-        uri = os.path.join(output_group_path, f"l_{level}.tdb")
-        schema = self.__get_schema(*data.shape[:2])
-        tiledb.Array.create(uri, schema)
-        with tiledb.open(uri, "w") as A:
-            A[:] = np.ascontiguousarray(data).view(dtype=self._rgb_dtype)
-        return uri
-
-    @staticmethod
-    def _write_metadata(
-        output_group_path: str,
-        input_path: str,
-        level_downsamples: Any = None,
-        uris: Sequence[str] = (),
-    ) -> None:
-        with tiledb.Group(output_group_path, "w") as G:
-            G.meta["original_filename"] = input_path
-            if level_downsamples is not None:
-                G.meta["level_downsamples"] = level_downsamples
-            for level_uri in uris:
-                G.add(os.path.basename(level_uri), relative=True)
+    @abstractmethod
+    def _get_image_reader(self, input_path: str) -> ImageReader:
+        """Return an ImageReader for the given input path."""
 
     def __get_schema(self, x_size: int, y_size: int) -> tiledb.ArraySchema:
         return tiledb.ArraySchema(

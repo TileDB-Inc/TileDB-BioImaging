@@ -1,20 +1,30 @@
-import tifffile
-import tiledb
+from typing import Sequence
 
-from .base import ImageConverter
+import numpy as np
+import tifffile
+
+from .base import ImageConverter, ImageReader
+
+
+class OMETiffReader(ImageReader):
+    def __init__(self, input_path: str):
+        self._tiff_series = tifffile.TiffFile(input_path).series
+
+    @property
+    def level_count(self) -> int:
+        return len(self._tiff_series)
+
+    @property
+    def level_downsamples(self) -> Sequence[float]:
+        # TODO
+        return ()
+
+    def level_image(self, level: int) -> np.ndarray:
+        return self._tiff_series[level].asarray().swapaxes(0, 2)
 
 
 class OMETiffConverter(ImageConverter):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
-    def convert_image(
-        self, input_path: str, output_group_path: str, level_min: int = 0
-    ) -> None:
-        tiledb.group_create(output_group_path)
-        tiff_series = tifffile.TiffFile(input_path).series
-        uris = []
-        for level in range(level_min, len(tiff_series)):
-            data = tiff_series[level].asarray().swapaxes(0, 2)
-            uris.append(self._write_level(output_group_path, level, data))
-        # TODO: level_downsamples
-        self._write_metadata(output_group_path, input_path, uris=uris)
+    def _get_image_reader(self, input_path: str) -> ImageReader:
+        return OMETiffReader(input_path)
