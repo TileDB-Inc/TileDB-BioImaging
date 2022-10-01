@@ -1,22 +1,31 @@
+from typing import Sequence, cast
+
 import numpy as np
 import openslide as osd
-import tiledb
 
-from .base import ImageConverter
+from .base import ImageConverter, ImageReader
+
+
+class OpenSlideReader(ImageReader):
+    def __init__(self, input_path: str):
+        self._osd = osd.OpenSlide(input_path)
+
+    @property
+    def level_count(self) -> int:
+        return cast(int, self._osd.level_count)
+
+    @property
+    def level_downsamples(self) -> Sequence[float]:
+        return cast(Sequence[float], self._osd.level_downsamples)
+
+    def level_image(self, level: int) -> np.ndarray:
+        dims = self._osd.level_dimensions[level]
+        image = self._osd.read_region((0, 0), level, dims).convert("RGB")
+        return np.asarray(image).swapaxes(0, 1)
 
 
 class OpenSlideConverter(ImageConverter):
     """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
 
-    def convert_image(
-        self, input_path: str, output_group_path: str, level_min: int = 0
-    ) -> None:
-        tiledb.group_create(output_group_path)
-        img = osd.OpenSlide(input_path)
-        uris = []
-        for level in range(level_min, img.level_count):
-            dims = img.level_dimensions[level]
-            data = img.read_region((0, 0), level, dims).convert("RGB")
-            data = np.asarray(data).swapaxes(0, 1)
-            uris.append(self._write_level(output_group_path, level, data))
-        self._write_metadata(output_group_path, input_path, img.level_downsamples, uris)
+    def _get_image_reader(self, input_path: str) -> ImageReader:
+        return OpenSlideReader(input_path)
