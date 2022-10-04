@@ -1,7 +1,7 @@
 import numpy as np
 import tiledb
 
-from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 from . import get_path
 

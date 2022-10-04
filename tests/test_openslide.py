@@ -5,7 +5,7 @@ import os
 import openslide as osld
 import tiledb
 
-from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 from . import download_from_s3
 
@@ -26,7 +26,7 @@ def test_level_info():
     _check_level_info(0, l0_info)
 
 
-def test_open_slide():
+def test_openslide():
     t = TileDBOpenSlide.from_group_uri(g_uri)
 
     for l_num, l_info in enumerate(t.level_info):
