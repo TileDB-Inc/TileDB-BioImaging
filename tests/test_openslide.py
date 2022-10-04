@@ -5,7 +5,7 @@ import os
 import openslide as osld
 import tiledb
 
-from tiledbimg.open_slide import LevelInfo, SlideInfo, TileDBOpenSlide
+from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
 
 from . import download_from_s3
 
@@ -62,11 +62,3 @@ def test_open_slide():
         == 0
         == os_img.get_best_level_for_downsample(1)
     )
-
-
-def test_slide_info():
-    factor = 32
-    slinfo = SlideInfo.from_group_uri(factor, g_uri)
-
-    assert slinfo.factor == factor
-    assert slinfo.slide == TileDBOpenSlide.from_group_uri(g_uri)

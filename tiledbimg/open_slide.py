@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, MutableMapping, Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import tiledb
-
-Number = Union[int, float]
 
 
 @dataclass(frozen=True)
@@ -84,75 +82,3 @@ class TileDBOpenSlide:
         """Return the best level for displaying the given downsample."""
         lla = np.where(np.array(self.level_downsamples) < factor)[0]
         return int(lla.max() if len(lla) > 0 else 0)
-
-
-@dataclass
-class SlideInfo:
-    factor: Number  # scale factor
-    slide: TileDBOpenSlide
-    _level_data_cache: MutableMapping[Any, Any]
-
-    def __init__(
-        self,
-        factor: Number,
-        slide: TileDBOpenSlide,
-        level_cache: MutableMapping[Any, Any] = {},
-    ) -> None:
-        self.factor = factor
-        self.slide = slide
-        self._downsample_level = self.slide.get_best_level_for_downsample(factor)
-
-        if level_cache:
-            assert isinstance(level_cache, dict)
-            self._level_data_cache = level_cache
-        else:
-            self._level_data_cache = dict()
-
-    def __repr__(self) -> str:
-        slide_dims = self.slide.level_dimensions
-        return f"""SlideInfo(factor={self.factor}, slide_level_dims={slide_dims})"""
-
-    @property
-    def slide_number(self) -> int:
-        return 1
-
-    """
-    Return image data for a given layer with memoization.
-    """
-
-    def read_level(self, level: int) -> np.ndarray:
-        if level in self._level_data_cache:
-            return self._level_data_cache[level]
-
-        uri = self.slide.level_info[level].uri
-
-        # FIXME don't re-open
-        with tiledb.open(uri) as A:
-            data = A[:]
-            self._level_data_cache[level] = data
-            return data
-
-    """
-    Read region
-    """
-
-    def read_region(
-        self, xy: Sequence[int], level: int, wh: Sequence[int]
-    ) -> np.ndarray:
-        x, y = xy
-        w, h = wh
-
-        return self.slide.read_region((x, y), level, (w, h))
-
-    """
-    Returns the current target downsample *level*.
-    """
-
-    @property
-    def target_downsample_level(self) -> Any:
-        return self._downsample_level
-
-    @classmethod
-    def from_group_uri(cls, factor: Number, uri: str) -> SlideInfo:
-        tdb_slide = TileDBOpenSlide.from_group_uri(uri)
-        return cls(factor, tdb_slide)
