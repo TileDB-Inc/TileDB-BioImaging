@@ -29,7 +29,7 @@ def test_level_info():
 def test_open_slide():
     t = TileDBOpenSlide.from_group_uri(g_uri)
 
-    for l_num, l_info in enumerate(t._level_infos):
+    for l_num, l_info in enumerate(t.level_info):
         _check_level_info(l_num, l_info)
 
     os_img = osld.open_slide(download_from_s3(svs_uri))

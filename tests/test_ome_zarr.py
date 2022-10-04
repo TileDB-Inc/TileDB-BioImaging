@@ -83,4 +83,4 @@ def test_ome_zarr():
     assert t.level_count == 3
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples is None
+    assert t.level_downsamples == ()
