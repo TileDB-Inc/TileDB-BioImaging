@@ -13,15 +13,16 @@ g_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.tdg"
 svs_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs"
 
 
-def _check_level_info(num, info):
-    assert info.level == num
-    assert tiledb.object_type(info.uri) == "array"
-    assert isinstance(info.schema, tiledb.ArraySchema)
+def _check_level_info(num, level_info):
+    assert level_info.level == num
+    assert tiledb.object_type(level_info.uri) == "array"
+    assert isinstance(level_info.dimensions, tuple)
+    assert all(isinstance(dim, int) for dim in level_info.dimensions)
 
 
 def test_level_info():
-    l0_uri = os.path.join(g_uri, "l_0.tdb")
-    l0_info = LevelInfo.from_array(l0_uri, 0)
+    with tiledb.open(os.path.join(g_uri, "l_0.tdb")) as a:
+        l0_info = LevelInfo.from_array(a, 0)
     _check_level_info(0, l0_info)
 
 

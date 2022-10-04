@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -11,43 +11,22 @@ ATTRIBUTE_VALUE_NAME = "rgb"
 Number = Union[int, float]
 
 
-@dataclass
+@dataclass(frozen=True)
 class LevelInfo:
-    level: int
-    schema: tiledb.ArraySchema
-    dimensions: Sequence[int]
-    uri: str
-
-    def __init__(self, abspath: str, level: int, schema: tiledb.ArraySchema) -> None:
-        self.uri = abspath
-        self.level = level
-        self.schema = schema
-        self.dimensions = schema.shape
-
-    def __repr__(self) -> str:
-        return f"""LevelInfo(level={self.level}, shape={self.schema.shape})"""
-
-    @staticmethod
-    def parse_level(s: str) -> int:
-        exp = os.path.splitext(os.path.basename(s))[0]
-        try:
-            return int(exp.split("_")[-1])
-        except Exception as exc:
-            raise ValueError(f"Invalid level filename: {s}") from exc
+    uri: str = field(compare=False)
+    level: int = field(compare=True)
+    dimensions: Tuple[int, ...] = field(compare=True)
 
     @classmethod
-    def from_array(cls, path: str, level: Optional[int] = None) -> LevelInfo:
+    def from_array(cls, array: tiledb.Array, level: Optional[int] = None) -> LevelInfo:
+        uri = array.uri
         if level is None:
-            level = cls.parse_level(path)
-
-        a = tiledb.open(path)
-
-        return cls(path, level, a.schema)
-
-    def __eq__(self, input: Any) -> bool:
-        if not type(input) is LevelInfo:
-            raise TypeError("Object types to compare should be the same")
-        return self.level == input.level and self.dimensions == input.dimensions
+            basename = os.path.splitext(os.path.basename(uri))[0]
+            try:
+                level = int(basename.split("_")[-1])
+            except ValueError:
+                raise ValueError(f"Invalid level uri: {uri}")
+        return cls(uri, level, array.schema.shape)
 
 
 @dataclass
@@ -92,9 +71,10 @@ class TileDBOpenSlide:
         level_infos = []
         group_dirs.sort()
         for a_uri in group_dirs:
-            level_infos.append(LevelInfo.from_array(a_uri))
+            with tiledb.open(a_uri) as a:
+                level_infos.append(LevelInfo.from_array(a))
 
-        level_dimensions = tuple(li.schema.shape[:2] for li in level_infos)
+        level_dimensions = tuple(li.dimensions[:2] for li in level_infos)
 
         return cls(level_infos, level_downsamples, level_dimensions, group_meta)
 
