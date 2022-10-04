@@ -84,8 +84,6 @@ class TileDBOpenSlide:
     def from_group_uri(
         cls, slide_group_uri: str, ctx: tiledb.Ctx = None
     ) -> TileDBOpenSlide:
-
-        print(f"[DEBUG] slide_group_uri: {slide_group_uri}")
         with tiledb.Group(slide_group_uri) as G:
             group_meta = G.meta
             level_downsamples = G.meta.get("level_downsamples", None)

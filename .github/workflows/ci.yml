@@ -40,3 +40,8 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: pytest -v --cov=tiledbimg --cov-report=term-missing --durations=0 tests/
+
+    - name: Run notebook examples
+      run: |
+        pip install opencv-python-headless matplotlib nbmake
+        pytest --nbmake examples
