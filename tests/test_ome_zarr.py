@@ -1,7 +1,7 @@
 import numpy as np
 import tiledb
 
-from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 from . import get_path
 
@@ -9,9 +9,7 @@ from . import get_path
 def test_ome_zarr():
     t = TileDBOpenSlide.from_group_uri(get_path("CMU-1-Small-Region-Zarr.tiledb"))
 
-    Reference_Schema = []
-
-    Reference_Schema.append(
+    schemas = [
         tiledb.ArraySchema(
             domain=tiledb.Domain(
                 *[
@@ -32,10 +30,7 @@ def test_ome_zarr():
             cell_order="row-major",
             tile_order="row-major",
             capacity=10000,
-        )
-    )
-
-    Reference_Schema.append(
+        ),
         tiledb.ArraySchema(
             domain=tiledb.Domain(
                 *[
@@ -56,10 +51,7 @@ def test_ome_zarr():
             cell_order="row-major",
             tile_order="row-major",
             capacity=10000,
-        )
-    )
-
-    Reference_Schema.append(
+        ),
         tiledb.ArraySchema(
             domain=tiledb.Domain(
                 *[
@@ -80,18 +72,15 @@ def test_ome_zarr():
             cell_order="row-major",
             tile_order="row-major",
             capacity=10000,
-        )
-    )
+        ),
+    ]
 
     assert (
-        t.level_info[0] == LevelInfo(abspath="", level=0, schema=Reference_Schema[0])
-        and t.level_info[1]
-        == LevelInfo(abspath="", level=1, schema=Reference_Schema[1])
-        and t.level_info[2]
-        == LevelInfo(abspath="", level=2, schema=Reference_Schema[2])
+        t.level_info[0] == LevelInfo(uri="", level=0, dimensions=schemas[0].shape)
+        and t.level_info[1] == LevelInfo(uri="", level=1, dimensions=schemas[1].shape)
+        and t.level_info[2] == LevelInfo(uri="", level=2, dimensions=schemas[2].shape)
     )
-
     assert t.level_count == 3
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples is None
+    assert t.level_downsamples == ()
