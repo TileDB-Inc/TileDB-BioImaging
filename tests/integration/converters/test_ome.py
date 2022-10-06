@@ -2,7 +2,7 @@ import pytest
 
 from tests import get_path
 from tests.integration.converters import CMU_1_SMALL_REGION
-from tiledbimg.open_slide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
 @pytest.mark.parametrize(
@@ -19,16 +19,14 @@ def test_ome(format_path):
 
     t = TileDBOpenSlide.from_group_uri(get_path(format_path))
     dset = CMU_1_SMALL_REGION()
-    reference_schema = dset.schema()
+    schemas = dset.schema()
 
     assert (
-        t.level_info[0] == LevelInfo(abspath="", level=0, schema=reference_schema[0])
-        and t.level_info[1]
-        == LevelInfo(abspath="", level=1, schema=reference_schema[1])
-        and t.level_info[2]
-        == LevelInfo(abspath="", level=2, schema=reference_schema[2])
+        t.level_info[0] == LevelInfo(uri="", level=0, dimensions=schemas[0].shape)
+        and t.level_info[1] == LevelInfo(uri="", level=1, dimensions=schemas[1].shape)
+        and t.level_info[2] == LevelInfo(uri="", level=2, dimensions=schemas[2].shape)
     )
     assert t.level_count == 3
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples is None
+    assert t.level_downsamples == ()
