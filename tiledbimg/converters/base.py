@@ -13,11 +13,6 @@ class ImageReader(ABC):
     def level_count(self) -> int:
         """Return the number of levels for this multi-resolution image"""
 
-    @property
-    @abstractmethod
-    def level_downsamples(self) -> Sequence[float]:
-        """Return the scale factor for each level"""
-
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
         """Return the image for the given level as (x, y, RGB) 3D numpy array"""
@@ -59,9 +54,6 @@ class ImageConverter(ABC):
         # Write metadata
         with tiledb.Group(output_group_path, "w") as G:
             G.meta["original_filename"] = input_path
-            level_downsamples = reader.level_downsamples
-            if level_downsamples:
-                G.meta["level_downsamples"] = level_downsamples
             for level_uri in uris:
                 G.add(os.path.basename(level_uri), relative=True)
 

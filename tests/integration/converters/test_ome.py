@@ -33,7 +33,7 @@ def test_ome(format_path):
     assert t.level_count == 3
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples == ()
+    assert t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)
 
 
 @pytest.mark.parametrize(

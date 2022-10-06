@@ -1,5 +1,3 @@
-from typing import Sequence
-
 import numpy as np
 import tifffile
 
@@ -13,11 +11,6 @@ class OMETiffReader(ImageReader):
     @property
     def level_count(self) -> int:
         return len(self._tiff_series)
-
-    @property
-    def level_downsamples(self) -> Sequence[float]:
-        # TODO
-        return ()
 
     def level_image(self, level: int) -> np.ndarray:
         return self._tiff_series[level].asarray().swapaxes(0, 2)

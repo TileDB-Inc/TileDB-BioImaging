@@ -10,9 +10,9 @@ import tiledb
 
 @dataclass(frozen=True)
 class LevelInfo:
-    uri: str = field(compare=False)
-    level: int = field(compare=True)
-    dimensions: Tuple[int, ...] = field(compare=True)
+    uri: str = field(compare=False, repr=False)
+    level: int
+    dimensions: Tuple[int, int]
 
     @classmethod
     def from_array(cls, array: tiledb.Array, level: Optional[int] = None) -> LevelInfo:
@@ -23,13 +23,12 @@ class LevelInfo:
                 level = int(basename.split("_")[-1])
             except ValueError:
                 raise ValueError(f"Invalid level uri: {uri}")
-        return cls(uri, level, array.schema.shape)
+        return cls(uri, level, array.schema.shape[:2])
 
 
 @dataclass(frozen=True)
 class TileDBOpenSlide:
     level_info: Sequence[LevelInfo]
-    level_downsamples: Sequence[float]
 
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
@@ -38,8 +37,7 @@ class TileDBOpenSlide:
             for a_uri in sorted(o.uri for o in G):
                 with tiledb.open(a_uri) as a:
                     level_info.append(LevelInfo.from_array(a))
-            level_downsamples = G.meta.get("level_downsamples", ())
-        return cls(tuple(level_info), level_downsamples)
+        return cls(tuple(level_info))
 
     @property
     def level_count(self) -> int:
@@ -50,17 +48,27 @@ class TileDBOpenSlide:
         return len(self.level_info)
 
     @property
-    def dimensions(self) -> Tuple[int, ...]:
+    def dimensions(self) -> Tuple[int, int]:
         """A (width, height) tuple for level 0 of the slide."""
-        return self.level_info[0].dimensions[:2]
+        return self.level_info[0].dimensions
 
     @property
-    def level_dimensions(self) -> Sequence[Tuple[int, ...]]:
+    def level_dimensions(self) -> Sequence[Tuple[int, int]]:
         """
         A sequence of (width, height) tuples, one for each level of the slide.
         level_dimensions[k] are the dimensions of level k.
         """
-        return tuple(li.dimensions[:2] for li in self.level_info)
+        return tuple(li.dimensions for li in self.level_info)
+
+    @property
+    def level_downsamples(self) -> Sequence[float]:
+        """
+        A sequence of downsample factors for each level of the slide.
+        level_downsamples[k] is the downsample factor of level k.
+        """
+        level_dims = self.level_dimensions
+        l0_w, l0_h = level_dims[0]
+        return tuple((l0_w / w + l0_h / h) / 2.0 for w, h in level_dims)
 
     def read_region(
         self, location: Tuple[int, int], level: int, size: Tuple[int, int]

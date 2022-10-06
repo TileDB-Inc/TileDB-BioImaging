@@ -1,4 +1,4 @@
-from typing import Sequence, cast
+from typing import cast
 
 import numpy as np
 import openslide as osd
@@ -13,10 +13,6 @@ class OpenSlideReader(ImageReader):
     @property
     def level_count(self) -> int:
         return cast(int, self._osd.level_count)
-
-    @property
-    def level_downsamples(self) -> Sequence[float]:
-        return cast(Sequence[float], self._osd.level_downsamples)
 
     def level_image(self, level: int) -> np.ndarray:
         dims = self._osd.level_dimensions[level]
