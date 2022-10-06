@@ -21,38 +21,6 @@ def _check_level_info(num, level_info):
 
 
 class TestLevelInfo:
-    # def test_repr(self):
-    #     test_data = CMU_1_SMALL_REGION()
-    #     expected_level = 1
-    #     expected_shape = (2220, 2967)
-    #     li = LevelInfo(uri="", level=expected_level, schema=test_data.schema()[0])
-    #     assert str(li) == f"LevelInfo(level={expected_level}, shape={expected_shape})"
-    #
-    # def test_eq_operator(self, mocker):
-    #     test_data = CMU_1_SMALL_REGION()
-    #     test_level = 1
-    #     linfo1 = LevelInfo(abspath="", level=test_level, schema=test_data.schema()[0])
-    #     linfo2 = LevelInfo(abspath="", level=test_level, schema=test_data.schema()[1])
-    #     assert linfo1 != linfo2
-    #     linfo2 = LevelInfo(abspath="", level=test_level, schema=test_data.schema()[0])
-    #     assert linfo1 == linfo2
-    #     linfo2 = mocker.Mock()
-    #     with pytest.raises(TypeError):
-    #         assert linfo1 == linfo2
-    #
-    # def test_parse_level(self):
-    #     # todo transform with regex or sth valid and generic
-    #     test_level = 1
-    #     expected_filename = f"test/path/root/levelfile_{test_level}.x"
-    #     test_data = CMU_1_SMALL_REGION()
-    #     linfo1 = LevelInfo(abspath="", level=test_level, schema=test_data.schema()[0])
-    #     assert linfo1.parse_level(expected_filename) == 1
-    #     test_level = 2
-    #     expected_filename = f"test/path/root/levelfile_{test_level}.x"
-    #     assert linfo1.parse_level(expected_filename) == 2
-    #     expected_filename = "test/path/root/levelfile.x"
-    #     with pytest.raises(ValueError):
-    #         assert linfo1.parse_level(expected_filename)
 
     def test_from_array(self, tmp_path):
         test_data = CMU_1_SMALL_REGION()

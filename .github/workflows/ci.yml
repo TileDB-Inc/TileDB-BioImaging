@@ -27,6 +27,7 @@ jobs:
           openslide
           pre-commit
           pytest-cov
+          pytest-mock
           boto3
 
     - name: Run pre-commit hooks
