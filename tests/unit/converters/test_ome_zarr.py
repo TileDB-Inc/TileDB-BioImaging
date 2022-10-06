@@ -1,8 +1,9 @@
-import numpy as np
-import tiledb
 import os
+
+import numpy as np
 import pytest
 import zarr
+
 from tiledbimg.converters.ome_zarr import OMEZarrReader
 
 
@@ -29,22 +30,11 @@ class TestOMEZarrReader:
         zarr_path = os.path.join(tmp_path, "test.zarr")
         reader = OMEZarrReader(zarr_path)
         zarr_array = np.array(
-            [
-                [
-                    [
-                        [
-                            [
-                                [[0, 1], [2, 3]],
-                                [[4, 5], [6, 7, 8]]
-                            ]
-                        ]
-                    ]
-                ]
-            ],
-            dtype=object
+            [[[[[[[0, 1], [2, 3]], [[4, 5], [6, 7, 8]]]]]]], dtype=object
         )
         reader._zarray.__getitem__.return_value = zarr_array
         actual = reader.level_image(0)
-        expected = np.array([[[[0, 1]], [[4, 5]]],
-                             [[[2, 3]], [[6, 7, 8]]]], dtype=object)
+        expected = np.array(
+            [[[[0, 1]], [[4, 5]]], [[[2, 3]], [[6, 7, 8]]]], dtype=object
+        )
         np.testing.assert_array_equal(actual, expected)

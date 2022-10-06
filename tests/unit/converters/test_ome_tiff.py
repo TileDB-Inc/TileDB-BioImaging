@@ -1,6 +1,7 @@
 import numpy as np
-from tiledbimg.converters.ome_tiff import OMETiffReader
 import pytest
+
+from tiledbimg.converters.ome_tiff import OMETiffReader
 
 
 @pytest.fixture
