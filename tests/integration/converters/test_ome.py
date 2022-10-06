@@ -1,8 +1,14 @@
+import os
+
 import pytest
+import tiledb
 
 from tests import get_path
-from tests.integration.converters import CMU_1_SMALL_REGION
+from tiledbimg.converters.ome_tiff import OMETiffConverter
+from tiledbimg.converters.ome_zarr import OMEZarrConverter
 from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
+
+from . import CMU_1_SMALL_REGION
 
 
 @pytest.mark.parametrize(
@@ -30,3 +36,31 @@ def test_ome(format_path):
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
     assert t.level_downsamples == ()
+
+
+def test_ome_tiff_converter(tmp_path):
+    expected = CMU_1_SMALL_REGION().schema()
+    src = get_path("CMU-1-Small-Region.ome.tiff")
+    dest = os.path.join(tmp_path, ".tiledb")
+    if not os.path.exists(dest):
+        OMETiffConverter().convert_image(src, dest, level_min=0)
+    with tiledb.open(os.path.join(dest, "l_0.tdb")) as A:
+        assert A.schema == expected[0]
+    with tiledb.open(os.path.join(dest, "l_1.tdb")) as A:
+        assert A.schema == expected[1]
+    with tiledb.open(os.path.join(dest, "l_2.tdb")) as A:
+        assert A.schema == expected[2]
+
+
+def test_ome_zarr_converter(tmp_path):
+    expected = CMU_1_SMALL_REGION().schema()
+    src = get_path("CMU-1-Small-Region.ome.zarr")
+    dest = os.path.join(tmp_path, ".tiledb")
+    if not os.path.exists(dest):
+        OMEZarrConverter().convert_image(src, dest, level_min=0)
+    with tiledb.open(os.path.join(dest, "l_0.tdb")) as A:
+        assert A.schema == expected[0]
+    with tiledb.open(os.path.join(dest, "l_1.tdb")) as A:
+        assert A.schema == expected[1]
+    with tiledb.open(os.path.join(dest, "l_2.tdb")) as A:
+        assert A.schema == expected[2]

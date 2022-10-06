@@ -21,7 +21,6 @@ def _check_level_info(num, level_info):
 
 
 class TestLevelInfo:
-
     def test_from_array(self, tmp_path):
         test_data = CMU_1_SMALL_REGION()
         tiledb.Array.create(os.path.join(tmp_path, "test.tdb"), test_data.schema()[0])
