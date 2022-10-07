@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import pytest
 import tiledb
@@ -50,6 +51,36 @@ def test_ome_tiff_converter(tmp_path):
         assert A.schema == expected[1]
     with tiledb.open(os.path.join(dest, "l_2.tdb")) as A:
         assert A.schema == expected[2]
+
+
+@pytest.mark.parametrize("max_workers", [None, 0])
+def test_ome_tiff_converter_group(tmp_path, max_workers):
+    src = get_path("CMU-1-Small-Region.ome.tiff")
+
+    # Replicate image file in other location
+    src2 = tmp_path / "src2"
+    src2.mkdir()
+    shutil.copy(src, src2)
+    shutil.move(
+        os.path.join(src2, "CMU-1-Small-Region.ome.tiff"),
+        os.path.join(src2, "CMU-2-Small-Region.ome.tiff"),
+    )
+
+    image_list = [src, os.path.join(src2, "CMU-2-Small-Region.ome.tiff")]
+
+    groups = tmp_path / "groups"
+    groups.mkdir()
+    if not os.path.exists(groups.as_uri()):
+        OMETiffConverter().convert_images(
+            image_list, groups.as_uri(), level_min=0, max_workers=max_workers
+        )
+
+    grp_1 = tiledb.Group(os.path.join(groups.as_uri(), "CMU-1-Small-Region.ome"), "r")
+    assert grp_1.meta["original_filename"] == src
+    grp_2 = tiledb.Group(os.path.join(groups.as_uri(), "CMU-2-Small-Region.ome"), "r")
+    assert grp_2.meta["original_filename"] == os.path.join(
+        src2, "CMU-2-Small-Region.ome.tiff"
+    )
 
 
 def test_ome_zarr_converter(tmp_path):
