@@ -6,29 +6,28 @@ import tiledb
 
 @dataclass(frozen=True)
 class CMU_1_SMALL_REGION:
-    _dom = {
-        0: ((0, 2219), (0, 2966)),
-        1: ((0, 386), (0, 462)),
-        2: ((0, 1279), (0, 430)),
+    _domains = {
+        0: ((0, 2219, 1024), (0, 2966, 1024)),
+        1: ((0, 386, 387), (0, 462, 463)),
+        2: ((0, 1279, 1024), (0, 430, 431)),
     }
     _attr_dtype = [("f0", "u1"), ("f1", "u1"), ("f2", "u1")]
-    _tile = {0: (1024, 1024), 1: (387, 463), 2: (1024, 431)}
 
-    def schema(self):
+    def schemas(self):
         return [
             tiledb.ArraySchema(
                 domain=tiledb.Domain(
                     *[
                         tiledb.Dim(
                             name="X",
-                            domain=self._dom[elem_id][0],
-                            tile=self._tile[elem_id][0],
+                            domain=self._domains[elem_id][0][:2],
+                            tile=self._domains[elem_id][0][-1],
                             dtype=np.uint64,
                         ),
                         tiledb.Dim(
                             name="Y",
-                            domain=self._dom[elem_id][1],
-                            tile=self._tile[elem_id][1],
+                            domain=self._domains[elem_id][1][:2],
+                            tile=self._domains[elem_id][1][-1],
                             dtype=np.uint64,
                         ),
                     ]
@@ -47,5 +46,5 @@ class CMU_1_SMALL_REGION:
                 tile_order="row-major",
                 capacity=10000,
             )
-            for elem_id in range(0, 3)
+            for elem_id in range(len(self._domains))
         ]

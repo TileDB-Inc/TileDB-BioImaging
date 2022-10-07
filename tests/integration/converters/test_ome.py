@@ -25,32 +25,39 @@ def test_ome(format_path):
     # os_img = osld.open_slide(get_path("CMU-1-Small-Region.svs.tiff"))
 
     t = TileDBOpenSlide.from_group_uri(get_path(format_path))
-    dset = CMU_1_SMALL_REGION()
-    schemas = dset.schema()
+    schemas = CMU_1_SMALL_REGION().schemas()
 
-    assert (
-        t.level_info[0] == LevelInfo(uri="", level=0, dimensions=schemas[0].shape)
-        and t.level_info[1] == LevelInfo(uri="", level=1, dimensions=schemas[1].shape)
-        and t.level_info[2] == LevelInfo(uri="", level=2, dimensions=schemas[2].shape)
-    )
+    for i in range(0, 3):
+        assert t.level_info[i] == LevelInfo(
+            uri="", level=i, dimensions=schemas[i].shape
+        )
+
     assert t.level_count == 3
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
     assert t.level_downsamples == ()
 
 
-def test_ome_tiff_converter(tmp_path):
-    expected = CMU_1_SMALL_REGION().schema()
-    src = get_path("CMU-1-Small-Region.ome.tiff")
-    dest = os.path.join(tmp_path, ".tiledb")
-    if not os.path.exists(dest):
-        OMETiffConverter().convert_image(src, dest, level_min=0)
-    with tiledb.open(os.path.join(dest, "l_0.tdb")) as A:
-        assert A.schema == expected[0]
-    with tiledb.open(os.path.join(dest, "l_1.tdb")) as A:
-        assert A.schema == expected[1]
-    with tiledb.open(os.path.join(dest, "l_2.tdb")) as A:
-        assert A.schema == expected[2]
+@pytest.mark.parametrize(
+    "converter",
+    [
+        (OMEZarrConverter, "CMU-1-Small-Region.ome.zarr"),
+        (OMETiffConverter, "CMU-1-Small-Region.ome.tiff"),
+    ],
+)
+def test_ome_tiff_converter(tmp_path, converter):
+    expected = CMU_1_SMALL_REGION().schemas()
+    src = get_path(converter[1])
+    dest = tmp_path / "tiledb"
+    dest.mkdir()
+    converter[0]().convert_image(src, dest.as_uri(), level_min=0)
+
+    for i in range(0, 3):
+        with tiledb.open(os.path.join(dest.as_uri(), f"l_{i}.tdb")) as A:
+            assert A.schema == expected[i]
+    group = tiledb.Group(dest.as_uri())
+    actual = list(group)
+    assert len(expected) == len(actual)
 
 
 @pytest.mark.parametrize("max_workers", [0, 1, 2])
@@ -67,7 +74,6 @@ def test_ome_tiff_converter_group(tmp_path, max_workers):
     )
 
     image_list = [src, os.path.join(src2, "CMU-2-Small-Region.ome.tiff")]
-
     groups = tmp_path / "groups"
     groups.mkdir()
     if not os.path.exists(groups.as_uri()):
@@ -81,17 +87,3 @@ def test_ome_tiff_converter_group(tmp_path, max_workers):
     assert grp_2.meta["original_filename"] == os.path.join(
         src2, "CMU-2-Small-Region.ome.tiff"
     )
-
-
-def test_ome_zarr_converter(tmp_path):
-    expected = CMU_1_SMALL_REGION().schema()
-    src = get_path("CMU-1-Small-Region.ome.zarr")
-    dest = os.path.join(tmp_path, ".tiledb")
-    if not os.path.exists(dest):
-        OMEZarrConverter().convert_image(src, dest, level_min=0)
-    with tiledb.open(os.path.join(dest, "l_0.tdb")) as A:
-        assert A.schema == expected[0]
-    with tiledb.open(os.path.join(dest, "l_1.tdb")) as A:
-        assert A.schema == expected[1]
-    with tiledb.open(os.path.join(dest, "l_2.tdb")) as A:
-        assert A.schema == expected[2]
