@@ -12,6 +12,9 @@ jobs:
       run:
         shell: bash -l {0}
 
+    env:
+      run_coverage: ${{ github.ref == 'refs/heads/main' }}
+
     steps:
     - uses: actions/checkout@v2
 
@@ -48,13 +51,13 @@ jobs:
         pytest --nbmake examples
 
     - name: Create Test Coverage Badge
-        if: ${{ fromJSON(env.run_coverage) }}
-        uses: schneegans/dynamic-badges-action@v1.1.0
-        with:
-          auth: ${{ secrets.COVERAGE_SECRET }}
-          gistID: 32d48185733a4e7375e80e3e35fab452
-          filename: gist_bioimg.json
-          label: Test Coverage
-          message: ${{ steps.stats.outputs.COVERAGE }}
-          color: green
-          namedLogo: pytest
+      if: ${{ fromJSON(env.run_coverage) }}
+      uses: schneegans/dynamic-badges-action@v1.1.0
+      with:
+        auth: ${{ secrets.COVERAGE_SECRET }}
+        gistID: 32d48185733a4e7375e80e3e35fab452
+        filename: gist_bioimg.json
+        label: Test Coverage
+        message: ${{ steps.stats.outputs.COVERAGE }}
+        color: green
+        namedLogo: pytest
