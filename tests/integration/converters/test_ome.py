@@ -58,7 +58,7 @@ def test_ome_tiff_converter(tmp_path, converter, path):
     assert len(expected) == len(actual)
 
 
-@pytest.mark.parametrize("max_workers", [0])
+@pytest.mark.parametrize("max_workers", [0, 1, 2])
 def test_ome_tiff_converter_group(tmp_path, max_workers):
     src = get_path("CMU-1-Small-Region.ome.tiff")
 
