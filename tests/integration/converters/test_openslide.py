@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import openslide as osld
 
-from tests import _check_level_info, download_from_s3
+from tests import check_level_info, download_from_s3
 from tiledbimg.openslide import TileDBOpenSlide
 
 
@@ -14,7 +12,7 @@ class TestOpenSlide:
         t = TileDBOpenSlide.from_group_uri(self.g_uri)
 
         for l_num, l_info in enumerate(t.level_info):
-            _check_level_info(l_num, l_info)
+            check_level_info(l_num, l_info)
 
         os_img = osld.open_slide(download_from_s3(self.svs_uri))
         assert t.dimensions == os_img.dimensions

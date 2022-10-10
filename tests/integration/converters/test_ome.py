@@ -43,7 +43,7 @@ def test_ome(format_path):
         (OMETiffConverter, "CMU-1-Small-Region.ome.tiff"),
     ],
 )
-def test_ome_tiff_converter(tmp_path, converter, path):
+def test_ome_converter(tmp_path, converter, path):
     expected = get_CMU_1_SMALL_REGION_schemas()
     src = get_path(path)
     dest = tmp_path / "tiledb"

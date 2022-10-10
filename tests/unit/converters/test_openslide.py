@@ -24,7 +24,6 @@ class TestOpenSlideReader:
         reader = OpenSlideReader("")
         reader._osd.level_downsamples = (5.6, 7.4, 6.7)
         assert reader.level_downsamples == (5.6, 7.4, 6.7)
-        assert reader.level_downsamples != (5.6, 7.4, 6.8)
 
         # After substitution
         reader._osd.level_downsamples = (5.6, 7.4, 6.8)
@@ -37,7 +36,6 @@ class TestOpenSlideReader:
         data_img = data_img.reshape(128, 128, 3)
         img = Image.fromarray(data_img, "RGB")
         expected = np.asarray(img).swapaxes(0, 1)
-        print(expected)
         reader = OpenSlideReader("")
         reader._osd.read_region.return_value = img
         np.testing.assert_array_almost_equal(reader.level_image(0), expected)
