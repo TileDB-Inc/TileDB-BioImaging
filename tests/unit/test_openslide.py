@@ -2,45 +2,16 @@ from __future__ import annotations
 
 import os
 
-import openslide as osld
 import tiledb
 
-from tests import download_from_s3
-from tests.integration.converters import CMU_1_SMALL_REGION
-from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
-
-
-def _check_level_info(num, level_info):
-    assert level_info.level == num
-    assert tiledb.object_type(level_info.uri) == "array"
-    assert isinstance(level_info.dimensions, tuple)
-    assert all(isinstance(dim, int) for dim in level_info.dimensions)
+from tests import _check_level_info, get_CMU_1_SMALL_REGION_schemas
+from tiledbimg.openslide import LevelInfo
 
 
 class TestLevelInfo:
     def test_from_array(self, tmp_path):
-        test_data = CMU_1_SMALL_REGION()
-        tiledb.Array.create(os.path.join(tmp_path, "test.tdb"), test_data.schema()[0])
+        test_data_schemas = get_CMU_1_SMALL_REGION_schemas()
+        tiledb.Array.create(os.path.join(tmp_path, "test.tdb"), test_data_schemas[0])
         with tiledb.open(os.path.join(tmp_path, "test.tdb"), "r") as A:
             l0_info = LevelInfo.from_array(A, 0)
             _check_level_info(0, l0_info)
-
-
-class TestOpenSlide:
-    g_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.tdg"
-    svs_uri = "s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs"
-
-    def test_openslide(self):
-        t = TileDBOpenSlide.from_group_uri(self.g_uri)
-
-        for l_num, l_info in enumerate(t.level_info):
-            _check_level_info(l_num, l_info)
-
-        os_img = osld.open_slide(download_from_s3(self.svs_uri))
-        assert t.dimensions == os_img.dimensions
-        assert t.level_count == os_img.level_count
-        assert t.level_dimensions == os_img.level_dimensions
-        assert t.level_downsamples == os_img.level_downsamples
-        for factor, best_level in (32, 2), (3.9, 0), (4.1, 1), (2.9, 0), (1, 0):
-            assert os_img.get_best_level_for_downsample(factor) == best_level
-            assert t.get_best_level_for_downsample(factor) == best_level

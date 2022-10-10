@@ -4,12 +4,10 @@ import shutil
 import pytest
 import tiledb
 
-from tests import get_path
+from tests import get_CMU_1_SMALL_REGION_schemas, get_path
 from tiledbimg.converters.ome_tiff import OMETiffConverter
 from tiledbimg.converters.ome_zarr import OMEZarrConverter
 from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
-
-from . import CMU_1_SMALL_REGION
 
 
 @pytest.mark.parametrize(
@@ -25,7 +23,7 @@ def test_ome(format_path):
     # os_img = osld.open_slide(get_path("CMU-1-Small-Region.svs.tiff"))
 
     t = TileDBOpenSlide.from_group_uri(get_path(format_path))
-    schemas = CMU_1_SMALL_REGION().schemas()
+    schemas = get_CMU_1_SMALL_REGION_schemas()
 
     for i in range(0, 3):
         assert t.level_info[i] == LevelInfo(
@@ -39,18 +37,18 @@ def test_ome(format_path):
 
 
 @pytest.mark.parametrize(
-    "converter",
+    "converter,path",
     [
         (OMEZarrConverter, "CMU-1-Small-Region.ome.zarr"),
         (OMETiffConverter, "CMU-1-Small-Region.ome.tiff"),
     ],
 )
-def test_ome_tiff_converter(tmp_path, converter):
-    expected = CMU_1_SMALL_REGION().schemas()
-    src = get_path(converter[1])
+def test_ome_tiff_converter(tmp_path, converter, path):
+    expected = get_CMU_1_SMALL_REGION_schemas()
+    src = get_path(path)
     dest = tmp_path / "tiledb"
     dest.mkdir()
-    converter[0]().convert_image(src, dest.as_uri(), level_min=0)
+    converter().convert_image(src, dest.as_uri(), level_min=0)
 
     for i in range(0, 3):
         with tiledb.open(os.path.join(dest.as_uri(), f"l_{i}.tdb")) as A:
