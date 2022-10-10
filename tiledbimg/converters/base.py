@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from concurrent import futures
+from dataclasses import dataclass
 from typing import Optional, Sequence
 
 import numpy as np
@@ -15,15 +16,31 @@ class ImageReader(ABC):
 
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
-        """Return the image for the given level as (x, y, RGB) 3D numpy array"""
+        """Return the image for the given level as (X, Y, C) 3D numpy array"""
+
+
+@dataclass(frozen=True)
+class Dimension:
+    name: str
+    max_tile: int
+
+    def to_tiledb(self, size: int) -> tiledb.Dim:
+        return tiledb.Dim(
+            name=self.name,
+            domain=(0, size - 1),
+            dtype=np.uint64,
+            tile=min(size, self.max_tile),
+        )
 
 
 class ImageConverter(ABC):
-    _rgb_dtype = np.dtype([("", "uint8"), ("", "uint8"), ("", "uint8")])
-
-    def __init__(self, max_x_tile: int = 1024, max_y_tile: int = 1024):
-        self.max_x_tile = max_x_tile
-        self.max_y_tile = max_y_tile
+    def __init__(
+        self,
+        x_dim: Dimension = Dimension("X", 1024),
+        y_dim: Dimension = Dimension("Y", 1024),
+        c_dim: Dimension = Dimension("C", 3),
+    ):
+        self._dims = (x_dim, y_dim, c_dim)
 
     def convert_image(
         self, input_path: str, output_group_path: str, level_min: int = 0
@@ -43,12 +60,12 @@ class ImageConverter(ABC):
         uris = []
         for level in range(level_min, reader.level_count):
             image = reader.level_image(level)
-            assert image.ndim == 3 and image.shape[2] == 3, image.shape
+            assert image.ndim == 3, image.shape
             uri = os.path.join(output_group_path, f"l_{level}.tdb")
-            schema = self.__get_schema(*image.shape[:2])
+            schema = self.__get_schema(image.shape)
             tiledb.Array.create(uri, schema)
             with tiledb.open(uri, "w") as A:
-                A[:] = np.ascontiguousarray(image).view(dtype=self._rgb_dtype)
+                A[:] = image
             uris.append(uri)
 
         # Write metadata
@@ -101,26 +118,16 @@ class ImageConverter(ABC):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         """Return an ImageReader for the given input path."""
 
-    def __get_schema(self, x_size: int, y_size: int) -> tiledb.ArraySchema:
+    def __get_schema(self, shape: Sequence[int]) -> tiledb.ArraySchema:
+        assert len(shape) == len(self._dims)
         return tiledb.ArraySchema(
             domain=tiledb.Domain(
-                tiledb.Dim(
-                    name="X",
-                    domain=(0, x_size - 1),
-                    dtype=np.uint64,
-                    tile=min(x_size, self.max_x_tile),
-                ),
-                tiledb.Dim(
-                    name="Y",
-                    domain=(0, y_size - 1),
-                    dtype=np.uint64,
-                    tile=min(y_size, self.max_y_tile),
-                ),
+                *(dim.to_tiledb(size) for dim, size in zip(self._dims, shape))
             ),
             attrs=[
                 tiledb.Attr(
-                    name="rgb",
-                    dtype=self._rgb_dtype,
+                    name="",
+                    dtype=np.uint8,
                     filters=[tiledb.ZstdFilter(level=0)],
                 )
             ],
