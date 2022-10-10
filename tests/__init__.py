@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import urllib.parse
 from typing import Sequence
@@ -5,6 +6,10 @@ from typing import Sequence
 import boto3
 import numpy as np
 import tiledb
+
+if os.name == "posix":
+    multiprocessing.set_start_method("forkserver")
+
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
