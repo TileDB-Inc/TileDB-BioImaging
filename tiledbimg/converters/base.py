@@ -24,7 +24,7 @@ class Dimension:
     name: str
     max_tile: int
 
-    def to_tiledb(self, size: int) -> tiledb.Dim:
+    def to_tiledb_dim(self, size: int) -> tiledb.Dim:
         return tiledb.Dim(
             name=self.name,
             domain=(0, size - 1),
@@ -122,7 +122,7 @@ class ImageConverter(ABC):
         assert len(shape) == len(self._dims)
         return tiledb.ArraySchema(
             domain=tiledb.Domain(
-                *(dim.to_tiledb(size) for dim, size in zip(self._dims, shape))
+                *(dim.to_tiledb_dim(size) for dim, size in zip(self._dims, shape))
             ),
             attrs=[
                 tiledb.Attr(
