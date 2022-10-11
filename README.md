@@ -13,12 +13,10 @@ to groups of TileDB arrays and vice versa(coming soon). At the moment we support
     - OME-Zarr
     - OME-Tiff
     - Open-Slide 
-    - NGFF (Coming soon)
 
 ### Ingestion from TileDB Groups of Arrays to:
     - OME-Zarr (Coming soon)
     - OME-Tiff (Coming soon)
-    - NGFF (Coming soon)
 
 
 ## Quick Installation
