@@ -6,21 +6,58 @@
 # TileDB-BioImaging
 
 ## General Information
-This repo contains python code to work with TileDB arrays and biomedical data.
+This repository contains python code that converts images stored in popular Biomedical Imaging formats,
+to groups of TileDB arrays and vice versa(coming soon). At the moment we support the following.
 
-## Installation 
-``
-pip install .[full]
-``
+### Ingestion to TileDB Groups of Arrays
+    - OME-Zarr
+    - OME-Tiff
+    - Open-Slide 
+    - NGFF (Coming soon)
 
-## Features
-- Convert data from standard biomedical image formats to group of TileDB arrays
+### Ingestion from TileDB Groups of Arrays to:
+    - OME-Zarr (Coming soon)
+    - OME-Tiff (Coming soon)
+    - NGFF (Coming soon)
 
-``from tiledbimg.util.convert_ome_zarr import OMEZarrConverter``
 
-``cnv = OMEZarrConverter()``
+## Quick Installation
 
-``cnv.convert_image("data.zarr", "data.tiledb")``
+- from source by cloning the [Git](https://github.com/TileDB-Inc/TileDB-BioImaging) repository:
+
+      git clone https://github.com/TileDB-Inc/TileDB-BioImaging.git
+      cd TileDB-BioImaging
+  
+      # If you use zsh replace .[full] with .\[full\]
+      pip install -e .[full]
+
+- with pip from git:
+
+      pip install git+https://github.com/TileDB-Inc/TileDB-BioImaging.git@main
+
+## Examples
+How to convert imaging data from standard biomedical formats to group of TileDB arrays.
+
+### OME-Zarr to TileDB Group of Arrays
+```python
+from tiledbimg.converters.ome_zarr import OMEZarrConverter
+cnv = OMEZarrConverter()
+cnv.convert_image("path_to_zarr_image", "tiledb_array_group_path")
+```
+
+### OME-Tiff to TileDB Group of Arrays
+```python
+from tiledbimg.converters.ome_tiff import OMETiffConverter
+cnv = OMETiffConverter()
+cnv.convert_image("path_to_zarr_image", "tiledb_array_group_path")
+```
+
+### Open Slide to TileDB Group of Arrays
+```python
+from tiledbimg.converters.openslide import OpenSlideConverter
+cnv = OpenSlideConverter()
+cnv.convert_image("path_to_zarr_image", "tiledb_array_group_path")
+```
 
 ## Project Status
-Project is: _in progress_
+The TileDB-BioImaging project is currently under development, i.e., **the API is subject to change**.
