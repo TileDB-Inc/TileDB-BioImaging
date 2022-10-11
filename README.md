@@ -5,14 +5,19 @@
 
 # TileDB-BioImaging
 
-## General Information
-This repository contains python code that converts images stored in popular Biomedical Imaging formats,
-to groups of TileDB arrays and vice versa(coming soon). At the moment we support the following.
+Python package for:
+- converting images stored in popular Biomedical Imaging formats to groups of TileDB arrays (& vice versa)
+- exposing an expressive and efficient API (powered by TileDB) for querying such data.
+
+**Note**: this project is in pretty early stage and under heavy development.
+Breaking changes to the underlying data format and the API are to be expected.
+
+## Features
 
 ### Ingestion to TileDB Groups of Arrays
     - OME-Zarr
     - OME-Tiff
-    - Open-Slide 
+    - Open-Slide
 
 ### Ingestion from TileDB Groups of Arrays to:
     - OME-Zarr (Coming soon)
@@ -25,7 +30,7 @@ to groups of TileDB arrays and vice versa(coming soon). At the moment we support
 
       git clone https://github.com/TileDB-Inc/TileDB-BioImaging.git
       cd TileDB-BioImaging
-  
+
       # If you use zsh replace .[full] with .\[full\]
       pip install -e .[full]
 
@@ -56,6 +61,3 @@ from tiledbimg.converters.openslide import OpenSlideConverter
 cnv = OpenSlideConverter()
 cnv.convert_image("path_to_open_slide_image", "tiledb_array_group_path")
 ```
-
-## Project Status
-The TileDB-BioImaging project is currently under development, i.e., **the API is subject to change**.
