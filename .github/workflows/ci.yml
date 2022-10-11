@@ -40,10 +40,15 @@ jobs:
       run: pip install -e .[full]
 
     - name: Run tests with coverage
+      id: stats
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      run: pytest -v --cov=tiledbimg --cov-report=term-missing --durations=0 tests/
+      run: |
+        pytest -v --cov=tiledbimg --cov-report=term-missing --durations=0 tests/ > coverage.txt
+        cat coverage.txt
+        TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
+        echo "::set-output name=COVERAGE::$TEST_COVERAGE"
 
     - name: Run notebook examples
       run: |
