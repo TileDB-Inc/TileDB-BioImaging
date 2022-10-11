@@ -42,10 +42,6 @@ def test_ome(uri, level_count):
     assert isinstance(region, np.ndarray)
     assert region.shape == (300, 400, 3)
 
-    region = t.read_region(level=0, location=(100, 100), size=(300, 400))
-    assert isinstance(region, np.ndarray)
-    assert region.shape == (300, 400, 3)
-
 
 @pytest.mark.parametrize(
     "converter,path,level_count",
