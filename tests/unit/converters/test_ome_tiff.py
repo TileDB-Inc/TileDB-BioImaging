@@ -17,10 +17,6 @@ class TestOMETiffReader:
         reader._tiff_series = [1, 2, 3, 4, 5]
         assert reader.level_count == 5
 
-    def test_ome_tiff_level_downsamples(self, mocker_tiff):
-        reader = OMETiffReader("")
-        assert reader.level_downsamples == ()
-
     def test_ome_tiff_level_image(self, mocker_tiff):
         reader = OMETiffReader("")
         tiff_array = np.array([[[0, 1], [2, 3]], [[4, 5], [6, 7]]])

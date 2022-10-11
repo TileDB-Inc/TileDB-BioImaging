@@ -1,5 +1,3 @@
-from typing import Sequence
-
 import numpy as np
 import zarr
 
@@ -13,11 +11,6 @@ class OMEZarrReader(ImageReader):
     @property
     def level_count(self) -> int:
         return len(self._zarray)
-
-    @property
-    def level_downsamples(self) -> Sequence[float]:
-        # TODO
-        return ()
 
     def level_image(self, level: int) -> np.ndarray:
         zarray_l0 = self._zarray[level][0]

@@ -29,11 +29,6 @@ class TestOMEZarrReader:
         reader._zarray = zarr.array(data[1])
         assert reader.level_count == 3
 
-    def test_ome_zarr_level_downsamples(self, tmp_path, mocker_zarr):
-        zarr_path = os.path.join(tmp_path, "test.zarr")
-        reader = OMEZarrReader(zarr_path)
-        assert reader.level_downsamples == ()
-
     def test_ome_zarr_level_image(self, tmp_path, mocker_zarr, data):
         zarr_path = os.path.join(tmp_path, "test.zarr")
         reader = OMEZarrReader(zarr_path)
