@@ -1,6 +1,7 @@
 import os
 import shutil
 
+import numpy as np
 import pytest
 import tiledb
 
@@ -34,6 +35,10 @@ def test_ome(format_path):
     assert t.dimensions == (2220, 2967)
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
     assert t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)
+
+    region = t.read_region(level=0, location=(100, 100), size=(300, 400))
+    assert isinstance(region, np.ndarray)
+    assert region.shape == (300, 400)
 
 
 @pytest.mark.parametrize(

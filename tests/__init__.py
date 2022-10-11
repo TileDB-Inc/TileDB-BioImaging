@@ -73,8 +73,8 @@ def get_CMU_1_SMALL_REGION_schemas():
     ]
 
 
-def check_level_info(num, level_info):
-    assert level_info.level == num
+def check_level_info(level, level_info):
+    assert level_info.level == level
     assert tiledb.object_type(level_info.uri) == "array"
     assert isinstance(level_info.dimensions, tuple)
     assert all(isinstance(dim, int) for dim in level_info.dimensions)
