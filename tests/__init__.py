@@ -1,9 +1,83 @@
+import multiprocessing
 import os
 import urllib.parse
+from typing import Sequence
 
 import boto3
+import numpy as np
+import tiledb
+
+if os.name == "posix":
+    multiprocessing.set_start_method("forkserver")
+
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
+
+def rgb_to_5d(pixels: np.ndarray) -> Sequence:
+    """Convert an RGB image into 5D image (t, c, z, y, x)."""
+    if len(pixels.shape) == 2:
+        stack = np.array([pixels])
+        channels = np.array([stack])
+    elif len(pixels.shape) == 3:
+        size_c = pixels.shape[2]
+        # Swapaxes for interchange x and y
+        channels = [np.array([pixels[:, :, c].swapaxes(0, 1)]) for c in range(size_c)]
+    else:
+        assert False, f"expecting 2 or 3d: ({pixels.shape})"
+    video = np.array([channels])
+    return video
+
+
+def get_CMU_1_SMALL_REGION_schemas():
+    _domains = {
+        0: ((0, 2219, 1024), (0, 2966, 1024)),
+        1: ((0, 386, 387), (0, 462, 463)),
+        2: ((0, 1279, 1024), (0, 430, 431)),
+    }
+    _attr_dtype = [("f0", "u1"), ("f1", "u1"), ("f2", "u1")]
+
+    return [
+        tiledb.ArraySchema(
+            domain=tiledb.Domain(
+                *[
+                    tiledb.Dim(
+                        name="X",
+                        domain=_domains[elem_id][0][:2],
+                        tile=_domains[elem_id][0][-1],
+                        dtype=np.uint64,
+                    ),
+                    tiledb.Dim(
+                        name="Y",
+                        domain=_domains[elem_id][1][:2],
+                        tile=_domains[elem_id][1][-1],
+                        dtype=np.uint64,
+                    ),
+                ]
+            ),
+            sparse=False,
+            attrs=[
+                tiledb.Attr(
+                    name="rgb",
+                    dtype=_attr_dtype,
+                    var=False,
+                    nullable=False,
+                    filters=tiledb.FilterList([tiledb.ZstdFilter(level=0)]),
+                )
+            ],
+            cell_order="row-major",
+            tile_order="row-major",
+            capacity=10000,
+        )
+        for elem_id in range(len(_domains))
+    ]
+
+
+def check_level_info(num, level_info):
+    assert level_info.level == num
+    assert tiledb.object_type(level_info.uri) == "array"
+    assert isinstance(level_info.dimensions, tuple)
+    assert all(isinstance(dim, int) for dim in level_info.dimensions)
 
 
 def get_path(name: str) -> str:
