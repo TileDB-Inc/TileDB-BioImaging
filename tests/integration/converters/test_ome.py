@@ -8,59 +8,57 @@ import tiledb
 from tests import get_CMU_1_SMALL_REGION_schemas, get_path
 from tiledbimg.converters.ome_tiff import OMETiffConverter
 from tiledbimg.converters.ome_zarr import OMEZarrConverter
+from tiledbimg.converters.openslide import OpenSlideConverter
 from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
 @pytest.mark.parametrize(
-    "format_path", ["CMU-1-Small-Region.tiledb", "CMU-1-Small-Region-Zarr.tiledb"]
+    "uri,level_count",
+    [
+        ("CMU-1-Small-Region.svs.tiff.tdb", 1),
+        ("CMU-1-Small-Region.ome.tiff.tdb", 3),
+        ("CMU-1-Small-Region.ome.zarr.tdb", 3),
+    ],
 )
-def test_ome(format_path):
+def test_ome(uri, level_count):
     # TODO: We need to find better test data.
     # This data has already been downsampled without preserving the original levels.
-
-    # import openslide as osld
-    # import tifffile
-    # ometiff_img = tifffile.TiffFile(get_path("CMU-1-Small-Region.ome.tiff"))
-    # os_img = osld.open_slide(get_path("CMU-1-Small-Region.svs.tiff"))
-
-    t = TileDBOpenSlide.from_group_uri(get_path(format_path))
+    t = TileDBOpenSlide.from_group_uri(get_path(uri))
     schemas = get_CMU_1_SMALL_REGION_schemas()
 
-    for i in range(0, 3):
-        assert t.level_info[i] == LevelInfo(
-            uri="", level=i, dimensions=schemas[i].shape
-        )
-
-    assert t.level_count == 3
+    assert t.level_count == level_count
     assert t.dimensions == (2220, 2967)
-    assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)
+    assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))[:level_count]
+    assert (
+        t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)[:level_count]
+    )
+
+    for i in range(level_count):
+        assert t.level_info[i] == LevelInfo(
+            uri="", level=i, dimensions=schemas[i].shape[:2]
+        )
 
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
-    assert region.shape == (300, 400)
+    assert region.shape == (300, 400, 3)
 
 
 @pytest.mark.parametrize(
-    "converter,path",
+    "converter,path,level_count",
     [
-        (OMEZarrConverter, "CMU-1-Small-Region.ome.zarr"),
-        (OMETiffConverter, "CMU-1-Small-Region.ome.tiff"),
+        (OpenSlideConverter, "CMU-1-Small-Region.svs.tiff", 1),
+        (OMETiffConverter, "CMU-1-Small-Region.ome.tiff", 3),
+        (OMEZarrConverter, "CMU-1-Small-Region.ome.zarr", 3),
     ],
 )
-def test_ome_converter(tmp_path, converter, path):
-    expected = get_CMU_1_SMALL_REGION_schemas()
-    src = get_path(path)
-    dest = tmp_path / "tiledb"
-    dest.mkdir()
-    converter().convert_image(src, dest.as_uri(), level_min=0)
+def test_ome_converter(tmp_path, converter, path, level_count):
+    converter().convert_image(get_path(path), str(tmp_path), level_min=0)
 
-    for i in range(0, 3):
-        with tiledb.open(os.path.join(dest.as_uri(), f"l_{i}.tdb")) as A:
-            assert A.schema == expected[i]
-    group = tiledb.Group(dest.as_uri())
-    actual = list(group)
-    assert len(expected) == len(actual)
+    schemas = get_CMU_1_SMALL_REGION_schemas()[:level_count]
+    assert len(tiledb.Group(str(tmp_path))) == len(schemas)
+    for i, schema in enumerate(schemas):
+        with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
+            assert A.schema == schema
 
 
 @pytest.mark.parametrize("max_workers", [0, 1, 2])

@@ -74,7 +74,7 @@ class TileDBOpenSlide:
         self, location: Tuple[int, int], level: int, size: Tuple[int, int]
     ) -> np.ndarray:
         """
-        Return an RGB image containing the contents of the specified region as NumPy array.
+        Return an image containing the contents of the specified region as NumPy array.
 
         :param location: (x, y) tuple giving the top left pixel in the level 0 reference frame
         :param level: the level number
@@ -84,7 +84,7 @@ class TileDBOpenSlide:
         w, h = size
         with tiledb.open(self.level_info[level].uri) as a:
             data = a[x : x + w, y : y + h]
-        return data["rgb"]
+        return data
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample."""
