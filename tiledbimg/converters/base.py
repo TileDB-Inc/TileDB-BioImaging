@@ -24,11 +24,11 @@ class Dimension:
     name: str
     max_tile: int
 
-    def to_tiledb_dim(self, size: int) -> tiledb.Dim:
+    def to_tiledb_dim(self, size: int, dtype: np.dtype) -> tiledb.Dim:
         return tiledb.Dim(
             name=self.name,
             domain=(0, size - 1),
-            dtype=np.uint64,
+            dtype=dtype,
             tile=min(size, self.max_tile),
         )
 
@@ -62,10 +62,7 @@ class ImageConverter(ABC):
             image = reader.level_image(level)
             assert image.ndim == 3, image.shape
             uri = os.path.join(output_group_path, f"l_{level}.tdb")
-            schema = self.__get_schema(image.shape)
-            tiledb.Array.create(uri, schema)
-            with tiledb.open(uri, "w") as A:
-                A[:] = image
+            self._write_image(uri, image)
             uris.append(uri)
 
         # Write metadata
@@ -118,17 +115,24 @@ class ImageConverter(ABC):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         """Return an ImageReader for the given input path."""
 
-    def __get_schema(self, shape: Sequence[int]) -> tiledb.ArraySchema:
-        assert len(shape) == len(self._dims)
-        return tiledb.ArraySchema(
-            domain=tiledb.Domain(
-                *(dim.to_tiledb_dim(size) for dim, size in zip(self._dims, shape))
-            ),
+    def _write_image(self, uri: str, image: np.ndarray) -> None:
+        assert len(image.shape) == len(self._dims)
+        # find the smallest dtype that can hold the number of image scalar values
+        dim_dtype = np.min_scalar_type(image.size)
+        dims = (
+            dim.to_tiledb_dim(size, dim_dtype)
+            for dim, size in zip(self._dims, image.shape)
+        )
+        schema = tiledb.ArraySchema(
+            domain=tiledb.Domain(*dims),
             attrs=[
                 tiledb.Attr(
                     name="",
-                    dtype=np.uint8,
+                    dtype=image.dtype,
                     filters=[tiledb.ZstdFilter(level=0)],
                 )
             ],
         )
+        tiledb.Array.create(uri, schema)
+        with tiledb.open(uri, "w") as A:
+            A[:] = image
