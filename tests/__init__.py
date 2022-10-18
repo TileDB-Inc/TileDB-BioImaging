@@ -80,14 +80,13 @@ def check_level_info(level, level_info):
     assert all(isinstance(dim, int) for dim in level_info.dimensions)
 
 
-def get_path(name: str) -> str:
-    return os.path.join(DATA_DIR, name)
-
-
-def download_from_s3(uri: str) -> str:
-    s3 = boto3.client("s3")
-    parsed_uri = urllib.parse.urlparse(uri)
-    local_path = get_path(os.path.basename(parsed_uri.path))
-    if not os.path.exists(local_path):
-        s3.download_file(parsed_uri.netloc, parsed_uri.path.lstrip("/"), local_path)
+def get_path(uri: str) -> str:
+    if uri.startswith("s3://"):
+        s3 = boto3.client("s3")
+        parsed_uri = urllib.parse.urlparse(uri)
+        local_path = os.path.join(DATA_DIR, os.path.basename(parsed_uri.path))
+        if not os.path.exists(local_path):
+            s3.download_file(parsed_uri.netloc, parsed_uri.path.lstrip("/"), local_path)
+    else:
+        local_path = os.path.join(DATA_DIR, uri)
     return local_path
