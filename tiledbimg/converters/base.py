@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from concurrent import futures
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Sequence
+from urllib.parse import urlparse
 
 import numpy as np
 import tiledb
@@ -81,7 +82,10 @@ class ImageConverter(ABC):
             if metadata:
                 G.meta.update(metadata)
             for level_uri in uris:
-                G.add(os.path.basename(level_uri), relative=True)
+                if urlparse(level_uri).scheme == "tiledb":
+                    G.add(level_uri, relative=False)
+                else:
+                    G.add(os.path.basename(level_uri), relative=True)
 
     def convert_images(
         self,
