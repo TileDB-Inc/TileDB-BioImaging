@@ -14,17 +14,22 @@ def test_ome_tiff_converter(tmp_path):
     OMETiffConverter().convert_image(
         get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path)
     )
-    schemas = get_CMU_1_SMALL_REGION_schemas()
+    schemas = get_CMU_1_SMALL_REGION_schemas(include_nested=True)
     assert len(tiledb.Group(str(tmp_path))) == len(schemas)
     for i, schema in enumerate(schemas):
         with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
             assert A.schema == schema
 
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
-    assert t.level_count == 3
+    assert t.level_count == 4
     assert t.dimensions == (2220, 2967)
-    assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)
+    assert t.level_dimensions == ((2220, 2967), (574, 768), (387, 463), (1280, 431))
+    assert t.level_downsamples == (
+        1.0,
+        3.865438534407666,
+        6.0723207259698295,
+        4.30918285962877,
+    )
     for i in range(t.level_count):
         assert t.level_info[i] == LevelInfo(
             uri="", level=i, dimensions=schemas[i].shape[:2]
@@ -39,13 +44,16 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
     OMETiffConverter().convert_image(get_path(path), str(tmp_path))
 
-    assert len(tiledb.Group(str(tmp_path))) == 2
+    assert len(tiledb.Group(str(tmp_path))) == 3
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
         assert A.schema.domain.dtype == np.uint32
         assert A.attr(0).dtype == np.uint16
     with tiledb.open(str(tmp_path / "l_1.tdb")) as A:
         assert A.schema.domain.dtype == np.uint16
-        assert A.attr(0).dtype == np.uint8
+        assert A.attr(0).dtype == np.uint16
+    with tiledb.open(str(tmp_path / "l_2.tdb")) as A:
+        assert A.schema.domain.dtype == np.uint16
+        assert A.attr(0).dtype == np.uint16
 
 
 @pytest.mark.parametrize("max_workers", [0, 1, 2])
