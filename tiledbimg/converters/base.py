@@ -67,6 +67,9 @@ class ImageConverter(ABC):
         for level in range(level_min, reader.level_count):
             uri = os.path.join(output_group_path, f"l_{level}.tdb")
             image = reader.level_image(level)
+            if len(image.shape) != len(self._dims):
+                # FIXME: temporary workaround until there is support for axes
+                continue
             level_metadata = reader.level_metadata(level)
             self._write_image(uri, image, level_metadata)
             uris.append(uri)
@@ -127,7 +130,6 @@ class ImageConverter(ABC):
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
     ) -> None:
-        assert len(image.shape) == len(self._dims)
         # find the smallest dtype that can hold the number of image scalar values
         dim_dtype = np.min_scalar_type(image.size)
         dims = (

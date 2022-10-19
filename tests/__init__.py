@@ -29,12 +29,14 @@ def rgb_to_5d(pixels: np.ndarray) -> Sequence:
     return video
 
 
-def get_CMU_1_SMALL_REGION_schemas():
+def get_CMU_1_SMALL_REGION_schemas(include_nested=False):
     _domains = [
         ((0, 2219, 1024), (0, 2966, 1024), (0, 2, 3)),
         ((0, 386, 387), (0, 462, 463), (0, 2, 3)),
         ((0, 1279, 1024), (0, 430, 431), (0, 2, 3)),
     ]
+    if include_nested:
+        _domains.insert(1, ((0, 573, 574), (0, 767, 768), (0, 2, 3)))
     return [
         tiledb.ArraySchema(
             domain=tiledb.Domain(
