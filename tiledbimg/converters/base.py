@@ -2,7 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from concurrent import futures
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import tiledb
@@ -17,6 +17,12 @@ class ImageReader(ABC):
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
         """Return the image for the given level as (X, Y, C) 3D numpy array"""
+
+    def level_metadata(self, level: int) -> Dict[str, Any]:
+        return {}
+
+    def metadata(self) -> Dict[str, Any]:
+        return {}
 
 
 @dataclass(frozen=True)
@@ -59,15 +65,18 @@ class ImageConverter(ABC):
         # Create a TileDB array for each level in range(level_min, reader.level_count)
         uris = []
         for level in range(level_min, reader.level_count):
-            image = reader.level_image(level)
-            assert image.ndim == 3, image.shape
             uri = os.path.join(output_group_path, f"l_{level}.tdb")
-            self._write_image(uri, image)
+            image = reader.level_image(level)
+            level_metadata = reader.level_metadata(level)
+            self._write_image(uri, image, level_metadata)
             uris.append(uri)
 
-        # Write metadata
+        # Write group metadata
         with tiledb.Group(output_group_path, "w") as G:
             G.meta["original_filename"] = input_path
+            metadata = reader.metadata()
+            if metadata:
+                G.meta.update(metadata)
             for level_uri in uris:
                 G.add(os.path.basename(level_uri), relative=True)
 
@@ -115,7 +124,9 @@ class ImageConverter(ABC):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         """Return an ImageReader for the given input path."""
 
-    def _write_image(self, uri: str, image: np.ndarray) -> None:
+    def _write_image(
+        self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
+    ) -> None:
         assert len(image.shape) == len(self._dims)
         # find the smallest dtype that can hold the number of image scalar values
         dim_dtype = np.min_scalar_type(image.size)
@@ -136,3 +147,5 @@ class ImageConverter(ABC):
         tiledb.Array.create(uri, schema)
         with tiledb.open(uri, "w") as A:
             A[:] = image
+            if metadata:
+                A.meta.update(metadata)
