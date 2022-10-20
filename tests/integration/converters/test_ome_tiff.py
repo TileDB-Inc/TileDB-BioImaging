@@ -59,30 +59,21 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
         assert A.attr(0).dtype == np.uint8
 
 
-@pytest.mark.parametrize("max_workers", [0, 1, 2])
-def test_ome_tiff_converter_parallel(tmp_path, max_workers):
+@pytest.mark.parametrize("max_workers,num_copies", [(0, 2), (2, 4), (None, 9)])
+def test_ome_tiff_converter_parallel(tmp_path, max_workers, num_copies):
+    input_paths = []
     src = get_path("CMU-1-Small-Region.ome.tiff")
+    input_paths.append(src)
+    for i in range(num_copies):
+        dest = str(tmp_path / f"{i}-{os.path.basename(src)}")
+        shutil.copy(src, dest)
+        input_paths.append(dest)
 
-    # Replicate image file in other location
-    src2 = tmp_path / "src2"
-    src2.mkdir()
-    shutil.copy(src, src2)
-    shutil.move(
-        os.path.join(src2, "CMU-1-Small-Region.ome.tiff"),
-        os.path.join(src2, "CMU-2-Small-Region.ome.tiff"),
-    )
+    output_path = tmp_path / "converted"
+    output_path.mkdir()
+    OMETiffConverter().convert_images(input_paths, output_path, max_workers=max_workers)
 
-    image_list = [src, os.path.join(src2, "CMU-2-Small-Region.ome.tiff")]
-    groups = tmp_path / "groups"
-    groups.mkdir()
-    if not os.path.exists(groups.as_uri()):
-        OMETiffConverter().convert_images(
-            image_list, groups.as_uri(), max_workers=max_workers
-        )
-
-    grp_1 = tiledb.Group(os.path.join(groups.as_uri(), "CMU-1-Small-Region.ome"), "r")
-    assert grp_1.meta["original_filename"] == src
-    grp_2 = tiledb.Group(os.path.join(groups.as_uri(), "CMU-2-Small-Region.ome"), "r")
-    assert grp_2.meta["original_filename"] == os.path.join(
-        src2, "CMU-2-Small-Region.ome.tiff"
-    )
+    converted_dirs = list(map(str, output_path.glob("*")))
+    assert len(converted_dirs) == len(input_paths)
+    for converted_dir in converted_dirs:
+        assert tiledb.object_type(converted_dir) == "group"
