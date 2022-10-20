@@ -8,7 +8,7 @@ based on the next-generation file format (NGFF) as described [here](https://ngff
 ## API
 The core functions of the initial API are:
 
-* Support storage of Biomedical imaging datasets in TileDB array groups. 
+* Support storage of Biomedical imaging datasets stored as OME-Zarr or OME-Tiff files, in TileDB array groups. 
 * Simple access to dataset/collection properties.
 
 
@@ -16,27 +16,26 @@ The core functions of the initial API are:
 
 Based on our research and avoiding a lot of the jargon, there are the following “components” in typical Biomedical Imaging projects:
 
- - Images with multiple levels of resolution. 
+ - Images with multiple levels of resolution (Note that the number of dimensions is variable between 2 and 5 and that axis names are arbitrary., 
+ metadata for details.). 
  - Optionally associated labels.   
+ - Multiple metadata as described [here](https://ngff.openmicroscopy.org/latest/#metadata). 
   
- Note that the number of dimensions is variable between 2 and 5 and that axis names are arbitrary., 
- metadata for details. For this example we assume an image with 5 dimensions and axes called t,c,z,y,x.
-
-
 ## On-disk Implementation with TileDB
 
 In TileDB, we will implement the above as follows:
 
-* ND Dense
-* The arbitrary key-value metadata will be modeled as **TileDB group metadata** (see the TODOs section at the end).
+* Images are modeled as groups of ND Dense TileDB arrays with integer dimensions and uint8 attribute, i.e., one dense array per image level. 
+* Labels are also modeled as groups of ND Dense TileDB arrays with integer dimensions and uint8 attribute, i.e., one dense array per image level. 
+* The arbitrary key-value metadata will be modeled as **TileDB group metadata**.
 
 A potential two image Biomedical Imaging dataset, composed of one or more TileDB array groups, would look as follows:
 
 ```
 .                               # Root folder, potentially in S3.
     image_1.tiledb              # One image (id=1) converted to a TileDB Group.
-    |-- __group                 # TileDB group directory
-    |-- __meta                  # Group Metadata
+    |-- __group                 # TileDB group directory. 
+    |-- __meta                  # Group Metadata, contains all group metadata in a Key-Value manner. Metadata include all kinds of group metadata needed based on NGFF.     
     |-- l_0.tdb                 # Layer 0 modeled as a 2D-5D dense TileDB Array with integer dimensions and uint8 attribute.
     |   |-- __commits
     |   |-- __fragments
@@ -76,4 +75,8 @@ A potential two image Biomedical Imaging dataset, composed of one or more TileDB
     |   `-- __schema
 ```
 
-
+## Metadata
+As mentioned above, there are various kinds of metadata associated with any Biomedical Imaging dataset. 
+The various TileDB group metadata files throughout the above array hierarchy may contain metadata keys as 
+specified in the [NGFF metadata description](https://ngff.openmicroscopy.org/latest/#metadata), 
+for discovering certain types of data, especially images.
