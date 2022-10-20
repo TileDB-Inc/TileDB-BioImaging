@@ -23,10 +23,20 @@ class OMETiffReader(ImageReader):
         return len(self._levels)
 
     def level_image(self, level: int) -> np.ndarray:
-        image = self._levels[level].asarray()
-        assert image.ndim == 3
-        # TODO: remove (hardcoded) swapaxes, need axes metadata
-        image = image.swapaxes(0, 2)
+        series = self._levels[level]
+        image = series.asarray()
+        # currently we support exactly 3 dimensions (X, Y, C), stored in this order
+        axes = series.axes.replace("S", "C")
+        if axes == "XYC":
+            pass
+        elif axes == "CYX":
+            image = np.swapaxes(image, 0, 2)
+        elif axes == "YXC":
+            image = np.swapaxes(image, 0, 1)
+        elif axes == "CXY":
+            image = np.moveaxis(image, 0, 2)
+        else:
+            raise NotImplementedError(f"Image axes {series.axes} not supported yet")
         return image
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
