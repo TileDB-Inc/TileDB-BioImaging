@@ -69,6 +69,7 @@ class ImageConverter(ABC):
             uri = os.path.join(output_group_path, f"l_{level}.tdb")
             image = reader.level_image(level)
             level_metadata = reader.level_metadata(level)
+            level_metadata["level"] = level
             self._write_image(uri, image, level_metadata)
             uris.append(uri)
 

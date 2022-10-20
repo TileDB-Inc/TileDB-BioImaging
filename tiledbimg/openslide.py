@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Tuple
+from operator import itemgetter
+from typing import Sequence, Tuple
 
 import numpy as np
 import tiledb
@@ -11,19 +11,7 @@ import tiledb
 @dataclass(frozen=True)
 class LevelInfo:
     uri: str = field(compare=False, repr=False)
-    level: int
     dimensions: Tuple[int, int]
-
-    @classmethod
-    def from_array(cls, array: tiledb.Array, level: Optional[int] = None) -> LevelInfo:
-        uri = array.uri
-        if level is None:
-            basename = os.path.splitext(os.path.basename(uri))[0]
-            try:
-                level = int(basename.split("_")[-1])
-            except ValueError:
-                raise ValueError(f"Invalid level uri: {uri}")
-        return cls(uri, level, array.schema.shape[:2])
 
 
 @dataclass(frozen=True)
@@ -34,10 +22,13 @@ class TileDBOpenSlide:
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
         with tiledb.Group(uri) as G:
             level_info = []
-            for a_uri in sorted(o.uri for o in G):
-                with tiledb.open(a_uri) as a:
-                    level_info.append(LevelInfo.from_array(a))
-        return cls(tuple(level_info))
+            for o in G:
+                with tiledb.open(o.uri) as a:
+                    level = a.meta.get("level", 0)
+                    level_info.append((level, LevelInfo(o.uri, a.schema.shape[:2])))
+            # sort by level
+            level_info.sort(key=itemgetter(0))
+        return cls(tuple(map(itemgetter(1), level_info)))
 
     @property
     def level_count(self) -> int:
