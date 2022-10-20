@@ -11,52 +11,50 @@ class OMETiffReader(ImageReader):
     def __init__(self, input_path: str):
         self._tiff = tifffile.TiffFile(input_path)
         self._ome_metadata = tifffile.xml2dict(self._tiff.ome_metadata)
-        self._pages = []
-        self._page_subifds = {}
-        for s in self._tiff.series:
-            for i, l in enumerate(s.levels):
-                page = l.keyframe
-                self._pages.append(page)
-                if i == 0:
-                    self._page_subifds[page] = len(s.levels) - 1
+        self._levels = []
+        self._subifds = {}
+        for series in self._tiff.series:
+            self._levels.extend(series.levels)
+            self._subifds[series] = len(series.levels) - 1
 
     @property
     def level_count(self) -> int:
-        return len(self._pages)
+        return len(self._levels)
 
     def level_image(self, level: int) -> np.ndarray:
-        image = self._pages[level].asarray()
-        if image.ndim == 3:
-            # TODO: remove (hardcoded) swapaxes, need axes metadata
-            image = image.swapaxes(0, 2)
+        image = self._levels[level].asarray()
+        assert image.ndim == 3
+        # TODO: remove (hardcoded) swapaxes, need axes metadata
+        image = image.swapaxes(0, 2)
         return image
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        page = self._pages[level]
-        subifds = self._page_subifds.get(page)
+        series = self._levels[level]
+        subifds = self._subifds.get(series)
         if subifds is not None:
-            metadata = dict(self._ome_metadata, axes=page.axes)
+            metadata = dict(self._ome_metadata, axes=series.axes)
         else:
             metadata = None
+        keyframe = series.keyframe
         write_kwargs = dict(
             subifds=subifds,
             metadata=metadata,
-            photometric=page.photometric,
-            planarconfig=page.planarconfig,
-            extrasamples=page.extrasamples,
-            rowsperstrip=page.rowsperstrip,
-            bitspersample=page.bitspersample,
-            compression=page.compression,
-            predictor=page.predictor,
-            subsampling=page.subsampling,
-            jpegtables=page.jpegtables,
-            colormap=page.colormap,
-            subfiletype=page.subfiletype or None,
-            software=page.software,
-            tile=page.tile,
-            datetime=page.datetime,
-            resolution=page.resolution,
-            resolutionunit=page.resolutionunit,
+            photometric=keyframe.photometric,
+            planarconfig=keyframe.planarconfig,
+            extrasamples=keyframe.extrasamples,
+            rowsperstrip=keyframe.rowsperstrip,
+            bitspersample=keyframe.bitspersample,
+            compression=keyframe.compression,
+            predictor=keyframe.predictor,
+            subsampling=keyframe.subsampling,
+            jpegtables=keyframe.jpegtables,
+            colormap=keyframe.colormap,
+            subfiletype=keyframe.subfiletype or None,
+            software=keyframe.software,
+            tile=keyframe.tile,
+            datetime=keyframe.datetime,
+            resolution=keyframe.resolution,
+            resolutionunit=keyframe.resolutionunit,
         )
         return {"pickled_write_kwargs": pickle.dumps(write_kwargs)}
 
