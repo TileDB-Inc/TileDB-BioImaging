@@ -10,7 +10,8 @@ from .base import ImageConverter, ImageReader
 class OMETiffReader(ImageReader):
     def __init__(self, input_path: str):
         self._tiff = tifffile.TiffFile(input_path)
-        self._ome_metadata = tifffile.xml2dict(self._tiff.ome_metadata)
+        omexml = self._tiff.ome_metadata
+        self._ome_metadata = tifffile.xml2dict(omexml) if omexml else {}
         self._levels = []
         self._subifds = {}
         for series in self._tiff.series:
