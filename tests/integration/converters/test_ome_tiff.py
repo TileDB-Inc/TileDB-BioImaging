@@ -44,7 +44,7 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
     OMETiffConverter().convert_image(get_path(path), str(tmp_path))
 
-    assert len(tiledb.Group(str(tmp_path))) == 3
+    assert len(tiledb.Group(str(tmp_path))) == 4
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
         assert A.schema.domain.dtype == np.uint32
         assert A.attr(0).dtype == np.uint16
@@ -54,6 +54,9 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     with tiledb.open(str(tmp_path / "l_2.tdb")) as A:
         assert A.schema.domain.dtype == np.uint16
         assert A.attr(0).dtype == np.uint16
+    with tiledb.open(str(tmp_path / "l_3.tdb")) as A:
+        assert A.schema.domain.dtype == np.uint16
+        assert A.attr(0).dtype == np.uint8
 
 
 @pytest.mark.parametrize("max_workers", [0, 1, 2])
