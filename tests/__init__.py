@@ -75,13 +75,6 @@ def get_CMU_1_SMALL_REGION_schemas(include_nested=False):
     ]
 
 
-def check_level_info(level, level_info):
-    assert level_info.level == level
-    assert tiledb.object_type(level_info.uri) == "array"
-    assert isinstance(level_info.dimensions, tuple)
-    assert all(isinstance(dim, int) for dim in level_info.dimensions)
-
-
 def get_path(uri: str) -> str:
     if uri.startswith("s3://"):
         s3 = boto3.client("s3")

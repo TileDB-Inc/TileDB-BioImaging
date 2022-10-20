@@ -1,20 +1,25 @@
-import os
-
-import pytest
 import tiledb
 
-from tests import check_level_info, get_CMU_1_SMALL_REGION_schemas
-from tiledbimg.openslide import LevelInfo
+from tests import get_CMU_1_SMALL_REGION_schemas
+from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
-class TestLevelInfo:
-    def test_from_array(self, tmp_path):
-        test_data_schemas = get_CMU_1_SMALL_REGION_schemas()
-        tiledb.Array.create(os.path.join(tmp_path, "test.tdb"), test_data_schemas[0])
-        with tiledb.open(os.path.join(tmp_path, "test.tdb"), "r") as A:
-            for level in range(42):
-                check_level_info(level, LevelInfo.from_array(A, level))
+class TestTileDBOpenSlide:
+    def test_from_group_uri(self, tmp_path):
+        schemas = get_CMU_1_SMALL_REGION_schemas()
+        group_path = str(tmp_path)
+        tiledb.Group.create(group_path)
+        with tiledb.Group(group_path, "w") as G:
+            for level, schema in enumerate(schemas):
+                level_path = str(tmp_path / f"l_{level}.tdb")
+                tiledb.Array.create(level_path, schema)
+                with tiledb.open(level_path, "w") as A:
+                    A.meta["level"] = level
+                G.add(level_path)
 
-            with pytest.raises(ValueError) as excinfo:
-                LevelInfo.from_array(A)
-            assert "Invalid level uri" in str(excinfo)
+        tdb_os = TileDBOpenSlide.from_group_uri(group_path)
+        assert tdb_os.level_info == (
+            LevelInfo(str(tmp_path / "l_0.tdb"), dimensions=(2220, 2967)),
+            LevelInfo(str(tmp_path / "l_1.tdb"), dimensions=(387, 463)),
+            LevelInfo(str(tmp_path / "l_2.tdb"), dimensions=(1280, 431)),
+        )
