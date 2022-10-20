@@ -74,7 +74,6 @@ class ImageConverter(ABC):
 
         # Write group metadata
         with tiledb.Group(output_group_path, "w") as G:
-            G.meta["original_filename"] = input_path
             metadata = reader.metadata()
             if metadata:
                 G.meta.update(metadata)
