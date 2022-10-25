@@ -78,4 +78,14 @@ A potential two image Biomedical Imaging dataset, composed of one or more TileDB
 As mentioned above, there are various kinds of metadata associated with any Biomedical Imaging dataset. 
 The various TileDB group metadata files throughout the above array hierarchy may contain metadata keys as 
 specified in the [NGFF metadata description](https://ngff.openmicroscopy.org/latest/#metadata), 
-for discovering certain types of data, especially images.
+for discovering certain types of data, especially images. Specifically may contain the following **optional** metadata keys.
+
+ 1. [axes](https://ngff.openmicroscopy.org/latest/#axes-md)
+ 2. [bioformats2raw.layout](https://ngff.openmicroscopy.org/latest/#bf2raw)
+ 3. [coordinateTransformations](https://ngff.openmicroscopy.org/latest/#trafo-md)
+ 4. [multiscales](https://ngff.openmicroscopy.org/latest/#multiscale-md)
+ 5. [omero](https://ngff.openmicroscopy.org/latest/#omero-md)
+ 6. [labels](https://ngff.openmicroscopy.org/latest/#labels-md)
+ 7. [image-label](https://ngff.openmicroscopy.org/latest/#label-md)
+ 8. [plate](https://ngff.openmicroscopy.org/latest/#plate-md)
+ 9. [well](https://ngff.openmicroscopy.org/latest/#well-md) 
