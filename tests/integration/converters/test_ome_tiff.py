@@ -2,6 +2,7 @@ import os
 import shutil
 
 import numpy as np
+import PIL.Image
 import pytest
 import tiledb
 
@@ -31,11 +32,14 @@ def test_ome_tiff_converter(tmp_path):
         4.30918285962877,
     )
     for i in range(t.level_count):
-        assert t.level_info[i] == LevelInfo(uri="", dimensions=schemas[i].shape[:2])
+        assert t.level_info[i] == LevelInfo(uri="", dimensions=schemas[i].shape[:-3:-1])
+
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
+    assert region.ndim == 3
     assert region.dtype == np.uint8
-    assert region.shape == (300, 400, 3)
+    img = PIL.Image.fromarray(region)
+    assert img.size == (300, 400)
 
 
 def test_ome_tiff_converter_different_dtypes(tmp_path):

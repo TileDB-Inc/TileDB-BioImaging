@@ -32,7 +32,7 @@ class TestOMEZarrReader:
     def test_ome_zarr_level_image(self, tmp_path, mocker_zarr, data):
         zarr_path = os.path.join(tmp_path, "test.zarr")
         reader = OMEZarrReader(zarr_path)
-        expected = data[0]
+        expected = np.moveaxis(data[0], 2, 0)
         zarr_array = zarr.array(data[1])
         # zarr_array.shape (level_count, 3, 1, 256, 256) = (t, c, z, y, x)
         reader._zarray.__getitem__.return_value = zarr_array

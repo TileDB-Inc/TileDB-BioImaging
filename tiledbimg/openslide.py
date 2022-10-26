@@ -11,7 +11,7 @@ import tiledb
 @dataclass(frozen=True)
 class LevelInfo:
     uri: str = field(compare=False, repr=False)
-    dimensions: Tuple[int, int]
+    dimensions: Tuple[int, int]  # (width, height)
 
 
 @dataclass(frozen=True)
@@ -23,9 +23,12 @@ class TileDBOpenSlide:
         with tiledb.Group(uri) as G:
             level_info = []
             for o in G:
-                with tiledb.open(o.uri) as a:
+                uri = o.uri
+                with tiledb.open(uri) as a:
                     level = a.meta.get("level", 0)
-                    level_info.append((level, LevelInfo(o.uri, a.schema.shape[:2])))
+                    width = a.shape[-1]
+                    height = a.shape[-2]
+                    level_info.append((level, LevelInfo(uri, (width, height))))
             # sort by level
             level_info.sort(key=itemgetter(0))
         return cls(tuple(map(itemgetter(1), level_info)))
@@ -70,12 +73,15 @@ class TileDBOpenSlide:
         :param location: (x, y) tuple giving the top left pixel in the level 0 reference frame
         :param level: the level number
         :param size: (width, height) tuple giving the region size
+
+        :return: 3D (height, width, channel) Numpy array
         """
         x, y = location
         w, h = size
         with tiledb.open(self.level_info[level].uri) as a:
-            data = a[x : x + w, y : y + h]
-        return data
+            data = a[:, y : y + h, x : x + w]
+        # convert from CYX to YXC
+        return np.moveaxis(data, 0, 2)
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample."""

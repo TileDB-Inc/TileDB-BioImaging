@@ -43,11 +43,11 @@ class Dimension:
 class ImageConverter(ABC):
     def __init__(
         self,
-        x_dim: Dimension = Dimension("X", 1024),
-        y_dim: Dimension = Dimension("Y", 1024),
-        c_dim: Dimension = Dimension("C", 3),
+        c_dim: Dimension = Dimension("C", 3),  # channel
+        y_dim: Dimension = Dimension("Y", 1024),  # height
+        x_dim: Dimension = Dimension("X", 1024),  # width
     ):
-        self._dims = (x_dim, y_dim, c_dim)
+        self._dims = (c_dim, y_dim, x_dim)
 
     def convert_image(
         self, input_path: str, output_group_path: str, level_min: int = 0

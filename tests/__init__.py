@@ -21,8 +21,7 @@ def rgb_to_5d(pixels: np.ndarray) -> Sequence:
         channels = np.array([stack])
     elif len(pixels.shape) == 3:
         size_c = pixels.shape[2]
-        # Swapaxes for interchange x and y
-        channels = [np.array([pixels[:, :, c].swapaxes(0, 1)]) for c in range(size_c)]
+        channels = [np.array([pixels[:, :, c]]) for c in range(size_c)]
     else:
         assert False, f"expecting 2 or 3d: ({pixels.shape})"
     video = np.array([channels])
@@ -41,9 +40,9 @@ def get_CMU_1_SMALL_REGION_schemas(include_nested=False):
         tiledb.ArraySchema(
             domain=tiledb.Domain(
                 tiledb.Dim(
-                    name="X",
-                    domain=_domains[elem_id][0][:2],
-                    tile=_domains[elem_id][0][2],
+                    name="C",
+                    domain=_domains[elem_id][2][:2],
+                    tile=_domains[elem_id][2][2],
                     dtype=np.uint32,
                 ),
                 tiledb.Dim(
@@ -53,9 +52,9 @@ def get_CMU_1_SMALL_REGION_schemas(include_nested=False):
                     dtype=np.uint32,
                 ),
                 tiledb.Dim(
-                    name="C",
-                    domain=_domains[elem_id][2][:2],
-                    tile=_domains[elem_id][2][2],
+                    name="X",
+                    domain=_domains[elem_id][0][:2],
+                    tile=_domains[elem_id][0][2],
                     dtype=np.uint32,
                 ),
             ),

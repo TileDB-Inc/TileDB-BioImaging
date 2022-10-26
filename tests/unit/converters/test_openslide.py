@@ -22,7 +22,7 @@ class TestOpenSlideReader:
         )
         data_img = data_img.reshape(128, 128, 3)
         img = Image.fromarray(data_img, "RGB")
-        expected = np.asarray(img).swapaxes(0, 1)
+        expected = np.moveaxis(np.asarray(img), 2, 0)
         reader = OpenSlideReader("")
         reader._osd.read_region.return_value = img
         np.testing.assert_array_almost_equal(reader.level_image(0), expected)

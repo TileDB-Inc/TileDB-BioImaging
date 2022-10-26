@@ -1,5 +1,6 @@
 import numpy as np
-import openslide as osld
+import openslide
+import PIL.Image
 
 from tests import get_path
 from tiledbimg.converters.openslide import OpenSlideConverter
@@ -9,7 +10,7 @@ from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 def test_openslide_converter(tmp_path):
     svs_path = get_path("s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs")
 
-    os_img = osld.open_slide(svs_path)
+    os_img = openslide.open_slide(svs_path)
     assert os_img.level_count == 3
     assert os_img.dimensions == (19919, 21702)
     assert os_img.level_dimensions == ((19919, 21702), (4979, 5425), (2489, 2712))
@@ -27,7 +28,10 @@ def test_openslide_converter(tmp_path):
         assert t.get_best_level_for_downsample(factor) == best_level
     for level, dimensions in enumerate(os_img.level_dimensions):
         assert t.level_info[level] == LevelInfo(uri="", dimensions=dimensions)
+
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
+    assert region.ndim == 3
     assert region.dtype == np.uint8
-    assert region.shape == (300, 400, 3)
+    img = PIL.Image.fromarray(region)
+    assert img.size == (300, 400)

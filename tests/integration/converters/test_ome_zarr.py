@@ -1,4 +1,5 @@
 import numpy as np
+import PIL.Image
 import tiledb
 
 from tests import get_CMU_1_SMALL_REGION_schemas, get_path
@@ -22,8 +23,11 @@ def test_ome_zarr_converter(tmp_path):
     assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
     assert t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)
     for i in range(t.level_count):
-        assert t.level_info[i] == LevelInfo(uri="", dimensions=schemas[i].shape[:2])
+        assert t.level_info[i] == LevelInfo(uri="", dimensions=schemas[i].shape[:-3:-1])
+
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
+    assert region.ndim == 3
     assert region.dtype == np.uint8
-    assert region.shape == (300, 400, 3)
+    img = PIL.Image.fromarray(region)
+    assert img.size == (300, 400)
