@@ -14,9 +14,7 @@ class OMEZarrReader(ImageReader):
 
     def level_image(self, level: int) -> np.ndarray:
         zarray_l0 = self._zarray[level][0]
-        zyx_shape = tuple(zarray_l0.shape[i] for i in (1, 3, 4))
-        reshaped = np.asarray(zarray_l0).reshape(zyx_shape)
-        return reshaped.swapaxes(0, 2)
+        return np.asarray(zarray_l0).squeeze()
 
 
 class OMEZarrConverter(ImageConverter):

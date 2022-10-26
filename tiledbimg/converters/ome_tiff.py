@@ -25,16 +25,16 @@ class OMETiffReader(ImageReader):
     def level_image(self, level: int) -> np.ndarray:
         series = self._levels[level]
         image = series.asarray()
-        # currently we support exactly 3 dimensions (X, Y, C), stored in this order
+        # currently we support exactly 3 dimensions (C, Y, X), stored in this order
         axes = series.axes.replace("S", "C")
         if axes == "XYC":
-            pass
-        elif axes == "CYX":
             image = np.swapaxes(image, 0, 2)
+        elif axes == "CYX":
+            pass
         elif axes == "YXC":
-            image = np.swapaxes(image, 0, 1)
+            image = np.moveaxis(image, 2, 0)
         elif axes == "CXY":
-            image = np.moveaxis(image, 0, 2)
+            image = np.swapaxes(image, 1, 2)
         else:
             raise NotImplementedError(f"Image axes {series.axes} not supported yet")
         return image

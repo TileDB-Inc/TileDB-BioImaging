@@ -16,8 +16,13 @@ class OpenSlideReader(ImageReader):
 
     def level_image(self, level: int) -> np.ndarray:
         dims = self._osd.level_dimensions[level]
+        # image is in (width, height, channel) == XYC
         image = self._osd.read_region((0, 0), level, dims).convert("RGB")
-        return np.asarray(image).swapaxes(0, 1)
+        # np.asarray() transposes it to (height, width, channel) == YXC
+        # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
+        data = np.asarray(image)
+        # we want (channel, height, width) so move channel first
+        return np.moveaxis(data, 2, 0)
 
 
 class OpenSlideConverter(ImageConverter):
