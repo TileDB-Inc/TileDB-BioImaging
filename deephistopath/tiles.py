@@ -127,7 +127,6 @@ def create_summary_pil_img(
     col_tile_size,
     num_row_tiles,
     num_col_tiles,
-    slinfo: SlideInfo = None,
 ):
     """
     Create a PIL summary image including top title area and right side and bottom padding.
@@ -186,21 +185,10 @@ def generate_tile_summaries(
 
     original_img_path = slide.get_training_image_path(slide_num, slinfo=slinfo)
 
-    # if slinfo:
-    #  np_orig = slinfo.read_level(slinfo.target_downsample_level)
-    # else:
-    #  np_orig = slide.open_image_np(original_img_path)
-
     np_orig = slide.open_image_np(original_img_path)
 
     summary_orig = create_summary_pil_img(
-        np_orig,
-        z,
-        row_tile_size,
-        col_tile_size,
-        num_row_tiles,
-        num_col_tiles,
-        slinfo=slinfo,
+        np_orig, z, row_tile_size, col_tile_size, num_row_tiles, num_col_tiles
     )
     draw_orig = ImageDraw.Draw(summary_orig)
 
@@ -498,7 +486,7 @@ def summary_title(tile_summary):
     return "Slide %03d Tile Summary:" % tile_summary.slide_num
 
 
-def summary_stats(tile_summary, slinfo: SlideInfo = None):
+def summary_stats(tile_summary):
     """
     Obtain various stats about the slide tiles.
 
@@ -685,17 +673,9 @@ def summary_and_tiles(
       save_top_tiles: If True, save top tiles to files.
 
     """
-    if slinfo:
-        slide_num = slinfo.slide_number
-
-        img_path = slide.get_filter_image_result(slide_num, slinfo=slinfo)
-        np_img = slide.open_image_np(img_path)
-        tile_sum = score_tiles(slide_num, np_img, slinfo=slinfo)
-
-    else:
-        img_path = slide.get_filter_image_result(slide_num)
-        np_img = slide.open_image_np(img_path)
-        tile_sum = score_tiles(slide_num, np_img)
+    img_path = slide.get_filter_image_result(slide_num, slinfo=slinfo)
+    np_img = slide.open_image_np(img_path)
+    tile_sum = score_tiles(slide_num, np_img, slinfo=slinfo)
 
     if save_data:
         save_tile_data(tile_sum, slinfo=slinfo)
@@ -723,10 +703,7 @@ def save_tile_data(tile_summary, slinfo: SlideInfo = None):
 
     time = Time()
 
-    csv = (
-        summary_title(tile_summary) + "\n" + summary_stats(tile_summary, slinfo=slinfo)
-    )
-
+    csv = summary_title(tile_summary) + "\n" + summary_stats(tile_summary)
     csv += (
         "\n\n\nTile Num,Row,Column,Tissue %,Tissue Quantity,Col Start,Row Start,Col End,Row End,Col Size,Row Size,"
         + "Original Col Start,Original Row Start,Original Col End,Original Row End,Original Col Size,Original Row Size,"
@@ -789,14 +766,6 @@ def tile_to_pil_tile(tile, slinfo: SlideInfo = None):
       Tile as a PIL image.
     """
     t = tile
-
-    if slinfo:
-        # s = slinfo.read_level(0)
-        pass
-    else:
-        slide_filepath = slide.get_training_slide_path(t.slide_num, slinfo=slinfo)
-        s = slide.open_slide(slide_filepath)
-
     x, y = t.o_c_s, t.o_r_s
     w, h = t.o_c_e - t.o_c_s, t.o_r_e - t.o_r_s
 
@@ -805,6 +774,8 @@ def tile_to_pil_tile(tile, slinfo: SlideInfo = None):
         # pil_img = Image.fromarray(np.rollaxis(data, 0, 3))
         pil_img = Image.fromarray(data)
     else:
+        slide_filepath = slide.get_training_slide_path(t.slide_num)
+        s = slide.open_slide(slide_filepath)
         tile_region = s.read_region((x, y), 0, (w, h))
         # RGBA to RGB
         pil_img = tile_region.convert("RGB")
@@ -839,7 +810,7 @@ def save_display_tile(tile, save=True, display=False, slinfo: SlideInfo = None):
 
     if save:
         t = Time()
-        img_path = slide.get_tile_image_path(tile, slinfo=slinfo)
+        img_path = slide.get_tile_image_path(tile)
 
         dir = os.path.dirname(img_path)
         if not os.path.exists(dir):

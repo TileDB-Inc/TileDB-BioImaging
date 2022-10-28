@@ -124,7 +124,7 @@ def open_image_np(filename):
     return np_img
 
 
-def get_training_slide_path(slide_number, slinfo: SlideInfo = None):
+def get_training_slide_path(slide_number):
     """
     Convert slide number to a path to the corresponding WSI training slide file.
 
@@ -144,7 +144,7 @@ def get_training_slide_path(slide_number, slinfo: SlideInfo = None):
     return slide_filepath
 
 
-def get_tile_image_path(tile, slinfo: SlideInfo = None):
+def get_tile_image_path(tile):
     """
     Obtain tile image path based on tile information such as row, column, row pixel position, column pixel position,
     pixel width, and pixel height.
@@ -192,15 +192,10 @@ def get_training_image_path(
     Returns:
        Path to the image file.
     """
-    if slinfo and (
-        large_w is None and large_h is None and small_w is None and small_h is None
-    ):
-        # large_w, large_h = slinfo.slide.dimensions
-        # small_w, small_h  = slinfo.slide.level_dimensions[slinfo.target_downsample_level]
-
-        large_w, large_h, small_w, small_h = slide_to_scaled_pil_image_dims(
-            slide_number, slinfo=slinfo
-        )
+    if slinfo and (large_w is large_h is small_w is small_h is None):
+        large_w, large_h = slinfo.slide.dimensions
+        small_w = math.floor(large_w / SCALE_FACTOR)
+        small_h = math.floor(large_h / SCALE_FACTOR)
 
     padded_sl_num = str(slide_number).zfill(3)
     if large_w is None and large_h is None and small_w is None and small_h is None:
@@ -232,12 +227,7 @@ def get_training_image_path(
 
 
 def get_training_thumbnail_path(
-    slide_number,
-    large_w=None,
-    large_h=None,
-    small_w=None,
-    small_h=None,
-    slinfo: SlideInfo = None,
+    slide_number, large_w=None, large_h=None, small_w=None, small_h=None
 ):
     """
     Convert slide number and optional dimensions to a training thumbnail path. If no dimensions are
@@ -256,12 +246,7 @@ def get_training_thumbnail_path(
     Returns:
        Path to the thumbnail file.
     """
-    if slinfo:
-        padded_sl_num = str(slinfo.slide_number).zfill(3)
-        # HACK TODO
-    else:
-        padded_sl_num = str(slide_number).zfill(3)
-
+    padded_sl_num = str(slide_number).zfill(3)
     if large_w is None and large_h is None and small_w is None and small_h is None:
         wilcard_path = os.path.join(
             DEST_TRAIN_THUMBNAIL_DIR,
@@ -732,10 +717,6 @@ def get_filter_image_result(slide_number, slinfo: SlideInfo = None):
     large_w, large_h, small_w, small_h = parse_dimensions_from_image_filename(
         training_img_path
     )
-
-    # if slinfo:
-    #  slide_number = slinfo.slide_number # HACK
-
     padded_sl_num = str(slide_number).zfill(3)
     img_path = os.path.join(
         FILTER_DIR,
@@ -892,7 +873,6 @@ def slide_to_scaled_pil_image(slide_number, slinfo: SlideInfo = None):
       Tuple consisting of scaled-down PIL image, original width, original height, new width, and new height.
     """
     if slinfo:
-        slide_filepath = get_training_slide_path(slide_number, slinfo=slinfo)
         slide = slinfo.slide
     else:
         slide_filepath = get_training_slide_path(slide_number)
@@ -920,46 +900,7 @@ def slide_to_scaled_pil_image(slide_number, slinfo: SlideInfo = None):
     return img, large_w, large_h, new_w, new_h
 
 
-# HACK copy of above which only returns dims
-def slide_to_scaled_pil_image_dims(slide_number, slinfo: SlideInfo = None):
-    """
-    Convert a WSI training slide to a scaled-down PIL image.
-
-    Args:
-      slide_number: The slide number.
-
-    Returns:
-      Tuple consisting of scaled-down PIL image, original width, original height, new width, and new height.
-    """
-    if slinfo:
-        # slide_filepath = get_training_slide_path(slide_number, slinfo=slinfo)
-        slide = slinfo.slide
-    else:
-        slide_filepath = get_training_slide_path(slide_number)
-        print("Opening Slide #%d: %s" % (slide_number, slide_filepath))
-        slide = open_slide(slide_filepath)
-
-    large_w, large_h = slide.dimensions
-    new_w = math.floor(large_w / SCALE_FACTOR)
-    new_h = math.floor(large_h / SCALE_FACTOR)
-    # level = slide.get_best_level_for_downsample(SCALE_FACTOR)
-    # whole_slide_image = slide.read_region((0, 0), level, slide.level_dimensions[level])
-    # whole_slide_image = whole_slide_image.convert("RGB")
-    # img = whole_slide_image.resize((new_w, new_h), PIL.Image.BILINEAR)
-    return large_w, large_h, new_w, new_h
-
-
-def image_to_scaled_pil_image(slide_number, input_image, slinfo: SlideInfo = None):
-    """
-    Convert a WSI training slide to a scaled-down PIL image.
-
-    Args:
-      slide_number: The slide number.
-
-    Returns:
-      Tuple consisting of scaled-down PIL image, original width, original height, new width, and new height.
-    """
-    # slide_filepath = get_training_slide_path(slide_number, slinfo=slinfo)
+def image_to_scaled_np_image(input_image, slinfo: SlideInfo):
     slide = slinfo.slide
 
     large_w, large_h = slide.dimensions
@@ -968,24 +909,13 @@ def image_to_scaled_pil_image(slide_number, input_image, slinfo: SlideInfo = Non
     level = slide.get_best_level_for_downsample(SCALE_FACTOR)
     level_dims = slide.level_dimensions[level]
 
-    # whole_slide_image = slinfo.read_region((0, 0), level, slide.level_dimensions[level])
-    # whole_slide_image = Image.fromarray(np.rollaxis(whole_slide_image, 0, 3)) # HACK??
-
     whole_slide_image = input_image
     assert (
         input_image.shape[:2] == level_dims
     ), f"""input_image.shape {input_image.shape} != level_dims {level_dims}"""
 
     whole_slide_image = Image.fromarray(whole_slide_image)  # HACK??
-
-    img = whole_slide_image.resize((new_w, new_h), PIL.Image.BILINEAR)
-    return img, large_w, large_h, new_w, new_h
-
-
-def image_to_scaled_np_image(slide_number, input_image, slinfo: SlideInfo = None):
-    pil_img, large_w, large_h, new_w, new_h = image_to_scaled_pil_image(
-        slide_number, input_image, slinfo=slinfo
-    )
+    pil_img = whole_slide_image.resize((new_w, new_h), PIL.Image.BILINEAR)
     np_img = util.pil_to_np_rgb(pil_img)
     return np_img, large_w, large_h, new_w, new_h
 
