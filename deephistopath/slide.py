@@ -20,9 +20,7 @@ import re
 
 import openslide
 import PIL
-from openslide import OpenSlideError
 from PIL import Image
-from tdb.tdbopenslide import SlideInfo
 
 from . import util
 
@@ -74,25 +72,6 @@ TOP_TILES_ON_ORIGINAL_THUMBNAIL_DIR = os.path.join(
 
 TILE_DIR = os.path.join(BASE_DIR, "tiles_" + DEST_TRAIN_EXT)
 TILE_SUFFIX = "tile"
-
-
-def open_slide(filename):
-    """
-    Open a whole-slide image (*.svs, etc).
-
-    Args:
-      filename: Name of the slide file.
-
-    Returns:
-      An OpenSlide object representing a whole-slide image.
-    """
-    try:
-        slide = openslide.open_slide(filename)
-    except OpenSlideError:
-        slide = None
-    except FileNotFoundError:
-        slide = None
-    return slide
 
 
 def open_image(filename):
@@ -193,7 +172,7 @@ def get_training_image_path(
        Path to the image file.
     """
     if slinfo and (large_w is large_h is small_w is small_h is None):
-        large_w, large_h = slinfo.slide.dimensions
+        large_w, large_h = slinfo.dimensions
         small_w = math.floor(large_w / SCALE_FACTOR)
         small_h = math.floor(large_h / SCALE_FACTOR)
 
@@ -365,7 +344,7 @@ def get_filter_image_filename(
     return img_filename
 
 
-def get_tile_summary_image_path(slide_number, slinfo: SlideInfo = None):
+def get_tile_summary_image_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a tile summary image file.
 
@@ -408,7 +387,7 @@ def get_tile_summary_thumbnail_path(slide_number):
     return img_path
 
 
-def get_tile_summary_on_original_image_path(slide_number, slinfo: SlideInfo = None):
+def get_tile_summary_on_original_image_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a tile summary on original image file.
 
@@ -430,7 +409,7 @@ def get_tile_summary_on_original_image_path(slide_number, slinfo: SlideInfo = No
     return img_path
 
 
-def get_tile_summary_on_original_thumbnail_path(slide_number, slinfo: SlideInfo = None):
+def get_tile_summary_on_original_thumbnail_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a tile summary on original thumbnail file.
 
@@ -452,7 +431,7 @@ def get_tile_summary_on_original_thumbnail_path(slide_number, slinfo: SlideInfo 
     return img_path
 
 
-def get_top_tiles_on_original_image_path(slide_number, slinfo: SlideInfo = None):
+def get_top_tiles_on_original_image_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a top tiles on original image file.
 
@@ -474,7 +453,7 @@ def get_top_tiles_on_original_image_path(slide_number, slinfo: SlideInfo = None)
     return img_path
 
 
-def get_top_tiles_on_original_thumbnail_path(slide_number, slinfo: SlideInfo = None):
+def get_top_tiles_on_original_thumbnail_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a top tiles on original thumbnail file.
 
@@ -496,9 +475,7 @@ def get_top_tiles_on_original_thumbnail_path(slide_number, slinfo: SlideInfo = N
     return img_path
 
 
-def get_tile_summary_image_filename(
-    slide_number, thumbnail=False, slinfo: SlideInfo = None
-):
+def get_tile_summary_image_filename(slide_number, thumbnail=False, slinfo=None):
     """
     Convert slide number to a tile summary image file name.
 
@@ -546,9 +523,7 @@ def get_tile_summary_image_filename(
     return img_filename
 
 
-def get_top_tiles_image_filename(
-    slide_number, thumbnail=False, slinfo: SlideInfo = None
-):
+def get_top_tiles_image_filename(slide_number, thumbnail=False, slinfo=None):
     """
     Convert slide number to a top tiles image file name.
 
@@ -596,7 +571,7 @@ def get_top_tiles_image_filename(
     return img_filename
 
 
-def get_top_tiles_image_path(slide_number, slinfo: SlideInfo = None):
+def get_top_tiles_image_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a top tiles image file.
 
@@ -617,7 +592,7 @@ def get_top_tiles_image_path(slide_number, slinfo: SlideInfo = None):
     return img_path
 
 
-def get_top_tiles_thumbnail_path(slide_number, slinfo: SlideInfo = None):
+def get_top_tiles_thumbnail_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a tile summary thumbnail file.
 
@@ -638,7 +613,7 @@ def get_top_tiles_thumbnail_path(slide_number, slinfo: SlideInfo = None):
     return img_path
 
 
-def get_tile_data_filename(slide_number, slinfo: SlideInfo = None):
+def get_tile_data_filename(slide_number, slinfo=None):
     """
     Convert slide number to a tile data file name.
 
@@ -679,7 +654,7 @@ def get_tile_data_filename(slide_number, slinfo: SlideInfo = None):
     return data_filename
 
 
-def get_tile_data_path(slide_number, slinfo: SlideInfo = None):
+def get_tile_data_path(slide_number, slinfo=None):
     """
     Convert slide number to a path to a tile data file.
 
@@ -700,7 +675,7 @@ def get_tile_data_path(slide_number, slinfo: SlideInfo = None):
     return file_path
 
 
-def get_filter_image_result(slide_number, slinfo: SlideInfo = None):
+def get_filter_image_result(slide_number, slinfo=None):
     """
     Convert slide number to the path to the file that is the final result of filtering.
 
@@ -836,7 +811,7 @@ def small_to_large_mapping(small_pixel, large_dimensions):
     return large_x, large_y
 
 
-def training_slide_to_image(slide_number, slinfo: SlideInfo = None):
+def training_slide_to_image(slide_number, slinfo=None):
     """
     Convert a WSI training slide to a saved scaled-down image in a format such as jpg or png.
 
@@ -862,7 +837,7 @@ def training_slide_to_image(slide_number, slinfo: SlideInfo = None):
     save_thumbnail(img, THUMBNAIL_SIZE, thumbnail_path)
 
 
-def slide_to_scaled_pil_image(slide_number, slinfo: SlideInfo = None):
+def slide_to_scaled_pil_image(slide_number, slinfo=None):
     """
     Convert a WSI training slide to a scaled-down PIL image.
 
@@ -872,27 +847,25 @@ def slide_to_scaled_pil_image(slide_number, slinfo: SlideInfo = None):
     Returns:
       Tuple consisting of scaled-down PIL image, original width, original height, new width, and new height.
     """
-    if slinfo:
-        slide = slinfo.slide
-    else:
+    if not slinfo:
         slide_filepath = get_training_slide_path(slide_number)
         print("Opening Slide #%d: %s" % (slide_number, slide_filepath))
-        slide = open_slide(slide_filepath)
+        slinfo = openslide.open_slide(slide_filepath)
 
-    large_w, large_h = slide.dimensions
+    large_w, large_h = slinfo.dimensions
     new_w = math.floor(large_w / SCALE_FACTOR)
     new_h = math.floor(large_h / SCALE_FACTOR)
-    level = slide.get_best_level_for_downsample(SCALE_FACTOR)
+    level = slinfo.get_best_level_for_downsample(SCALE_FACTOR)
 
     if slinfo:
         whole_slide_image = slinfo.read_region(
-            (0, 0), level, slide.level_dimensions[level]
+            (0, 0), level, slinfo.level_dimensions[level]
         )
         # whole_slide_image = Image.fromarray(np.rollaxis(whole_slide_image, 0, 3)) # HACK??
         whole_slide_image = Image.fromarray(whole_slide_image)  # HACK??
     else:
-        whole_slide_image = slide.read_region(
-            (0, 0), level, slide.level_dimensions[level]
+        whole_slide_image = slinfo.read_region(
+            (0, 0), level, slinfo.level_dimensions[level]
         )
         whole_slide_image = whole_slide_image.convert("RGB")
 
@@ -900,14 +873,12 @@ def slide_to_scaled_pil_image(slide_number, slinfo: SlideInfo = None):
     return img, large_w, large_h, new_w, new_h
 
 
-def image_to_scaled_np_image(input_image, slinfo: SlideInfo):
-    slide = slinfo.slide
-
-    large_w, large_h = slide.dimensions
+def image_to_scaled_np_image(input_image, slinfo):
+    large_w, large_h = slinfo.dimensions
     new_w = math.floor(large_w / SCALE_FACTOR)
     new_h = math.floor(large_h / SCALE_FACTOR)
-    level = slide.get_best_level_for_downsample(SCALE_FACTOR)
-    level_dims = slide.level_dimensions[level]
+    level = slinfo.get_best_level_for_downsample(SCALE_FACTOR)
+    level_dims = slinfo.level_dimensions[level]
 
     whole_slide_image = input_image
     assert (

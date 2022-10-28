@@ -19,7 +19,6 @@ import os
 
 import numpy as np
 import skimage as sk
-from tdb.tdbopenslide import SlideInfo
 
 from . import slide, util
 from .util import Time
@@ -672,9 +671,7 @@ def apply_image_filters(np_img, slide_num=None, info=None, save=False, display=F
     return img
 
 
-def apply_filters_to_image_array(
-    slide_num, img, slinfo: SlideInfo = None, save=True, display=False
-):
+def apply_filters_to_image_array(slide_num, img, slinfo=None, save=True, display=False):
     """
     Apply a set of filters to an image and optionally save and/or display filtered images.
 
@@ -696,9 +693,7 @@ def apply_filters_to_image_array(
         os.makedirs(slide.FILTER_DIR)
 
     np_orig = img
-    filtered_np_img = apply_image_filters(
-        np_orig, slide_num, info, save=save, display=display
-    )
+    filtered_np_img = apply_image_filters(np_orig, slide_num, info, save, display)
 
     if save:
         t1 = Time()

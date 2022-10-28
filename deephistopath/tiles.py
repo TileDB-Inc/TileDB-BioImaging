@@ -23,8 +23,8 @@ from enum import Enum
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import openslide
 from PIL import Image, ImageDraw, ImageFont
-from tdb.tdbopenslide import SlideInfo
 
 from . import filter, slide, util
 from .util import Time
@@ -158,7 +158,7 @@ def create_summary_pil_img(
 
 
 def generate_tile_summaries(
-    tile_sum, np_img, display=True, save_summary=False, slinfo: SlideInfo = None
+    tile_sum, np_img, display=True, save_summary=False, slinfo=None
 ):
     """
     Generate summary images/thumbnails showing a 'heatmap' representation of the tissue segmentation of all tiles.
@@ -245,7 +245,7 @@ def generate_top_tile_summaries(
     show_top_stats=True,
     label_all_tiles=LABEL_ALL_TILES_IN_TOP_TILE_SUMMARY,
     border_all_tiles=BORDER_ALL_TILES_IN_TOP_TILE_SUMMARY,
-    slinfo: SlideInfo = None,
+    slinfo=None,
 ):
     """
     Generate summary images/thumbnails showing the top tiles ranked by score.
@@ -549,7 +549,7 @@ def tile_border(draw, r_s, r_e, c_s, c_e, color, border_size=TILE_BORDER_SIZE):
         draw.rectangle([(c_s + x, r_s + x), (c_e - 1 - x, r_e - 1 - x)], outline=color)
 
 
-def save_tile_summary_image(pil_img, slide_num, slinfo: SlideInfo = None):
+def save_tile_summary_image(pil_img, slide_num, slinfo=None):
     """
     Save a tile summary image and thumbnail to the file system.
 
@@ -571,7 +571,7 @@ def save_tile_summary_image(pil_img, slide_num, slinfo: SlideInfo = None):
     # print("%-20s | Time: %-14s  Name: %s" % ("Save Tile Sum Thumb", str(t.elapsed()), thumbnail_filepath))
 
 
-def save_top_tiles_image(pil_img, slide_num, slinfo: SlideInfo = None):
+def save_top_tiles_image(pil_img, slide_num, slinfo=None):
     """
     Save a top tiles image and thumbnail to the file system.
 
@@ -598,7 +598,7 @@ def save_top_tiles_image(pil_img, slide_num, slinfo: SlideInfo = None):
     )
 
 
-def save_tile_summary_on_original_image(pil_img, slide_num, slinfo: SlideInfo = None):
+def save_tile_summary_on_original_image(pil_img, slide_num, slinfo=None):
     """
     Save a tile summary on original image and thumbnail to the file system.
 
@@ -625,7 +625,7 @@ def save_tile_summary_on_original_image(pil_img, slide_num, slinfo: SlideInfo = 
     )
 
 
-def save_top_tiles_on_original_image(pil_img, slide_num, slinfo: SlideInfo = None):
+def save_top_tiles_on_original_image(pil_img, slide_num, slinfo=None):
     """
     Save a top tiles on original image and thumbnail to the file system.
 
@@ -656,7 +656,7 @@ def save_top_tiles_on_original_image(pil_img, slide_num, slinfo: SlideInfo = Non
 
 def summary_and_tiles(
     slide_num,
-    slinfo: SlideInfo = None,
+    slinfo=None,
     display=True,
     save_summary=False,
     save_data=True,
@@ -693,7 +693,7 @@ def summary_and_tiles(
     return tile_sum
 
 
-def save_tile_data(tile_summary, slinfo: SlideInfo = None):
+def save_tile_data(tile_summary, slinfo=None):
     """
     Save tile data to csv file.
 
@@ -755,7 +755,7 @@ def save_tile_data(tile_summary, slinfo: SlideInfo = None):
     )
 
 
-def tile_to_pil_tile(tile, slinfo: SlideInfo = None):
+def tile_to_pil_tile(tile, slinfo=None):
     """
     Convert tile information into the corresponding tile as a PIL image read from the whole-slide image file.
 
@@ -775,7 +775,7 @@ def tile_to_pil_tile(tile, slinfo: SlideInfo = None):
         pil_img = Image.fromarray(data)
     else:
         slide_filepath = slide.get_training_slide_path(t.slide_num)
-        s = slide.open_slide(slide_filepath)
+        s = openslide.open_slide(slide_filepath)
         tile_region = s.read_region((x, y), 0, (w, h))
         # RGBA to RGB
         pil_img = tile_region.convert("RGB")
@@ -797,7 +797,7 @@ def tile_to_np_tile(tile):
     return np_img
 
 
-def save_display_tile(tile, save=True, display=False, slinfo: SlideInfo = None):
+def save_display_tile(tile, save=True, display=False, slinfo=None):
     """
     Save and/or display a tile image.
 
@@ -829,7 +829,7 @@ def score_tiles(
     np_img=None,
     dimensions=None,
     small_tile_in_tile=False,
-    slinfo: SlideInfo = None,
+    slinfo=None,
 ):
     """
     Score all tiles for a slide and return the results in a TileSummary object.
@@ -1786,7 +1786,7 @@ class Tile:
     def get_np_tile(self):
         return tile_to_np_tile(self)
 
-    def save_tile(self, slinfo: SlideInfo = None):
+    def save_tile(self, slinfo=None):
         save_display_tile(self, save=True, display=False, slinfo=slinfo)
 
     def display_tile(self):
