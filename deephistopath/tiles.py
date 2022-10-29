@@ -579,8 +579,6 @@ def save_top_tiles_image(pil_img, slide_num, slinfo=None):
       pil_img: Image as a PIL Image.
       slide_num: The slide number.
     """
-    return  # HACK
-
     t = Time()
     filepath = slide.get_top_tiles_image_path(slide_num, slinfo=slinfo)
     pil_img.save(filepath)
@@ -590,7 +588,7 @@ def save_top_tiles_image(pil_img, slide_num, slinfo=None):
     )
 
     t = Time()
-    thumbnail_filepath = slide.get_top_tiles_thumbnail_path(slide_num, slinfo)
+    thumbnail_filepath = slide.get_top_tiles_thumbnail_path(slide_num, slinfo=slinfo)
     slide.save_thumbnail(pil_img, slide.THUMBNAIL_SIZE, thumbnail_filepath)
     print(
         "%-20s | Time: %-14s  Name: %s"
@@ -633,7 +631,6 @@ def save_top_tiles_on_original_image(pil_img, slide_num, slinfo=None):
       pil_img: Image as a PIL Image.
       slide_num: The slide number.
     """
-    return  # HACK
 
     t = Time()
     filepath = slide.get_top_tiles_on_original_image_path(slide_num, slinfo=slinfo)
@@ -740,10 +737,6 @@ def save_tile_data(tile_summary, slinfo=None):
         csv += line
 
     data_path = slide.get_tile_data_path(tile_summary.slide_num, slinfo=slinfo)
-
-    # HACK
-    # data_path = os.path.join(slide.BASE_DIR, "tile_data", "summary.csv")
-    # end HACK
 
     csv_file = open(data_path, "w")
     csv_file.write(csv)

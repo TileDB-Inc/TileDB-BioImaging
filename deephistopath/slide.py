@@ -715,12 +715,6 @@ def get_filter_image_result(slide_number, slinfo=None):
     )
     return img_path
 
-    # HACK
-    # img_path = os.path.join(
-    #  FILTER_DIR, TRAIN_PREFIX + padded_sl_num
-    # )
-    # return img_path
-
 
 def get_filter_thumbnail_result(slide_number, slinfo=None):
     """
@@ -856,17 +850,12 @@ def slide_to_scaled_pil_image(slide_number, slinfo=None):
     new_w = math.floor(large_w / SCALE_FACTOR)
     new_h = math.floor(large_h / SCALE_FACTOR)
     level = slinfo.get_best_level_for_downsample(SCALE_FACTOR)
-
+    whole_slide_image = slinfo.read_region(
+        (0, 0), level, slinfo.level_dimensions[level]
+    )
     if slinfo:
-        whole_slide_image = slinfo.read_region(
-            (0, 0), level, slinfo.level_dimensions[level]
-        )
-        # whole_slide_image = Image.fromarray(np.rollaxis(whole_slide_image, 0, 3)) # HACK??
         whole_slide_image = Image.fromarray(whole_slide_image)  # HACK??
     else:
-        whole_slide_image = slinfo.read_region(
-            (0, 0), level, slinfo.level_dimensions[level]
-        )
         whole_slide_image = whole_slide_image.convert("RGB")
 
     img = whole_slide_image.resize((new_w, new_h), PIL.Image.BILINEAR)
