@@ -829,6 +829,7 @@ def training_slide_to_image(slide_number, slinfo=None):
         slide_number, large_w, large_h, new_w, new_h
     )
     save_thumbnail(img, THUMBNAIL_SIZE, thumbnail_path)
+    return util.pil_to_np_rgb(img)
 
 
 def slide_to_scaled_pil_image(slide_number, slinfo=None):
@@ -860,24 +861,6 @@ def slide_to_scaled_pil_image(slide_number, slinfo=None):
 
     img = whole_slide_image.resize((new_w, new_h), PIL.Image.BILINEAR)
     return img, large_w, large_h, new_w, new_h
-
-
-def image_to_scaled_np_image(input_image, slinfo):
-    large_w, large_h = slinfo.dimensions
-    new_w = math.floor(large_w / SCALE_FACTOR)
-    new_h = math.floor(large_h / SCALE_FACTOR)
-    level = slinfo.get_best_level_for_downsample(SCALE_FACTOR)
-    level_dims = slinfo.level_dimensions[level]
-
-    whole_slide_image = input_image
-    assert (
-        input_image.shape[:2] == level_dims
-    ), f"""input_image.shape {input_image.shape} != level_dims {level_dims}"""
-
-    whole_slide_image = Image.fromarray(whole_slide_image)  # HACK??
-    pil_img = whole_slide_image.resize((new_w, new_h), PIL.Image.BILINEAR)
-    np_img = util.pil_to_np_rgb(pil_img)
-    return np_img, large_w, large_h, new_w, new_h
 
 
 def save_thumbnail(pil_img, size, path, display_path=False):
