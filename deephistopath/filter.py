@@ -671,7 +671,7 @@ def apply_image_filters(np_img, slide_num=None, info=None, save=False, display=F
     return img
 
 
-def apply_filters_to_image_array(slide_num, img, slinfo=None, save=True, display=False):
+def apply_filters_to_image_array(img, slide_num, slinfo=None, save=True, display=False):
     """
     Apply a set of filters to an image and optionally save and/or display filtered images.
 
