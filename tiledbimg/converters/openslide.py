@@ -3,7 +3,7 @@ from typing import cast
 import numpy as np
 import openslide as osd
 
-from .base import ImageConverter, ImageReader, ImageWriter
+from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
 class OpenSlideReader(ImageReader):
@@ -14,15 +14,16 @@ class OpenSlideReader(ImageReader):
     def level_count(self) -> int:
         return cast(int, self._osd.level_count)
 
+    def level_axes(self, level: int) -> Axes:
+        return Axes("YXC")
+
     def level_image(self, level: int) -> np.ndarray:
         dims = self._osd.level_dimensions[level]
         # image is in (width, height, channel) == XYC
         image = self._osd.read_region((0, 0), level, dims).convert("RGB")
         # np.asarray() transposes it to (height, width, channel) == YXC
         # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
-        data = np.asarray(image)
-        # we want (channel, height, width) so move channel first
-        return np.moveaxis(data, 2, 0)
+        return np.asarray(image)
 
 
 class OpenSlideConverter(ImageConverter):
