@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 import numpy as np
 import tiledb
 
+from .axes import Axes
+
 
 @dataclass(frozen=True)
 class Dimension:
@@ -31,12 +33,22 @@ class ImageReader(ABC):
 
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
-        """Return the image for the given level as (X, Y, C) 3D numpy array"""
+        """
+        Return the image for the given level as numpy array.
+
+        The axes of the array are specified by `level_axes(level)`
+        """
+
+    @abstractmethod
+    def level_axes(self, level: int) -> Axes:
+        """Return the axes for the given level."""
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
+        """Return the metadata for the given level."""
         return {}
 
     def metadata(self) -> Dict[str, Any]:
+        """Return the metadata for the whole multi-resolution image."""
         return {}
 
 
@@ -116,9 +128,10 @@ class ImageConverter(ABC):
         for level in range(level_min, reader.level_count):
             uri = os.path.join(output_group_path, f"l_{level}.tdb")
             image = reader.level_image(level)
+            canonical_image = reader.level_axes(level).transpose(image)
             level_metadata = reader.level_metadata(level)
             level_metadata["level"] = level
-            self._write_image(uri, image, level_metadata)
+            self._write_image(uri, canonical_image, level_metadata)
             uris.append(uri)
 
         # Write group metadata

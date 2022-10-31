@@ -11,7 +11,7 @@ from numcodecs import Blosc
 from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
-from .base import ImageConverter, ImageReader, ImageWriter
+from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrWriter(ImageWriter):
@@ -94,9 +94,17 @@ class OMEZarrReader(ImageReader):
     def level_count(self) -> int:
         return len(self.nodes)
 
+    def level_axes(self, level: int) -> Axes:
+        return Axes("CYX")
+
     def level_image(self, level: int) -> np.ndarray:
         data = self.nodes[level].data
         assert len(data) == 1
+        leveled_zarray = data[0]
+        if leveled_zarray.shape[0] != 1:
+            raise NotImplementedError("T axes not supported yet")
+        if leveled_zarray.shape[2] != 1:
+            raise NotImplementedError("Z axes not supported yet")
         # From NGFF format spec there is guarantee that axes are t,c,z,y,x
         return np.asarray(data[0]).squeeze()
 

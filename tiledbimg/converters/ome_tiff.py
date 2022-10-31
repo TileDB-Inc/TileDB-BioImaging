@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import tifffile
 
-from .base import ImageConverter, ImageReader, ImageWriter
+from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
@@ -19,22 +19,11 @@ class OMETiffReader(ImageReader):
     def level_count(self) -> int:
         return len(self._levels)
 
+    def level_axes(self, level: int) -> Axes:
+        return Axes(self._levels[level].axes.replace("S", "C"))
+
     def level_image(self, level: int) -> np.ndarray:
-        series = self._levels[level]
-        image = series.asarray()
-        # currently we support exactly 3 dimensions (C, Y, X), stored in this order
-        axes = series.axes.replace("S", "C")
-        if axes == "XYC":
-            image = np.swapaxes(image, 0, 2)
-        elif axes == "CYX":
-            pass
-        elif axes == "YXC":
-            image = np.moveaxis(image, 2, 0)
-        elif axes == "CXY":
-            image = np.swapaxes(image, 1, 2)
-        else:
-            raise NotImplementedError(f"Image axes {series.axes} not supported yet")
-        return image
+        return self._levels[level].asarray()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         series = self._levels[level]
