@@ -18,7 +18,6 @@ import math
 import os
 import re
 
-import openslide
 import PIL
 from PIL import Image
 
@@ -843,6 +842,8 @@ def slide_to_scaled_pil_image(slide_number, slinfo=None):
       Tuple consisting of scaled-down PIL image, original width, original height, new width, and new height.
     """
     if not slinfo:
+        import openslide
+
         slide_filepath = get_training_slide_path(slide_number)
         print("Opening Slide #%d: %s" % (slide_number, slide_filepath))
         slinfo = openslide.open_slide(slide_filepath)

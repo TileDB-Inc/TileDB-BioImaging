@@ -23,7 +23,6 @@ from enum import Enum
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import openslide
 from PIL import Image, ImageDraw, ImageFont
 
 from . import filter, slide, util
@@ -767,6 +766,8 @@ def tile_to_pil_tile(tile, slinfo=None):
         # pil_img = Image.fromarray(np.rollaxis(data, 0, 3))
         pil_img = Image.fromarray(data)
     else:
+        import openslide
+
         slide_filepath = slide.get_training_slide_path(t.slide_num)
         s = openslide.open_slide(slide_filepath)
         tile_region = s.read_region((x, y), 0, (w, h))
