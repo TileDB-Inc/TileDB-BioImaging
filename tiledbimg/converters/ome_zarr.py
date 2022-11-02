@@ -14,6 +14,7 @@ from ome_zarr.writer import write_multiscale
 
 from .base import ImageConverter, ImageReader, ImageWriter
 
+
 @dataclass(frozen=True)
 class Level:
     node: Node
