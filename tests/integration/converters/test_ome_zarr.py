@@ -1,6 +1,12 @@
+import glob
+import json
+import os
+from pathlib import Path
+
 import numpy as np
 import PIL.Image
 import tiledb
+import zarr
 
 from tests import get_CMU_1_SMALL_REGION_schemas, get_path
 from tiledbimg.converters.ome_zarr import OMEZarrConverter
@@ -8,26 +14,93 @@ from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
 def test_ome_zarr_converter(tmp_path):
-    OMEZarrConverter().convert_image(
-        get_path("CMU-1-Small-Region.ome.zarr"), str(tmp_path)
+    test_image = [_ for _ in Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("*")][
+        0
+    ]
+    OMEZarrConverter().to_tiledb(
+        str(test_image), str(tmp_path / os.path.basename(test_image))
     )
-    schemas = get_CMU_1_SMALL_REGION_schemas()
-    assert len(tiledb.Group(str(tmp_path))) == len(schemas)
-    for i, schema in enumerate(schemas):
-        with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
-            assert A.schema == schema
 
-    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
-    assert t.level_count == 3
-    assert t.dimensions == (2220, 2967)
-    assert t.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
-    assert t.level_downsamples == (1.0, 6.0723207259698295, 4.30918285962877)
-    for i in range(t.level_count):
-        assert t.level_info[i] == LevelInfo(uri="", dimensions=schemas[i].shape[:-3:-1])
+    schema = get_CMU_1_SMALL_REGION_schemas()[0]
+    assert len(tiledb.Group(str(tmp_path / os.path.basename(test_image)))) == len(
+        schema
+    )
+    with tiledb.open(str(tmp_path / os.path.basename(test_image) / f"l_{0}.tdb")) as A:
+        assert A.schema == schema
 
+    expected_dim = (2220, 2967)
+    expected_downsample = (1.0,)
+    image_uri = str(tmp_path / os.path.basename(test_image))
+    t = TileDBOpenSlide.from_group_uri(str(image_uri))
+    assert t.level_count == 1
+    assert t.dimensions == expected_dim
+    assert t.level_downsamples == expected_downsample
+    assert t.level_info[0] == LevelInfo(uri="", dimensions=schema.shape[:2])
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
-    assert isinstance(region, np.ndarray)
-    assert region.ndim == 3
     assert region.dtype == np.uint8
+    assert region.shape == (300, 400, 3)
     img = PIL.Image.fromarray(region)
     assert img.size == (300, 400)
+
+
+def test_ome_zarr_converter_images(tmp_path):
+    OMEZarrConverter().convert_images(
+        glob.glob(f"{os.path.abspath('../../data/CMU-1-Small-Region.zarr')}/*.zarr"),
+        str(tmp_path),
+        level_min=0,
+        max_workers=0,
+    )
+    schemas = get_CMU_1_SMALL_REGION_schemas()
+    expected_dims = ((2220, 2967), (387, 463), (1280, 431))
+    expected_downsamples = (1.0, 6.0723207259698295, 4.30918285962877)
+    for img_idx, image_uri in enumerate(glob.glob(f"{str(tmp_path)}/*")):
+        t = TileDBOpenSlide.from_group_uri(str(image_uri))
+        assert t.level_count == 1
+        assert t.dimensions == expected_dims[img_idx]
+        assert t.level_downsamples[0] == expected_downsamples[img_idx]
+        assert t.level_info[0] == LevelInfo(
+            uri="", dimensions=schemas[img_idx].shape[:2]
+        )
+        region = t.read_region(level=0, location=(100, 100), size=(100, 200))
+        assert isinstance(region, np.ndarray)
+        assert region.dtype == np.uint8
+        assert region.shape == (100, 200, 3)
+
+
+def test_tiledb_to_ome_zarr_rountrip(tmp_path):
+    # Take one image from CMU-1-Small-Region.ngff.zarr
+    os.mkdir(os.path.join(str(tmp_path), "to_tiledb"))
+    os.mkdir(os.path.join(str(tmp_path), "from_tiledb"))
+    input_zarr = [_ for _ in Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("*")][
+        0
+    ]
+    tiledb_image = f'{str(os.path.join(str(tmp_path), "to_tiledb"))}/{os.path.basename(input_zarr)}'
+    output_zarr = f'{str(os.path.join(str(tmp_path), "from_tiledb"))}/{os.path.basename(input_zarr)}'
+
+    # Store it to Tiledb
+    OMEZarrConverter().to_tiledb(str(input_zarr), tiledb_image)
+    # Store it back to NGFF Zarr
+    OMEZarrConverter().from_tiledb(tiledb_image, output_zarr)
+
+    zarr_image = zarr.open_group(input_zarr, mode="r")
+    tiledb_image = tiledb.Group(tiledb_image, mode="r")
+    expected = zarr.open_group(output_zarr, mode="r")
+
+    # Same number of layers
+    assert len([i for i in zarr_image.array_keys()]) == len(tiledb_image)
+    assert len([i for i in zarr_image.array_keys()]) == len(
+        [i for i in expected.array_keys()]
+    )
+
+    # Compare the .zattrs and .zgroup files
+    with open(os.path.join(input_zarr, ".zattrs")) as input_zarr_attrs:
+        with open(os.path.join(output_zarr, ".zattrs")) as expected_zarr_attrs:
+            input_attrs = json.load(input_zarr_attrs)
+            expected_attrs = json.load(expected_zarr_attrs)
+            assert input_attrs == expected_attrs
+
+    with open(os.path.join(input_zarr, ".zgroup")) as input_zarr_attrs:
+        with open(os.path.join(output_zarr, ".zgroup")) as expected_zarr_attrs:
+            input_attrs = json.load(input_zarr_attrs)
+            expected_attrs = json.load(expected_zarr_attrs)
+            assert input_attrs == expected_attrs

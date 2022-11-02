@@ -9,6 +9,20 @@ import numpy as np
 import tiledb
 
 
+@dataclass(frozen=True)
+class Dimension:
+    name: str
+    max_tile: int
+
+    def to_tiledb_dim(self, size: int, dtype: np.dtype) -> tiledb.Dim:
+        return tiledb.Dim(
+            name=self.name,
+            domain=(0, size - 1),
+            dtype=dtype,
+            tile=min(size, self.max_tile),
+        )
+
+
 class ImageReader(ABC):
     @property
     @abstractmethod
@@ -26,18 +40,33 @@ class ImageReader(ABC):
         return {}
 
 
-@dataclass(frozen=True)
-class Dimension:
-    name: str
-    max_tile: int
+class ImageWriter(ABC):
+    def uri(self, level: int) -> str:
+        """Return the uri name according to the format implementati on of layer"""
 
-    def to_tiledb_dim(self, size: int, dtype: np.dtype) -> tiledb.Dim:
-        return tiledb.Dim(
-            name=self.name,
-            domain=(0, size - 1),
-            dtype=dtype,
-            tile=min(size, self.max_tile),
-        )
+    @property
+    @abstractmethod
+    def level_count(self) -> int:
+        """Return the number of levels for this multi-resolution image"""
+
+    @abstractmethod
+    def level_image(self, level: int) -> np.ndarray:
+        """Return the image for the given level as (X, Y, C) 3D numpy array"""
+
+    def level_metadata(self, level: int) -> Dict[str, Any]:
+        return {}
+
+    def metadata(self) -> Dict[str, Any]:
+        return {}
+
+    @abstractmethod
+    def write(
+        self,
+        image: Sequence[np.ndarray],
+        level_metadata: Sequence[Dict[str, Any]],
+        image_meta: Dict[str, Any],
+    ) -> None:
+        """Write back to writer format"""
 
 
 class ImageConverter(ABC):
@@ -49,7 +78,40 @@ class ImageConverter(ABC):
     ):
         self._dims = (c_dim, y_dim, x_dim)
 
-    def convert_image(
+    @abstractmethod
+    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
+        """Return an ImageWriter for the given input path."""
+
+    @abstractmethod
+    def _get_image_reader(self, input_path: str) -> ImageReader:
+        """Return an ImageReader for the given input path."""
+
+    def from_tiledb(
+        self, input_path: str, output_path: str, level_min: int = 0
+    ) -> None:
+        """
+        Convert a TileDB Group of Arrays back to other format images, one per level.
+
+        :param input_path: path to the TileDB group of arrays
+        :param output_path: path to the image
+        :param level_min: minimum level of the image to be converted. By default set to 0
+            to convert all levels.
+        """
+
+        writer = self._get_image_writer(input_path, output_path)
+
+        uris = []
+        images = []
+        levels_metadata = []
+        for level in range(level_min, writer.level_count):
+            uri = writer.uri(level)
+            images.append(writer.level_image(level))
+            levels_metadata.append(writer.level_metadata(level))
+            image_metadata = writer.metadata()
+            uris.append(uri)
+        writer.write(images, levels_metadata, image_metadata)
+
+    def to_tiledb(
         self, input_path: str, output_group_path: str, level_min: int = 0
     ) -> None:
         """
@@ -84,50 +146,6 @@ class ImageConverter(ABC):
                 else:
                     G.add(os.path.basename(level_uri), relative=True)
 
-    def convert_images(
-        self,
-        input_paths: Sequence[str],
-        output_path: str,
-        level_min: int = 0,
-        max_workers: Optional[int] = None,
-    ) -> None:
-        """
-        Convert a batch of images to TileDB Groups of Arrays (one per level)
-
-        :param input_paths: paths to the input images
-        :param output_path: parent directory of the paths to the TiledDB groups of arrays
-        :param level_min: minimum level of the image to be converted. By default set to 0
-            to convert all levels.
-        :param max_workers: Number of parallel workers to convert the images. By default
-            (None) all cores are used. Pass 0 for sequential conversion.
-        """
-
-        def get_group_path(p: str) -> str:
-            return os.path.join(output_path, os.path.splitext(os.path.basename(p))[0])
-
-        if max_workers != 0:
-            with futures.ProcessPoolExecutor(max_workers) as executor:
-                fs = [
-                    executor.submit(
-                        self.convert_image,
-                        input_path,
-                        get_group_path(input_path),
-                        level_min,
-                    )
-                    for input_path in input_paths
-                ]
-                futures.wait(fs)
-                for f in fs:
-                    # reraise exception raised on worker
-                    f.result()
-        else:
-            for input_path in input_paths:
-                self.convert_image(input_path, get_group_path(input_path), level_min)
-
-    @abstractmethod
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        """Return an ImageReader for the given input path."""
-
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
     ) -> None:
@@ -153,3 +171,43 @@ class ImageConverter(ABC):
             A[:] = image
             if metadata:
                 A.meta.update(metadata)
+
+    def convert_images(
+        self,
+        input_paths: Sequence[str],
+        output_path: str,
+        level_min: int = 0,
+        max_workers: Optional[int] = None,
+    ) -> None:
+        """
+        Convert a batch of images to TileDB Groups of Arrays (one per level)
+
+        :param input_paths: paths to the input images
+        :param output_path: parent directory of the paths to the TiledDB groups of arrays
+        :param level_min: minimum level of the image to be converted. By default set to 0
+            to convert all levels.
+        :param max_workers: Number of parallel workers to convert the images. By default
+            (None) all cores are used. Pass 0 for sequential conversion.
+        """
+
+        def get_group_path(p: str) -> str:
+            return os.path.join(output_path, os.path.splitext(os.path.basename(p))[0])
+
+        if max_workers != 0:
+            with futures.ProcessPoolExecutor(max_workers) as executor:
+                fs = [
+                    executor.submit(
+                        self.to_tiledb,
+                        input_path,
+                        get_group_path(input_path),
+                        level_min,
+                    )
+                    for input_path in input_paths
+                ]
+                futures.wait(fs)
+                for f in fs:
+                    # reraise exception raised on worker
+                    f.result()
+        else:
+            for input_path in input_paths:
+                self.to_tiledb(input_path, get_group_path(input_path), level_min)
