@@ -6,7 +6,8 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 import tiledb
-import xmltodict
+
+# import xmltodict
 import zarr
 from numcodecs import Blosc
 from ome_zarr.reader import Node, Reader, ZarrLocation
@@ -91,11 +92,12 @@ class OMEZarrReader(ImageReader):
         self.res_nodes = [
             nodes for res in resolutions for nodes in Reader(ZarrLocation(res))()
         ]
-        omexml = os.path.exists(f"{input_path}/OME/METADATA.ome.xml")
-        self.omexml = {}
-        if omexml:
-            with open(f"{input_path}/OME/METADATA.ome.xml", "r") as xml_obj:
-                self.omexml = xmltodict.parse(xml_obj.read())
+        # TODO enable when supporting bioformats2raw
+        # omexml = os.path.exists(f"{input_path}/OME/METADATA.ome.xml")
+        # self.omexml = {}
+        # if omexml:
+        #     with open(f"{input_path}/OME/METADATA.ome.xml", "r") as xml_obj:
+        #         self.omexml = xmltodict.parse(xml_obj.read())
         self._levels = []
         for layer in self.res_nodes:
             self._levels.append(Level(layer))
@@ -123,7 +125,6 @@ class OMEZarrReader(ImageReader):
         writer_kwargs = dict(
             bioformats2raw_layout=3,
             zarr_format=self.image.zarr.zgroup.get("zarr_format", 0),
-            omexml=self.omexml,
             metadata=self.image.zarr.root_attrs.get("multiscales")[0].get("metadata"),
         )
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}

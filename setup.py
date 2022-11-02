@@ -1,6 +1,9 @@
 import setuptools
 
-zarr = ["zarr"]
+zarr = [
+    "zarr==2.13.0",
+    "ome-zarr==0.6.0",
+]
 openslide = ["openslide-python"]
 tiff = [
     "tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7",
