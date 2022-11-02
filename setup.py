@@ -17,7 +17,7 @@ setuptools.setup(
         "local_scheme": "dirty-tag",
         "write_to": "tiledbimg/version.py",
     },
-    install_requires=["tiledb"],
+    install_requires=["levenshtein", "tiledb"],
     extras_require={
         "zarr": zarr,
         "openslide": openslide,
