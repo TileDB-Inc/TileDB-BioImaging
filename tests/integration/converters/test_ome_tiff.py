@@ -12,9 +12,7 @@ from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
 def test_ome_tiff_converter(tmp_path):
-    OMETiffConverter().convert_image(
-        get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path)
-    )
+    OMETiffConverter().to_tiledb(get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path))
     schemas = get_CMU_1_SMALL_REGION_schemas(include_nested=True)
     assert len(tiledb.Group(str(tmp_path))) == len(schemas)
     for i, schema in enumerate(schemas):
@@ -44,7 +42,7 @@ def test_ome_tiff_converter(tmp_path):
 
 def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
-    OMETiffConverter().convert_image(get_path(path), str(tmp_path))
+    OMETiffConverter().to_tiledb(get_path(path), str(tmp_path))
 
     assert len(tiledb.Group(str(tmp_path))) == 4
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:

@@ -4,7 +4,7 @@ from typing import Any, Dict
 import numpy as np
 import tifffile
 
-from .base import ImageConverter, ImageReader
+from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
@@ -85,3 +85,6 @@ class OMETiffConverter(ImageConverter):
 
     def _get_image_reader(self, input_path: str) -> ImageReader:
         return OMETiffReader(input_path)
+
+    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
+        pass

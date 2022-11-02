@@ -35,10 +35,11 @@ def test_ome_zarr_converter(tmp_path):
     assert t.level_count == 1
     assert t.dimensions == expected_dim
     assert t.level_downsamples == expected_downsample
-    assert t.level_info[0] == LevelInfo(uri="", dimensions=schema.shape[:2])
+    assert t.level_info[0] == LevelInfo(uri="", dimensions=schema.shape[:-3:-1])
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
+    assert isinstance(region, np.ndarray)
+    assert region.ndim == 3
     assert region.dtype == np.uint8
-    assert region.shape == (300, 400, 3)
     img = PIL.Image.fromarray(region)
     assert img.size == (300, 400)
 

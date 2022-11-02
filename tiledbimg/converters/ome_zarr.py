@@ -107,10 +107,7 @@ class OMEZarrReader(ImageReader):
     def level_image(self, level: int) -> np.ndarray:
         leveled_zarray = self._levels[level].node.data[0]
         # From NGFF format spec there is guarantee that axes are t,c,z,y,x
-        cyx_shape = tuple(leveled_zarray.shape[i] for i in (1, 3, 4))
-        reshaped = np.asarray(leveled_zarray).reshape(cyx_shape)
-        # Transform to X,Y,C
-        return reshaped.swapaxes(0, 2)
+        return np.asarray(leveled_zarray).squeeze()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         meta_root = self._levels[level].node.zarr
