@@ -1,8 +1,8 @@
 import setuptools
 
 zarr = [
-    "zarr==2.13.0",
-    "ome-zarr==0.6.0",
+    "zarr",
+    "ome-zarr",
 ]
 openslide = ["openslide-python"]
 tiff = [

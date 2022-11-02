@@ -92,12 +92,6 @@ class OMEZarrReader(ImageReader):
         self.res_nodes = [
             nodes for res in resolutions for nodes in Reader(ZarrLocation(res))()
         ]
-        # TODO enable when supporting bioformats2raw
-        # omexml = os.path.exists(f"{input_path}/OME/METADATA.ome.xml")
-        # self.omexml = {}
-        # if omexml:
-        #     with open(f"{input_path}/OME/METADATA.ome.xml", "r") as xml_obj:
-        #         self.omexml = xmltodict.parse(xml_obj.read())
         self._levels = []
         for layer in self.res_nodes:
             self._levels.append(Level(layer))
