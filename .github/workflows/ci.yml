@@ -48,7 +48,8 @@ jobs:
         pytest -v --cov=tiledbimg --cov-report=term-missing --durations=0 tests/ > coverage.txt
         cat coverage.txt
         TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
-        echo "::set-output name=COVERAGE::$TEST_COVERAGE"
+        echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+
 
     - name: Run notebook examples
       run: |
