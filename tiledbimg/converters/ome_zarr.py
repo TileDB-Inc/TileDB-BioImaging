@@ -1,13 +1,12 @@
+from __future__ import annotations
+
 import glob
-import os
 import pickle
 from dataclasses import dataclass
 from typing import Any, Dict, Sequence
 
 import numpy as np
 import tiledb
-
-# import xmltodict
 import zarr
 from numcodecs import Blosc
 from ome_zarr.reader import Node, Reader, ZarrLocation
@@ -23,37 +22,37 @@ class Level:
 
 class OMEZarrWriter(ImageWriter):
     def __init__(self, input_path: str, output_path: str):
-        self.input_path = input_path
-        self.output_path = output_path
         # OME ZARR GROUP
-        self.image_group = zarr.group(
-            store=zarr.storage.DirectoryStore(path=self.output_path), overwrite=True
+        self._output_group = zarr.group(
+            store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )
-        self.tldb_image = tiledb.Group(input_path, "r")
-        # levels is a list of TLDB ARRAYS
-        self._levels = sorted([resolution.uri for resolution in self.tldb_image])
-        self.level_arrays = [lev_uri for lev_uri in self._levels]
+        self._input_group = tiledb.Group(input_path, "r")
 
-    def uri(self, level: int) -> str:
-        return os.path.join(self.input_path, f"{level}")
+        # levels is a list of TLDB ARRAYS
+        self._levels = {}
+        for resolution in self._input_group:
+            uri = resolution.uri
+            with tiledb.open(uri) as a:
+                level = a.meta.get("level", 0)
+            self._levels.update({level: uri})
 
     @property
     def level_count(self) -> int:
-        return len(self.tldb_image)
+        return len(self._levels)
 
     def level_image(self, level: int) -> np.ndarray:
-        with tiledb.open(self._levels[level]) as L:
-            temp_array = L[:].swapaxes(0, 2)
-            c, y, x = temp_array.shape
+        with tiledb.open(self._levels.get(level)) as L:
+            data = L[:]
+            c, y, x = data.shape
             tczyx_shape = (1, c, 1, y, x)
-            return temp_array.reshape(tczyx_shape)
+            return data.reshape(tczyx_shape)
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        with tiledb.open(self._levels[level]) as L:
+        with tiledb.open(self._levels.get(level)) as L:
             return dict(pickle.loads(L.meta["pickled_zarrwriter_kwargs"]))
 
     def metadata(self) -> Dict[str, Any]:
-        return dict(pickle.loads(self.tldb_image.meta["pickled_zarrwriter_kwargs"]))
+        return dict(pickle.loads(self._input_group.meta["pickled_zarrwriter_kwargs"]))
 
     def write(
         self,
@@ -69,14 +68,13 @@ class OMEZarrWriter(ImageWriter):
                 zarray_meta["compressor"] = Blosc.from_config(
                     zarray_meta.get("compressor")
                 )
-            level_metas_zarray.append(zarray_meta)
+                level_metas_zarray.append(zarray_meta)
 
         # Write image does not support incremental pyramid write
 
         write_multiscale(
             images,
-            self.image_group,
-            scaler=None,
+            self._output_group,
             axes=["t", "c", "z", "y", "x"],
             storage_options=level_metas_zarray,
             metadata=image_meta.get("metadata"),

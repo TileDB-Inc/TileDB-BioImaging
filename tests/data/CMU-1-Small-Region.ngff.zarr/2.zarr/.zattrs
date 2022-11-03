@@ -45,7 +45,6 @@
                 "version": "Bio-Formats 6.8.0"
             },
             "name": "/",
-            "scaler": null,
             "version": "0.4"
         }
     ]
