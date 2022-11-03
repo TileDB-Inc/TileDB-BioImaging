@@ -41,9 +41,6 @@ class ImageReader(ABC):
 
 
 class ImageWriter(ABC):
-    def uri(self, level: int) -> str:
-        """Return the uri name according to the format implementati on of layer"""
-
     @property
     @abstractmethod
     def level_count(self) -> int:
@@ -78,14 +75,6 @@ class ImageConverter(ABC):
     ):
         self._dims = (c_dim, y_dim, x_dim)
 
-    @abstractmethod
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        """Return an ImageWriter for the given input path."""
-
-    @abstractmethod
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        """Return an ImageReader for the given input path."""
-
     def from_tiledb(
         self, input_path: str, output_path: str, level_min: int = 0
     ) -> None:
@@ -100,15 +89,12 @@ class ImageConverter(ABC):
 
         writer = self._get_image_writer(input_path, output_path)
 
-        uris = []
         images = []
         levels_metadata = []
         for level in range(level_min, writer.level_count):
-            uri = writer.uri(level)
             images.append(writer.level_image(level))
             levels_metadata.append(writer.level_metadata(level))
-            image_metadata = writer.metadata()
-            uris.append(uri)
+        image_metadata = writer.metadata()
         writer.write(images, levels_metadata, image_metadata)
 
     def to_tiledb(
@@ -145,32 +131,6 @@ class ImageConverter(ABC):
                     G.add(level_uri, relative=False)
                 else:
                     G.add(os.path.basename(level_uri), relative=True)
-
-    def _write_image(
-        self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
-    ) -> None:
-        assert len(image.shape) == len(self._dims)
-        # find the smallest dtype that can hold the number of image scalar values
-        dim_dtype = np.min_scalar_type(image.size)
-        dims = (
-            dim.to_tiledb_dim(size, dim_dtype)
-            for dim, size in zip(self._dims, image.shape)
-        )
-        schema = tiledb.ArraySchema(
-            domain=tiledb.Domain(*dims),
-            attrs=[
-                tiledb.Attr(
-                    name="",
-                    dtype=image.dtype,
-                    filters=[tiledb.ZstdFilter(level=0)],
-                )
-            ],
-        )
-        tiledb.Array.create(uri, schema)
-        with tiledb.open(uri, "w") as A:
-            A[:] = image
-            if metadata:
-                A.meta.update(metadata)
 
     def convert_images(
         self,
@@ -211,3 +171,37 @@ class ImageConverter(ABC):
         else:
             for input_path in input_paths:
                 self.to_tiledb(input_path, get_group_path(input_path), level_min)
+
+    def _write_image(
+        self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
+    ) -> None:
+        assert len(image.shape) == len(self._dims)
+        # find the smallest dtype that can hold the number of image scalar values
+        dim_dtype = np.min_scalar_type(image.size)
+        dims = (
+            dim.to_tiledb_dim(size, dim_dtype)
+            for dim, size in zip(self._dims, image.shape)
+        )
+        schema = tiledb.ArraySchema(
+            domain=tiledb.Domain(*dims),
+            attrs=[
+                tiledb.Attr(
+                    name="",
+                    dtype=image.dtype,
+                    filters=[tiledb.ZstdFilter(level=0)],
+                )
+            ],
+        )
+        tiledb.Array.create(uri, schema)
+        with tiledb.open(uri, "w") as A:
+            A[:] = image
+            if metadata:
+                A.meta.update(metadata)
+
+    @abstractmethod
+    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
+        """Return an ImageWriter for the given input path."""
+
+    @abstractmethod
+    def _get_image_reader(self, input_path: str) -> ImageReader:
+        """Return an ImageReader for the given input path."""

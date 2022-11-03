@@ -32,5 +32,4 @@ class OpenSlideConverter(ImageConverter):
         return OpenSlideReader(input_path)
 
     def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        """Return an ImageWriter for the given input path."""
         pass

@@ -1,7 +1,6 @@
 import setuptools
 
 zarr = [
-    "zarr",
     "ome-zarr",
 ]
 openslide = ["openslide-python"]

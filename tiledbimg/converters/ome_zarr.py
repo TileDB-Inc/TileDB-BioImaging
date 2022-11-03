@@ -86,21 +86,18 @@ class OMEZarrWriter(ImageWriter):
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
         self.image = Reader(ZarrLocation(input_path))
-        resolutions = [
-            img_path for img_path in glob.glob(f"{input_path}/[!OME]*", recursive=True)
-        ]
+        resolutions = glob.glob(f"{input_path}/[!OME]*")
         self.res_nodes = [
-            nodes for res in resolutions for nodes in Reader(ZarrLocation(res))()
+            node for res in resolutions for node in Reader(ZarrLocation(res))()
         ]
-        self._levels = []
-        for layer in self.res_nodes:
-            self._levels.append(Level(layer))
+        self._levels = list(map(Level, self.res_nodes))
 
     @property
     def level_count(self) -> int:
         return len(self._levels)
 
     def level_image(self, level: int) -> np.ndarray:
+        assert len(self._levels[level].node.data) == 1
         leveled_zarray = self._levels[level].node.data[0]
         # From NGFF format spec there is guarantee that axes are t,c,z,y,x
         return np.asarray(leveled_zarray).squeeze()
@@ -116,10 +113,12 @@ class OMEZarrReader(ImageReader):
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
 
     def metadata(self) -> Dict[str, Any]:
+        multiscale_meta = self.image.zarr.root_attrs.get("multiscales")
+        assert len(multiscale_meta) == 1
         writer_kwargs = dict(
             bioformats2raw_layout=3,
             zarr_format=self.image.zarr.zgroup.get("zarr_format", 0),
-            metadata=self.image.zarr.root_attrs.get("multiscales")[0].get("metadata"),
+            metadata=multiscale_meta[0].get("metadata"),
         )
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
 
