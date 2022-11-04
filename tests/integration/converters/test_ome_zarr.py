@@ -1,6 +1,4 @@
-import glob
 import json
-import os
 from pathlib import Path
 
 import numpy as np
@@ -14,13 +12,13 @@ from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
 def test_ome_zarr_converter(tmp_path):
-    test_image = os.path.join(get_path("CMU-1-Small-Region.ngff.zarr"), "0.zarr")
-    output_path = str(tmp_path / os.path.basename(test_image))
-    OMEZarrConverter().to_tiledb(str(test_image), output_path)
+    input_path = Path(get_path("CMU-1-Small-Region.ngff.zarr")) / "0.zarr"
+    output_path = tmp_path / input_path.name
+    OMEZarrConverter().to_tiledb(input_path, str(output_path))
 
     schema = get_CMU_1_SMALL_REGION_schemas()[0]
-    assert len(tiledb.Group(output_path)) == 1
-    with tiledb.open(os.path.join(output_path, f"l_{0}.tdb")) as A:
+    assert len(tiledb.Group(str(output_path))) == 1
+    with tiledb.open(str(output_path / f"l_{0}.tdb")) as A:
         assert A.schema == schema
 
     expected_dim = (2220, 2967)
@@ -39,18 +37,17 @@ def test_ome_zarr_converter(tmp_path):
 
 
 def test_ome_zarr_converter_images(tmp_path):
-    images = list(Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("*"))
     OMEZarrConverter().convert_images(
-        images,
-        str(tmp_path),
+        Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("*"),
+        tmp_path,
         level_min=0,
         max_workers=0,
     )
     schemas = get_CMU_1_SMALL_REGION_schemas()
     expected_dims = ((2220, 2967), (387, 463), (1280, 431))
     expected_downsamples = (1.0,)
-    for image_uri in glob.glob(f"{str(tmp_path)}/*"):
-        img_idx = int(os.path.basename(image_uri))
+    for image_uri in tmp_path.glob("*"):
+        img_idx = int(image_uri.name)
         t = TileDBOpenSlide.from_group_uri(str(image_uri))
         assert t.level_count == 1
         assert t.dimensions == expected_dims[img_idx]
@@ -68,40 +65,26 @@ def test_ome_zarr_converter_images(tmp_path):
 
 def test_tiledb_to_ome_zarr_rountrip(tmp_path):
     # Take one image from CMU-1-Small-Region.ngff.zarr
-    tmp_path.joinpath("to_tiledb").mkdir()
-    tmp_path.joinpath("from_tiledb").mkdir()
-    input_zarr = os.path.join(get_path("CMU-1-Small-Region.ngff.zarr"), "0.zarr")
-    tiledb_image = str(
-        tmp_path.joinpath("to_tiledb").joinpath(
-            f"{os.path.basename(input_zarr)}.tiledb"
-        )
-    )
-    output_zarr = str(
-        tmp_path.joinpath("from_tiledb").joinpath(f"{os.path.basename(input_zarr)}")
-    )
+    input_zarr_path = Path(get_path("CMU-1-Small-Region.ngff.zarr")) / "0.zarr"
+    tiledb_path = tmp_path / "to_tiledb"
+    output_zarr_path = tmp_path / "from_tiledb"
 
     # Store it to Tiledb
-    OMEZarrConverter().to_tiledb(str(input_zarr), tiledb_image)
+    OMEZarrConverter().to_tiledb(input_zarr_path, str(tiledb_path))
     # Store it back to NGFF Zarr
-    OMEZarrConverter().from_tiledb(tiledb_image, output_zarr)
-
-    zarr_image = zarr.open_group(input_zarr, mode="r")
-    tiledb_image = tiledb.Group(tiledb_image, mode="r")
-    roundtrip_zarr_image = zarr.open_group(output_zarr, mode="r")
+    OMEZarrConverter().from_tiledb(str(tiledb_path), output_zarr_path)
 
     # Same number of layers
-    assert len(list(zarr_image)) == len(tiledb_image)
-    assert len(list(zarr_image)) == len(list(roundtrip_zarr_image))
+    input_zarr_group = zarr.open_group(input_zarr_path, mode="r")
+    tiledb_group = tiledb.Group(str(tiledb_path), mode="r")
+    output_zarr_group = zarr.open_group(output_zarr_path, mode="r")
+    assert len(input_zarr_group) == len(tiledb_group)
+    assert len(input_zarr_group) == len(output_zarr_group)
 
     # Compare the .zattrs and .zgroup files
-    with open(os.path.join(input_zarr, ".zattrs")) as input_zarr_attrs:
-        with open(os.path.join(output_zarr, ".zattrs")) as expected_zarr_attrs:
-            input_attrs = json.load(input_zarr_attrs)
-            expected_attrs = json.load(expected_zarr_attrs)
-            assert input_attrs == expected_attrs
-
-    with open(os.path.join(input_zarr, ".zgroup")) as input_zarr_attrs:
-        with open(os.path.join(output_zarr, ".zgroup")) as expected_zarr_attrs:
-            input_attrs = json.load(input_zarr_attrs)
-            expected_attrs = json.load(expected_zarr_attrs)
-            assert input_attrs == expected_attrs
+    for filename in ".zattrs", ".zgroup":
+        with open(input_zarr_path / filename) as f:
+            input_attrs = json.load(f)
+        with open(output_zarr_path / filename) as f:
+            output_attrs = json.load(f)
+        assert input_attrs == output_attrs
