@@ -69,10 +69,9 @@ class OMEZarrWriter(ImageWriter):
         for level_meta in level_metas:
             zarray_meta = level_meta.get("zarray")
             if zarray_meta is not None:
-                del zarray_meta.get("compressor")["id"]
-                zarray_meta["compressor"] = Blosc.from_config(
-                    zarray_meta.get("compressor")
-                )
+                compressor = zarray_meta["compressor"]
+                del compressor["id"]
+                zarray_meta["compressor"] = Blosc.from_config(compressor)
                 level_metas_zarray.append(zarray_meta)
 
         # Write image does not support incremental pyramid write

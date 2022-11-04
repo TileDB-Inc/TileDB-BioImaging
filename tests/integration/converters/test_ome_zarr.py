@@ -49,7 +49,8 @@ def test_ome_zarr_converter_images(tmp_path):
     schemas = get_CMU_1_SMALL_REGION_schemas()
     expected_dims = ((2220, 2967), (387, 463), (1280, 431))
     expected_downsamples = (1.0,)
-    for img_idx, image_uri in enumerate(glob.glob(f"{str(tmp_path)}/*")):
+    for image_uri in glob.glob(f"{str(tmp_path)}/*"):
+        img_idx = int(os.path.basename(image_uri))
         t = TileDBOpenSlide.from_group_uri(str(image_uri))
         assert t.level_count == 1
         assert t.dimensions == expected_dims[img_idx]
@@ -71,7 +72,9 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path):
     tmp_path.joinpath("from_tiledb").mkdir()
     input_zarr = os.path.join(get_path("CMU-1-Small-Region.ngff.zarr"), "0.zarr")
     tiledb_image = str(
-        tmp_path.joinpath("to_tiledb").joinpath(f"{os.path.basename(input_zarr)}")
+        tmp_path.joinpath("to_tiledb").joinpath(
+            f"{os.path.basename(input_zarr)}.tiledb"
+        )
     )
     output_zarr = str(
         tmp_path.joinpath("from_tiledb").joinpath(f"{os.path.basename(input_zarr)}")
