@@ -3,7 +3,7 @@ from __future__ import annotations
 import glob
 import pickle
 from dataclasses import dataclass
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, Sequence, cast
 
 import numpy as np
 import tiledb
@@ -49,10 +49,15 @@ class OMEZarrWriter(ImageWriter):
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         with tiledb.open(self._levels.get(level)) as L:
-            return dict(pickle.loads(L.meta["pickled_zarrwriter_kwargs"]))
+            return cast(
+                Dict[str, Any], pickle.loads(L.meta["pickled_zarrwriter_kwargs"])
+            )
 
     def metadata(self) -> Dict[str, Any]:
-        return dict(pickle.loads(self._input_group.meta["pickled_zarrwriter_kwargs"]))
+        return cast(
+            Dict[str, Any],
+            pickle.loads(self._input_group.meta["pickled_zarrwriter_kwargs"]),
+        )
 
     def write(
         self,

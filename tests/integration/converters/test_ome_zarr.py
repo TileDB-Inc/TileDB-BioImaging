@@ -14,24 +14,18 @@ from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
 
 
 def test_ome_zarr_converter(tmp_path):
-    test_image = [
-        _ for _ in Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("0.zarr")
-    ][0]
-    OMEZarrConverter().to_tiledb(
-        str(test_image), str(tmp_path / os.path.basename(test_image))
-    )
+    test_image = os.path.join(get_path("CMU-1-Small-Region.ngff.zarr"), "0.zarr")
+    output_path = str(tmp_path / os.path.basename(test_image))
+    OMEZarrConverter().to_tiledb(str(test_image), output_path)
 
     schema = get_CMU_1_SMALL_REGION_schemas()[0]
-    assert len(tiledb.Group(str(tmp_path / os.path.basename(test_image)))) == len(
-        schema
-    )
-    with tiledb.open(str(tmp_path / os.path.basename(test_image) / f"l_{0}.tdb")) as A:
+    assert len(tiledb.Group(output_path)) == 1
+    with tiledb.open(os.path.join(output_path, f"l_{0}.tdb")) as A:
         assert A.schema == schema
 
     expected_dim = (2220, 2967)
     expected_downsample = (1.0,)
-    image_uri = str(tmp_path / os.path.basename(test_image))
-    t = TileDBOpenSlide.from_group_uri(str(image_uri))
+    t = TileDBOpenSlide.from_group_uri(str(output_path))
     assert t.level_count == 1
     assert t.dimensions == expected_dim
     assert t.level_downsamples == expected_downsample
@@ -45,7 +39,7 @@ def test_ome_zarr_converter(tmp_path):
 
 
 def test_ome_zarr_converter_images(tmp_path):
-    images = [_ for _ in Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("0.zarr")]
+    images = list(Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("*"))
     OMEZarrConverter().convert_images(
         images,
         str(tmp_path),
@@ -73,13 +67,15 @@ def test_ome_zarr_converter_images(tmp_path):
 
 def test_tiledb_to_ome_zarr_rountrip(tmp_path):
     # Take one image from CMU-1-Small-Region.ngff.zarr
-    os.mkdir(os.path.join(str(tmp_path), "to_tiledb"))
-    os.mkdir(os.path.join(str(tmp_path), "from_tiledb"))
-    input_zarr = [
-        _ for _ in Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("0.zarr")
-    ][0]
-    tiledb_image = f'{str(os.path.join(str(tmp_path), "to_tiledb"))}/{os.path.basename(input_zarr)}'
-    output_zarr = f'{str(os.path.join(str(tmp_path), "from_tiledb"))}/{os.path.basename(input_zarr)}'
+    tmp_path.joinpath("to_tiledb").mkdir()
+    tmp_path.joinpath("from_tiledb").mkdir()
+    input_zarr = os.path.join(get_path("CMU-1-Small-Region.ngff.zarr"), "0.zarr")
+    tiledb_image = str(
+        tmp_path.joinpath("to_tiledb").joinpath(f"{os.path.basename(input_zarr)}")
+    )
+    output_zarr = str(
+        tmp_path.joinpath("from_tiledb").joinpath(f"{os.path.basename(input_zarr)}")
+    )
 
     # Store it to Tiledb
     OMEZarrConverter().to_tiledb(str(input_zarr), tiledb_image)
@@ -88,13 +84,11 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path):
 
     zarr_image = zarr.open_group(input_zarr, mode="r")
     tiledb_image = tiledb.Group(tiledb_image, mode="r")
-    expected = zarr.open_group(output_zarr, mode="r")
+    roundtrip_zarr_image = zarr.open_group(output_zarr, mode="r")
 
     # Same number of layers
-    assert len([i for i in zarr_image.array_keys()]) == len(tiledb_image)
-    assert len([i for i in zarr_image.array_keys()]) == len(
-        [i for i in expected.array_keys()]
-    )
+    assert len(list(zarr_image)) == len(tiledb_image)
+    assert len(list(zarr_image)) == len(list(roundtrip_zarr_image))
 
     # Compare the .zattrs and .zgroup files
     with open(os.path.join(input_zarr, ".zattrs")) as input_zarr_attrs:
