@@ -16,7 +16,7 @@ def test_openslide_converter(tmp_path):
     assert os_img.level_dimensions == ((19919, 21702), (4979, 5425), (2489, 2712))
     assert os_img.level_downsamples == (1.0, 4.000485597111555, 8.00251238191405)
 
-    OpenSlideConverter().convert_image(svs_path, str(tmp_path))
+    OpenSlideConverter().to_tiledb(svs_path, str(tmp_path))
 
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
     assert t.level_count == os_img.level_count

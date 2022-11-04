@@ -9,6 +9,20 @@ import numpy as np
 import tiledb
 
 
+@dataclass(frozen=True)
+class Dimension:
+    name: str
+    max_tile: int
+
+    def to_tiledb_dim(self, size: int, dtype: np.dtype) -> tiledb.Dim:
+        return tiledb.Dim(
+            name=self.name,
+            domain=(0, size - 1),
+            dtype=dtype,
+            tile=min(size, self.max_tile),
+        )
+
+
 class ImageReader(ABC):
     @property
     @abstractmethod
@@ -26,18 +40,30 @@ class ImageReader(ABC):
         return {}
 
 
-@dataclass(frozen=True)
-class Dimension:
-    name: str
-    max_tile: int
+class ImageWriter(ABC):
+    @property
+    @abstractmethod
+    def level_count(self) -> int:
+        """Return the number of levels for this multi-resolution image"""
 
-    def to_tiledb_dim(self, size: int, dtype: np.dtype) -> tiledb.Dim:
-        return tiledb.Dim(
-            name=self.name,
-            domain=(0, size - 1),
-            dtype=dtype,
-            tile=min(size, self.max_tile),
-        )
+    @abstractmethod
+    def level_image(self, level: int) -> np.ndarray:
+        """Return the image for the given level as (X, Y, C) 3D numpy array"""
+
+    def level_metadata(self, level: int) -> Dict[str, Any]:
+        return {}
+
+    def metadata(self) -> Dict[str, Any]:
+        return {}
+
+    @abstractmethod
+    def write(
+        self,
+        image: Sequence[np.ndarray],
+        level_metadata: Sequence[Dict[str, Any]],
+        image_meta: Dict[str, Any],
+    ) -> None:
+        """Write back to writer format"""
 
 
 class ImageConverter(ABC):
@@ -49,7 +75,29 @@ class ImageConverter(ABC):
     ):
         self._dims = (c_dim, y_dim, x_dim)
 
-    def convert_image(
+    def from_tiledb(
+        self, input_path: str, output_path: str, level_min: int = 0
+    ) -> None:
+        """
+        Convert a TileDB Group of Arrays back to other format images, one per level.
+
+        :param input_path: path to the TileDB group of arrays
+        :param output_path: path to the image
+        :param level_min: minimum level of the image to be converted. By default set to 0
+            to convert all levels.
+        """
+
+        writer = self._get_image_writer(input_path, output_path)
+
+        images = []
+        levels_metadata = []
+        for level in range(level_min, writer.level_count):
+            images.append(writer.level_image(level))
+            levels_metadata.append(writer.level_metadata(level))
+        image_metadata = writer.metadata()
+        writer.write(images, levels_metadata, image_metadata)
+
+    def to_tiledb(
         self, input_path: str, output_group_path: str, level_min: int = 0
     ) -> None:
         """
@@ -109,7 +157,7 @@ class ImageConverter(ABC):
             with futures.ProcessPoolExecutor(max_workers) as executor:
                 fs = [
                     executor.submit(
-                        self.convert_image,
+                        self.to_tiledb,
                         input_path,
                         get_group_path(input_path),
                         level_min,
@@ -122,11 +170,7 @@ class ImageConverter(ABC):
                     f.result()
         else:
             for input_path in input_paths:
-                self.convert_image(input_path, get_group_path(input_path), level_min)
-
-    @abstractmethod
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        """Return an ImageReader for the given input path."""
+                self.to_tiledb(input_path, get_group_path(input_path), level_min)
 
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
@@ -153,3 +197,11 @@ class ImageConverter(ABC):
             A[:] = image
             if metadata:
                 A.meta.update(metadata)
+
+    @abstractmethod
+    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
+        """Return an ImageWriter for the given input path."""
+
+    @abstractmethod
+    def _get_image_reader(self, input_path: str) -> ImageReader:
+        """Return an ImageReader for the given input path."""
