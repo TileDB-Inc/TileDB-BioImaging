@@ -13,24 +13,16 @@ from tiledbimg.openslide import TileDBOpenSlide
 
 def test_ome_tiff_converter(tmp_path):
     OMETiffConverter().to_tiledb(get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path))
-    schemas = get_CMU_1_SMALL_REGION_schemas(include_nested=True)
-    assert len(tiledb.Group(str(tmp_path))) == len(schemas)
-    for i, schema in enumerate(schemas):
-        with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
-            assert A.schema == schema
 
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
-    assert t.level_count == 4
-    assert t.dimensions == (2220, 2967)
-    assert t.level_dimensions == ((2220, 2967), (574, 768), (387, 463), (1280, 431))
-    assert t.level_downsamples == (
-        1.0,
-        3.865438534407666,
-        6.0723207259698295,
-        4.30918285962877,
-    )
+    assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
+
+    schemas = get_CMU_1_SMALL_REGION_schemas(include_nested=True)[:2]
+    assert t.dimensions == schemas[0].shape[:-3:-1]
     for i in range(t.level_count):
         assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
+        with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
+            assert A.schema == schemas[i]
 
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
@@ -44,7 +36,7 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
     OMETiffConverter().to_tiledb(get_path(path), str(tmp_path))
 
-    assert len(tiledb.Group(str(tmp_path))) == 4
+    assert len(tiledb.Group(str(tmp_path))) == 3
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
         assert A.schema.domain.dtype == np.uint32
         assert A.attr(0).dtype == np.uint16
@@ -54,9 +46,6 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     with tiledb.open(str(tmp_path / "l_2.tdb")) as A:
         assert A.schema.domain.dtype == np.uint16
         assert A.attr(0).dtype == np.uint16
-    with tiledb.open(str(tmp_path / "l_3.tdb")) as A:
-        assert A.schema.domain.dtype == np.uint16
-        assert A.attr(0).dtype == np.uint8
 
 
 @pytest.mark.parametrize("max_workers,num_copies", [(0, 2), (2, 4), (None, 9)])
