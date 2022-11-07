@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from operator import itemgetter
 from typing import Sequence, Tuple
 
@@ -8,15 +7,10 @@ import numpy as np
 import tiledb
 
 
-@dataclass(frozen=True)
-class LevelInfo:
-    uri: str = field(compare=False, repr=False)
-    dimensions: Tuple[int, int]  # (width, height)
-
-
-@dataclass(frozen=True)
 class TileDBOpenSlide:
-    level_info: Sequence[LevelInfo]
+    def __init__(self, level_info: Sequence[Tuple[str, int, int]]):
+        self._level_uris = tuple(map(itemgetter(0), level_info))
+        self._level_dims = tuple(map(itemgetter(1, 2), level_info))  # (width, height)
 
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
@@ -28,10 +22,10 @@ class TileDBOpenSlide:
                     level = a.meta.get("level", 0)
                     width = a.shape[-1]
                     height = a.shape[-2]
-                    level_info.append((level, LevelInfo(uri, (width, height))))
+                    level_info.append((level, uri, width, height))
             # sort by level
             level_info.sort(key=itemgetter(0))
-        return cls(tuple(map(itemgetter(1), level_info)))
+        return cls(tuple(map(itemgetter(1, 2, 3), level_info)))
 
     @property
     def level_count(self) -> int:
@@ -39,12 +33,12 @@ class TileDBOpenSlide:
         The number of levels in the slide. Levels are numbered from 0 (highest resolution)
         to level_count - 1 (lowest resolution).
         """
-        return len(self.level_info)
+        return len(self._level_dims)
 
     @property
     def dimensions(self) -> Tuple[int, int]:
         """A (width, height) tuple for level 0 of the slide."""
-        return self.level_info[0].dimensions
+        return self.level_dimensions[0]
 
     @property
     def level_dimensions(self) -> Sequence[Tuple[int, int]]:
@@ -52,7 +46,7 @@ class TileDBOpenSlide:
         A sequence of (width, height) tuples, one for each level of the slide.
         level_dimensions[k] are the dimensions of level k.
         """
-        return tuple(li.dimensions for li in self.level_info)
+        return self._level_dims
 
     @property
     def level_downsamples(self) -> Sequence[float]:
@@ -78,7 +72,7 @@ class TileDBOpenSlide:
         """
         x, y = location
         w, h = size
-        with tiledb.open(self.level_info[level].uri) as a:
+        with tiledb.open(self._level_uris[level]) as a:
             data = a[:, y : y + h, x : x + w]
         # convert from CYX to YXC
         return np.moveaxis(data, 0, 2)

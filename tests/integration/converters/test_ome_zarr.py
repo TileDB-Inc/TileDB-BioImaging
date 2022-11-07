@@ -8,7 +8,7 @@ import zarr
 
 from tests import get_CMU_1_SMALL_REGION_schemas, get_path
 from tiledbimg.converters.ome_zarr import OMEZarrConverter
-from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import TileDBOpenSlide
 
 
 def test_ome_zarr_converter(tmp_path):
@@ -27,7 +27,8 @@ def test_ome_zarr_converter(tmp_path):
     assert t.level_count == 1
     assert t.dimensions == expected_dim
     assert t.level_downsamples == expected_downsample
-    assert t.level_info[0] == LevelInfo(uri="", dimensions=schema.shape[:-3:-1])
+    assert t.level_dimensions[0] == schema.shape[:-3:-1]
+
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
     assert region.ndim == 3
@@ -52,9 +53,8 @@ def test_ome_zarr_converter_images(tmp_path):
         assert t.level_count == 1
         assert t.dimensions == expected_dims[img_idx]
         assert t.level_downsamples == expected_downsamples
-        assert t.level_info[0] == LevelInfo(
-            uri="", dimensions=schemas[img_idx].shape[:-3:-1]
-        )
+        assert t.level_dimensions[0] == schemas[img_idx].shape[:-3:-1]
+
         region = t.read_region(level=0, location=(100, 100), size=(100, 200))
         assert isinstance(region, np.ndarray)
         assert region.ndim == 3

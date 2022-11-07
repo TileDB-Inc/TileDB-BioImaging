@@ -4,7 +4,7 @@ import PIL.Image
 
 from tests import get_path
 from tiledbimg.converters.openslide import OpenSlideConverter
-from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import TileDBOpenSlide
 
 
 def test_openslide_converter(tmp_path):
@@ -27,7 +27,7 @@ def test_openslide_converter(tmp_path):
         assert os_img.get_best_level_for_downsample(factor) == best_level
         assert t.get_best_level_for_downsample(factor) == best_level
     for level, dimensions in enumerate(os_img.level_dimensions):
-        assert t.level_info[level] == LevelInfo(uri="", dimensions=dimensions)
+        assert t.level_dimensions[level] == dimensions
 
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)

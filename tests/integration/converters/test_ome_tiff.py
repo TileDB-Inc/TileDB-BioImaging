@@ -8,7 +8,7 @@ import tiledb
 
 from tests import get_CMU_1_SMALL_REGION_schemas, get_path
 from tiledbimg.converters.ome_tiff import OMETiffConverter
-from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import TileDBOpenSlide
 
 
 def test_ome_tiff_converter(tmp_path):
@@ -30,7 +30,7 @@ def test_ome_tiff_converter(tmp_path):
         4.30918285962877,
     )
     for i in range(t.level_count):
-        assert t.level_info[i] == LevelInfo(uri="", dimensions=schemas[i].shape[:-3:-1])
+        assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
 
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
