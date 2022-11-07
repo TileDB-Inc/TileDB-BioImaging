@@ -1,12 +1,18 @@
+import random
+
 import tiledb
 
-from tests import get_CMU_1_SMALL_REGION_schemas
+from tests import get_schema
 from tiledbimg.openslide import TileDBOpenSlide
 
 
 class TestTileDBOpenSlide:
     def test_from_group_uri(self, tmp_path):
-        schemas = get_CMU_1_SMALL_REGION_schemas()
+        def r():
+            return random.randint(64, 4096)
+
+        level_dimensions = [(r(), r()) for _ in range(7)]
+        schemas = [get_schema(*dims) for dims in level_dimensions]
         group_path = str(tmp_path)
         tiledb.Group.create(group_path)
         with tiledb.Group(group_path, "w") as G:
@@ -18,5 +24,5 @@ class TestTileDBOpenSlide:
                 G.add(level_path)
 
         tdb_os = TileDBOpenSlide.from_group_uri(group_path)
-        assert tdb_os.level_count == 3
-        assert tdb_os.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
+        assert tdb_os.level_count == len(level_dimensions)
+        assert tdb_os.level_dimensions == tuple(level_dimensions)

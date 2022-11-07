@@ -7,9 +7,11 @@ import pytest
 import tiledb
 import zarr
 
-from tests import get_CMU_1_SMALL_REGION_schemas, get_path
+from tests import get_path, get_schema
 from tiledbimg.converters.ome_zarr import OMEZarrConverter
 from tiledbimg.openslide import TileDBOpenSlide
+
+schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
@@ -17,9 +19,8 @@ def test_ome_zarr_converter(tmp_path, series_idx):
     input_path = Path(get_path("CMU-1-Small-Region.ome.zarr")) / str(series_idx)
     OMEZarrConverter().to_tiledb(input_path, str(tmp_path))
 
-    schema = get_CMU_1_SMALL_REGION_schemas()[series_idx]
-
     # check the first (highest) resolution layer only
+    schema = schemas[series_idx]
     with tiledb.open(str(tmp_path / f"l_{0}.tdb")) as A:
         assert A.schema == schema
 
@@ -46,7 +47,6 @@ def test_ome_zarr_converter_images(tmp_path):
         level_min=0,
         max_workers=0,
     )
-    schemas = get_CMU_1_SMALL_REGION_schemas()
     for image_uri in tmp_path.glob("*"):
         img_idx = int(image_uri.name)
         t = TileDBOpenSlide.from_group_uri(str(image_uri))

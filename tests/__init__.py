@@ -1,7 +1,6 @@
 import multiprocessing
 import os
 import urllib.parse
-from typing import Sequence
 
 import boto3
 import numpy as np
@@ -14,64 +13,20 @@ if os.name == "posix":
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 
-def rgb_to_5d(pixels: np.ndarray) -> Sequence:
-    """Convert an RGB image into 5D image (t, c, z, y, x)."""
-    if len(pixels.shape) == 2:
-        stack = np.array([pixels])
-        channels = np.array([stack])
-    elif len(pixels.shape) == 3:
-        size_c = pixels.shape[2]
-        channels = [np.array([pixels[:, :, c]]) for c in range(size_c)]
-    else:
-        assert False, f"expecting 2 or 3d: ({pixels.shape})"
-    video = np.array([channels])
-    return video
-
-
-def get_CMU_1_SMALL_REGION_schemas(include_nested=False):
-    _domains = [
-        ((0, 2219, 1024), (0, 2966, 1024), (0, 2, 3)),
-        ((0, 386, 387), (0, 462, 463), (0, 2, 3)),
-        ((0, 1279, 1024), (0, 430, 431), (0, 2, 3)),
-    ]
-    if include_nested:
-        _domains.insert(1, ((0, 573, 574), (0, 767, 768), (0, 2, 3)))
-    return [
-        tiledb.ArraySchema(
-            domain=tiledb.Domain(
-                tiledb.Dim(
-                    name="C",
-                    domain=_domains[elem_id][2][:2],
-                    tile=_domains[elem_id][2][2],
-                    dtype=np.uint32,
-                ),
-                tiledb.Dim(
-                    name="Y",
-                    domain=_domains[elem_id][1][:2],
-                    tile=_domains[elem_id][1][2],
-                    dtype=np.uint32,
-                ),
-                tiledb.Dim(
-                    name="X",
-                    domain=_domains[elem_id][0][:2],
-                    tile=_domains[elem_id][0][2],
-                    dtype=np.uint32,
-                ),
-            ),
-            sparse=False,
-            attrs=[
-                tiledb.Attr(
-                    name="",
-                    dtype=np.uint8,
-                    filters=tiledb.FilterList([tiledb.ZstdFilter(level=0)]),
-                )
-            ],
-            cell_order="row-major",
-            tile_order="row-major",
-            capacity=10000,
-        )
-        for elem_id in range(len(_domains))
-    ]
+def get_schema(x_size, y_size):
+    return tiledb.ArraySchema(
+        domain=tiledb.Domain(
+            tiledb.Dim("C", (0, 2), tile=3, dtype=np.uint32),
+            tiledb.Dim("Y", (0, y_size - 1), tile=min(y_size, 1024), dtype=np.uint32),
+            tiledb.Dim("X", (0, x_size - 1), tile=min(x_size, 1024), dtype=np.uint32),
+        ),
+        attrs=[
+            tiledb.Attr(
+                dtype=np.uint8,
+                filters=tiledb.FilterList([tiledb.ZstdFilter(level=0)]),
+            )
+        ],
+    )
 
 
 def get_path(uri: str) -> str:
