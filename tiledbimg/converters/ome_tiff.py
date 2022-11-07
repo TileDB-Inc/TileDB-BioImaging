@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import tifffile
@@ -12,11 +12,8 @@ class OMETiffReader(ImageReader):
         self._tiff = tifffile.TiffFile(input_path)
         omexml = self._tiff.ome_metadata
         self._ome_metadata = tifffile.xml2dict(omexml) if omexml else {}
-        self._levels = []
-        self._subifds = {}
-        for series in self._tiff.series:
-            self._levels.extend(series.levels)
-            self._subifds[series] = len(series.levels) - 1
+        # XXX ignore all but the first series
+        self._levels = self._tiff.series[0].levels
 
     @property
     def level_count(self) -> int:
@@ -41,11 +38,11 @@ class OMETiffReader(ImageReader):
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         series = self._levels[level]
-        subifds = self._subifds.get(series)
-        if subifds is not None:
+        if level == 0:
+            subifds: Optional[int] = len(series.levels) - 1
             metadata = dict(self._ome_metadata, axes=series.axes)
         else:
-            metadata = None
+            subifds = metadata = None
         keyframe = series.keyframe
         write_kwargs = dict(
             subifds=subifds,
