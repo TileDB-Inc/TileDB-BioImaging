@@ -1,33 +1,29 @@
 import numpy as np
 import openslide
 import PIL.Image
+import tiledb
 
-from tests import get_path
+from tests import get_CMU_1_SMALL_REGION_schemas, get_path
 from tiledbimg.converters.openslide import OpenSlideConverter
 from tiledbimg.openslide import TileDBOpenSlide
 
 
 def test_openslide_converter(tmp_path):
-    svs_path = get_path("s3://tiledb-isaiah2/jjdemo/test4-convert/C3N-02572-22.svs")
-
-    os_img = openslide.open_slide(svs_path)
-    assert os_img.level_count == 3
-    assert os_img.dimensions == (19919, 21702)
-    assert os_img.level_dimensions == ((19919, 21702), (4979, 5425), (2489, 2712))
-    assert os_img.level_downsamples == (1.0, 4.000485597111555, 8.00251238191405)
-
+    svs_path = get_path("CMU-1-Small-Region.svs")
     OpenSlideConverter().to_tiledb(svs_path, str(tmp_path))
 
+    schema = get_CMU_1_SMALL_REGION_schemas()[0]
+    assert len(tiledb.Group(str(tmp_path))) == 1
+    with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
+        assert A.schema == schema
+
+    o = openslide.open_slide(svs_path)
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
-    assert t.level_count == os_img.level_count
-    assert t.dimensions == os_img.dimensions
-    assert t.level_dimensions == os_img.level_dimensions
-    assert t.level_downsamples == os_img.level_downsamples
-    for factor, best_level in (32, 2), (3.9, 0), (4.1, 1), (2.9, 0), (1, 0):
-        assert os_img.get_best_level_for_downsample(factor) == best_level
-        assert t.get_best_level_for_downsample(factor) == best_level
-    for level, dimensions in enumerate(os_img.level_dimensions):
-        assert t.level_dimensions[level] == dimensions
+
+    assert t.level_count == o.level_count
+    assert t.dimensions == o.dimensions
+    assert t.level_dimensions == o.level_dimensions
+    assert t.level_downsamples == o.level_downsamples
 
     region = t.read_region(level=0, location=(100, 100), size=(300, 400))
     assert isinstance(region, np.ndarray)
