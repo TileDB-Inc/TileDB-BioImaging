@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import operator
 import pickle
 from dataclasses import dataclass
 from typing import Any, Dict, Sequence, cast
@@ -79,8 +80,10 @@ class OMEZarrWriter(ImageWriter):
         write_multiscale(
             images,
             self._output_group,
-            axes=["t", "c", "z", "y", "x"],
+            axes=image_meta.get("axes"),
+            coordinate_transformations=image_meta.get("coordinate_info"),
             storage_options=level_metas_zarray,
+            name="",
             metadata=image_meta.get("metadata"),
         )
 
@@ -116,11 +119,16 @@ class OMEZarrReader(ImageReader):
 
     def metadata(self) -> Dict[str, Any]:
         multiscale_meta = self.image.zarr.root_attrs.get("multiscales")
+        omero_meta = self.image.zarr.root_attrs.get("omero")
+        get_coord = operator.itemgetter("coordinateTransformations")
         assert len(multiscale_meta) == 1
         writer_kwargs = dict(
             bioformats2raw_layout=3,
             zarr_format=self.image.zarr.zgroup.get("zarr_format", 0),
+            axes=multiscale_meta[0].get("axes"),
+            coordinate_info=list(map(get_coord, multiscale_meta[0].get("datasets"))),
             metadata=multiscale_meta[0].get("metadata"),
+            omero_meta=omero_meta,
         )
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
 

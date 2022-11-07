@@ -87,6 +87,9 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
     for filename in ".zattrs", ".zgroup":
         with open(input_zarr_path / filename) as f:
             input_attrs = json.load(f)
+            # Remove omero metadata as (transitional) before comparison
+            if input_attrs["omero"]:
+                del input_attrs["omero"]
         with open(output_zarr_path / filename) as f:
             output_attrs = json.load(f)
         assert input_attrs == output_attrs
