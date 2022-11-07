@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import glob
-import operator
 import pickle
 from dataclasses import dataclass
 from typing import Any, Dict, Sequence, cast
@@ -76,22 +75,24 @@ class OMEZarrWriter(ImageWriter):
                 level_metas_zarray.append(zarray_meta)
 
         # Write image does not support incremental pyramid write
-
         write_multiscale(
             images,
-            self._output_group,
-            axes=image_meta.get("axes"),
-            coordinate_transformations=image_meta.get("coordinate_info"),
+            group=self._output_group,
+            axes=image_meta["axes"],
+            coordinate_transformations=image_meta["coordinate_transformations"],
             storage_options=level_metas_zarray,
-            name="",
-            metadata=image_meta.get("metadata"),
+            name=image_meta["name"],
+            metadata=image_meta["metadata"],
         )
+        if image_meta["omero"]:
+            self._output_group.attrs["omero"] = image_meta["omero"]
 
 
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
         self.image = Reader(ZarrLocation(input_path))
-        resolutions = glob.glob(f"{input_path}/[!OME]*")
+        # TODO: replace glob.glob with a proper way to list the zarr group contents
+        resolutions = sorted(glob.glob(f"{input_path}/[!OME]*"))
         self.res_nodes = [
             node for res in resolutions for node in Reader(ZarrLocation(res))()
         ]
@@ -118,17 +119,18 @@ class OMEZarrReader(ImageReader):
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
 
     def metadata(self) -> Dict[str, Any]:
-        multiscale_meta = self.image.zarr.root_attrs.get("multiscales")
-        omero_meta = self.image.zarr.root_attrs.get("omero")
-        get_coord = operator.itemgetter("coordinateTransformations")
-        assert len(multiscale_meta) == 1
+        multiscales = self.image.zarr.root_attrs.get("multiscales")
+        assert len(multiscales) == 1, multiscales
+        multiscale = multiscales[0]
+        coordinate_transformations = (
+            d.get("coordinateTransformations") for d in multiscale["datasets"]
+        )
         writer_kwargs = dict(
-            bioformats2raw_layout=3,
-            zarr_format=self.image.zarr.zgroup.get("zarr_format", 0),
-            axes=multiscale_meta[0].get("axes"),
-            coordinate_info=list(map(get_coord, multiscale_meta[0].get("datasets"))),
-            metadata=multiscale_meta[0].get("metadata"),
-            omero_meta=omero_meta,
+            axes=multiscale.get("axes"),
+            coordinate_transformations=list(filter(None, coordinate_transformations)),
+            name=multiscale.get("name"),
+            metadata=multiscale.get("metadata"),
+            omero=self.image.zarr.root_attrs.get("omero"),
         )
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
 
