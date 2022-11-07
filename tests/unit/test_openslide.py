@@ -1,7 +1,7 @@
 import tiledb
 
 from tests import get_CMU_1_SMALL_REGION_schemas
-from tiledbimg.openslide import LevelInfo, TileDBOpenSlide
+from tiledbimg.openslide import TileDBOpenSlide
 
 
 class TestTileDBOpenSlide:
@@ -18,8 +18,5 @@ class TestTileDBOpenSlide:
                 G.add(level_path)
 
         tdb_os = TileDBOpenSlide.from_group_uri(group_path)
-        assert tdb_os.level_info == (
-            LevelInfo(str(tmp_path / "l_0.tdb"), dimensions=(2220, 2967)),
-            LevelInfo(str(tmp_path / "l_1.tdb"), dimensions=(387, 463)),
-            LevelInfo(str(tmp_path / "l_2.tdb"), dimensions=(1280, 431)),
-        )
+        assert tdb_os.level_count == 3
+        assert tdb_os.level_dimensions == ((2220, 2967), (387, 463), (1280, 431))
