@@ -6,7 +6,7 @@ import PIL.Image
 import pytest
 import tiledb
 
-from tests import get_CMU_1_SMALL_REGION_schemas, get_path
+from tests import get_path, get_schema
 from tiledbimg.converters.ome_tiff import OMETiffConverter
 from tiledbimg.openslide import TileDBOpenSlide
 
@@ -17,7 +17,7 @@ def test_ome_tiff_converter(tmp_path):
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
     assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
 
-    schemas = get_CMU_1_SMALL_REGION_schemas(include_nested=True)[:2]
+    schemas = (get_schema(2220, 2967), get_schema(574, 768))
     assert t.dimensions == schemas[0].shape[:-3:-1]
     for i in range(t.level_count):
         assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]

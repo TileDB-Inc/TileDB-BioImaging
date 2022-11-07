@@ -3,7 +3,7 @@ import openslide
 import PIL.Image
 import tiledb
 
-from tests import get_CMU_1_SMALL_REGION_schemas, get_path
+from tests import get_path, get_schema
 from tiledbimg.converters.openslide import OpenSlideConverter
 from tiledbimg.openslide import TileDBOpenSlide
 
@@ -12,10 +12,9 @@ def test_openslide_converter(tmp_path):
     svs_path = get_path("CMU-1-Small-Region.svs")
     OpenSlideConverter().to_tiledb(svs_path, str(tmp_path))
 
-    schema = get_CMU_1_SMALL_REGION_schemas()[0]
     assert len(tiledb.Group(str(tmp_path))) == 1
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
-        assert A.schema == schema
+        assert A.schema == get_schema(2220, 2967)
 
     o = openslide.open_slide(svs_path)
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
