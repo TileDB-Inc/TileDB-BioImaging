@@ -41,21 +41,16 @@ def test_ome_zarr_converter(tmp_path, series_idx):
 
 def test_ome_zarr_converter_images(tmp_path):
     OMEZarrConverter().convert_images(
-        Path(get_path("CMU-1-Small-Region.ngff.zarr")).glob("*"),
+        Path(get_path("CMU-1-Small-Region.ome.zarr")).glob("[012]"),
         tmp_path,
         level_min=0,
         max_workers=0,
     )
     schemas = get_CMU_1_SMALL_REGION_schemas()
-    expected_dims = ((2220, 2967), (387, 463), (1280, 431))
-    expected_downsamples = (1.0,)
     for image_uri in tmp_path.glob("*"):
         img_idx = int(image_uri.name)
         t = TileDBOpenSlide.from_group_uri(str(image_uri))
-        assert t.level_count == 1
-        assert t.dimensions == expected_dims[img_idx]
-        assert t.level_downsamples == expected_downsamples
-        assert t.level_dimensions[0] == schemas[img_idx].shape[:-3:-1]
+        assert t.dimensions == t.level_dimensions[0] == schemas[img_idx].shape[:-3:-1]
 
         region = t.read_region(level=0, location=(100, 100), size=(100, 200))
         assert isinstance(region, np.ndarray)
@@ -83,13 +78,21 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
     assert len(input_zarr_group) == len(tiledb_group)
     assert len(input_zarr_group) == len(output_zarr_group)
 
-    # Compare the .zattrs and .zgroup files
-    for filename in ".zattrs", ".zgroup":
-        with open(input_zarr_path / filename) as f:
-            input_attrs = json.load(f)
-            # Remove omero metadata as (transitional) before comparison
-            if input_attrs["omero"]:
-                del input_attrs["omero"]
-        with open(output_zarr_path / filename) as f:
-            output_attrs = json.load(f)
-        assert input_attrs == output_attrs
+    # Compare the .zattrs files
+    with open(input_zarr_path / ".zattrs") as f:
+        input_attrs = json.load(f)
+        # ome-zarr-py replaces empty name with "/"
+        name = input_attrs["multiscales"][0]["name"]
+        if not name:
+            input_attrs["multiscales"][0]["name"] = "/"
+    with open(output_zarr_path / ".zattrs") as f:
+        output_attrs = json.load(f)
+    assert input_attrs == output_attrs
+
+    # Compare the .zarray files
+    for i in range(len(input_zarr_group)):
+        with open(input_zarr_path / str(i) / ".zarray") as f:
+            input_zarray = json.load(f)
+        with open(output_zarr_path / str(i) / ".zarray") as f:
+            output_zarray = json.load(f)
+        assert input_zarray == output_zarray
