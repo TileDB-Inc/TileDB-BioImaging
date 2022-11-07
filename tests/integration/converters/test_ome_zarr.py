@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import PIL.Image
+import pytest
 import tiledb
 import zarr
 
@@ -11,30 +12,31 @@ from tiledbimg.converters.ome_zarr import OMEZarrConverter
 from tiledbimg.openslide import TileDBOpenSlide
 
 
-def test_ome_zarr_converter(tmp_path):
-    input_path = Path(get_path("CMU-1-Small-Region.ngff.zarr")) / "0.zarr"
-    output_path = tmp_path / input_path.name
-    OMEZarrConverter().to_tiledb(input_path, str(output_path))
+@pytest.mark.parametrize("series_idx", [0, 1, 2])
+def test_ome_zarr_converter(tmp_path, series_idx):
+    input_path = Path(get_path("CMU-1-Small-Region.ome.zarr")) / str(series_idx)
+    OMEZarrConverter().to_tiledb(input_path, str(tmp_path))
 
-    schema = get_CMU_1_SMALL_REGION_schemas()[0]
-    assert len(tiledb.Group(str(output_path))) == 1
-    with tiledb.open(str(output_path / f"l_{0}.tdb")) as A:
+    schema = get_CMU_1_SMALL_REGION_schemas()[series_idx]
+
+    # check the first (highest) resolution layer only
+    with tiledb.open(str(tmp_path / f"l_{0}.tdb")) as A:
         assert A.schema == schema
 
-    expected_dim = (2220, 2967)
-    expected_downsample = (1.0,)
-    t = TileDBOpenSlide.from_group_uri(str(output_path))
-    assert t.level_count == 1
-    assert t.dimensions == expected_dim
-    assert t.level_downsamples == expected_downsample
-    assert t.level_dimensions[0] == schema.shape[:-3:-1]
+    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
+    assert t.dimensions == t.level_dimensions[0] == schema.shape[:-3:-1]
 
-    region = t.read_region(level=0, location=(100, 100), size=(300, 400))
+    region_location = (100, 100)
+    region_size = (300, 400)
+    region = t.read_region(level=0, location=region_location, size=region_size)
     assert isinstance(region, np.ndarray)
     assert region.ndim == 3
     assert region.dtype == np.uint8
     img = PIL.Image.fromarray(region)
-    assert img.size == (300, 400)
+    assert img.size == (
+        min(t.dimensions[0] - region_location[0], region_size[0]),
+        min(t.dimensions[1] - region_location[1], region_size[1]),
+    )
 
 
 def test_ome_zarr_converter_images(tmp_path):
@@ -63,9 +65,9 @@ def test_ome_zarr_converter_images(tmp_path):
         assert img.size == (100, 200)
 
 
-def test_tiledb_to_ome_zarr_rountrip(tmp_path):
-    # Take one image from CMU-1-Small-Region.ngff.zarr
-    input_zarr_path = Path(get_path("CMU-1-Small-Region.ngff.zarr")) / "0.zarr"
+@pytest.mark.parametrize("series_idx", [0, 1, 2])
+def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
+    input_zarr_path = Path(get_path("CMU-1-Small-Region.ome.zarr")) / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
     output_zarr_path = tmp_path / "from_tiledb"
 
