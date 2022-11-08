@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-import glob
+import os
 import pickle
-from dataclasses import dataclass
 from typing import Any, Dict, Sequence, cast
 
 import numpy as np
 import tiledb
 import zarr
 from numcodecs import Blosc
-from ome_zarr.reader import Node, Reader, ZarrLocation
+from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
 from .base import ImageConverter, ImageReader, ImageWriter
-
-
-@dataclass(frozen=True)
-class Level:
-    node: Node
 
 
 class OMEZarrWriter(ImageWriter):
@@ -90,38 +84,28 @@ class OMEZarrWriter(ImageWriter):
 
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
-        self.image = Reader(ZarrLocation(input_path))
-        # TODO: replace glob.glob with a proper way to list the zarr group contents
-        resolutions = sorted(glob.glob(f"{input_path}/[!OME]*"))
-        self.res_nodes = [
-            node for res in resolutions for node in Reader(ZarrLocation(res))()
-        ]
-        self._levels = list(map(Level, self.res_nodes))
+        self.root_attrs = ZarrLocation(input_path).root_attrs
+        self.nodes = []
+        for dataset in self._multiscale["datasets"]:
+            path = os.path.join(input_path, dataset["path"])
+            self.nodes.extend(Reader(ZarrLocation(path))())
 
     @property
     def level_count(self) -> int:
-        return len(self._levels)
+        return len(self.nodes)
 
     def level_image(self, level: int) -> np.ndarray:
-        assert len(self._levels[level].node.data) == 1
-        leveled_zarray = self._levels[level].node.data[0]
+        data = self.nodes[level].data
+        assert len(data) == 1
         # From NGFF format spec there is guarantee that axes are t,c,z,y,x
-        return np.asarray(leveled_zarray).squeeze()
+        return np.asarray(data[0]).squeeze()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        meta_root = self._levels[level].node.zarr
-        writer_kwargs = dict(
-            fmt=meta_root.fmt,
-            root_attrs=meta_root.root_attrs,
-            zarray=meta_root.zarray,
-            zgroup=meta_root.zgroup,
-        )
+        writer_kwargs = dict(zarray=self.nodes[level].zarr.zarray)
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
 
     def metadata(self) -> Dict[str, Any]:
-        multiscales = self.image.zarr.root_attrs.get("multiscales")
-        assert len(multiscales) == 1, multiscales
-        multiscale = multiscales[0]
+        multiscale = self._multiscale
         coordinate_transformations = (
             d.get("coordinateTransformations") for d in multiscale["datasets"]
         )
@@ -130,9 +114,15 @@ class OMEZarrReader(ImageReader):
             coordinate_transformations=list(filter(None, coordinate_transformations)),
             name=multiscale.get("name"),
             metadata=multiscale.get("metadata"),
-            omero=self.image.zarr.root_attrs.get("omero"),
+            omero=self.root_attrs.get("omero"),
         )
         return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
+
+    @property
+    def _multiscale(self) -> Dict[str, Any]:
+        multiscales = self.root_attrs["multiscales"]
+        assert len(multiscales) == 1, multiscales
+        return cast(Dict[str, Any], multiscales[0])
 
 
 class OMEZarrConverter(ImageConverter):
