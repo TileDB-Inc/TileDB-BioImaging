@@ -11,7 +11,7 @@ class TestTileDBOpenSlide:
         def r():
             return random.randint(64, 4096)
 
-        level_dimensions = [(r(), r()) for _ in range(7)]
+        level_dimensions = [(r(), r()) for _ in range(random.randint(1, 10))]
         schemas = [get_schema(*dims) for dims in level_dimensions]
         group_path = str(tmp_path)
         tiledb.Group.create(group_path)
