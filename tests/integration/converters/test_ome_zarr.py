@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import numpy as np
 import PIL.Image
@@ -16,7 +15,7 @@ schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 def test_ome_zarr_converter(tmp_path, series_idx):
-    input_path = Path(get_path("CMU-1-Small-Region.ome.zarr")) / str(series_idx)
+    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     OMEZarrConverter().to_tiledb(input_path, str(tmp_path))
 
     # check the first (highest) resolution layer only
@@ -40,29 +39,9 @@ def test_ome_zarr_converter(tmp_path, series_idx):
     )
 
 
-def test_ome_zarr_converter_images(tmp_path):
-    OMEZarrConverter().convert_images(
-        Path(get_path("CMU-1-Small-Region.ome.zarr")).glob("[012]"),
-        tmp_path,
-        level_min=0,
-        max_workers=0,
-    )
-    for image_uri in tmp_path.glob("*"):
-        img_idx = int(image_uri.name)
-        t = TileDBOpenSlide.from_group_uri(str(image_uri))
-        assert t.dimensions == t.level_dimensions[0] == schemas[img_idx].shape[:-3:-1]
-
-        region = t.read_region(level=0, location=(100, 100), size=(100, 200))
-        assert isinstance(region, np.ndarray)
-        assert region.ndim == 3
-        assert region.dtype == np.uint8
-        img = PIL.Image.fromarray(region)
-        assert img.size == (100, 200)
-
-
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
-    input_zarr_path = Path(get_path("CMU-1-Small-Region.ome.zarr")) / str(series_idx)
+    input_zarr_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
     output_zarr_path = tmp_path / "from_tiledb"
 
