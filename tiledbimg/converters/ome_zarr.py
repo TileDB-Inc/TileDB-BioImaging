@@ -14,47 +14,6 @@ from ome_zarr.writer import write_multiscale
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
-class OMEZarrWriter(ImageWriter):
-    def __init__(self, output_path: str):
-        self._zarr_group = zarr.group(
-            store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
-        )
-        self._pyramid: List[np.ndarray] = []
-        self._storage_options: List[Dict[str, Any]] = []
-        self._group_metadata: Dict[str, Any] = {}
-
-    def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        # store the image to be written at __exit__
-        image = array[:]
-        c, y, x = image.shape
-        tczyx_shape = (1, c, 1, y, x)
-        self._pyramid.append(image.reshape(tczyx_shape))
-
-        # store the zarrat metadata to be written at __exit__
-        zarray = json.loads(array.meta["json_zarray"])
-        compressor = zarray["compressor"]
-        del compressor["id"]
-        zarray["compressor"] = Blosc.from_config(compressor)
-        self._storage_options.append(zarray)
-
-    def write_group_metadata(self, group: tiledb.Group) -> None:
-        self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
-
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        group_metadata = self._group_metadata
-        write_multiscale(
-            pyramid=self._pyramid,
-            group=self._zarr_group,
-            axes=group_metadata["axes"],
-            coordinate_transformations=group_metadata["coordinate_transformations"],
-            storage_options=self._storage_options,
-            name=group_metadata["name"],
-            metadata=group_metadata["metadata"],
-        )
-        if group_metadata["omero"]:
-            self._zarr_group.attrs["omero"] = group_metadata["omero"]
-
-
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
         self.root_attrs = ZarrLocation(input_path).root_attrs
@@ -104,6 +63,47 @@ class OMEZarrReader(ImageReader):
         multiscales = self.root_attrs["multiscales"]
         assert len(multiscales) == 1, multiscales
         return cast(Dict[str, Any], multiscales[0])
+
+
+class OMEZarrWriter(ImageWriter):
+    def __init__(self, output_path: str):
+        self._group = zarr.group(
+            store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
+        )
+        self._pyramid: List[np.ndarray] = []
+        self._storage_options: List[Dict[str, Any]] = []
+        self._group_metadata: Dict[str, Any] = {}
+
+    def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        # store the image to be written at __exit__
+        image = array[:]
+        c, y, x = image.shape
+        tczyx_shape = (1, c, 1, y, x)
+        self._pyramid.append(image.reshape(tczyx_shape))
+
+        # store the zarray metadata to be written at __exit__
+        zarray = json.loads(array.meta["json_zarray"])
+        compressor = zarray["compressor"]
+        del compressor["id"]
+        zarray["compressor"] = Blosc.from_config(compressor)
+        self._storage_options.append(zarray)
+
+    def write_group_metadata(self, group: tiledb.Group) -> None:
+        self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        group_metadata = self._group_metadata
+        write_multiscale(
+            pyramid=self._pyramid,
+            group=self._group,
+            axes=group_metadata["axes"],
+            coordinate_transformations=group_metadata["coordinate_transformations"],
+            storage_options=self._storage_options,
+            name=group_metadata["name"],
+            metadata=group_metadata["metadata"],
+        )
+        if group_metadata["omero"]:
+            self._group.attrs["omero"] = group_metadata["omero"]
 
 
 class OMEZarrConverter(ImageConverter):
