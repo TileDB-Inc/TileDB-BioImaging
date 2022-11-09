@@ -46,12 +46,11 @@ class OMEZarrReader(ImageReader):
     @property
     def group_metadata(self) -> Dict[str, Any]:
         multiscale = self._multiscale
-        coordinate_transformations = (
-            d.get("coordinateTransformations") for d in multiscale["datasets"]
-        )
         writer_kwargs = dict(
             axes=multiscale.get("axes"),
-            coordinate_transformations=list(filter(None, coordinate_transformations)),
+            coordinate_transformations=[
+                d.get("coordinateTransformations") for d in multiscale["datasets"]
+            ],
             name=multiscale.get("name"),
             metadata=multiscale.get("metadata"),
             omero=self.root_attrs.get("omero"),
