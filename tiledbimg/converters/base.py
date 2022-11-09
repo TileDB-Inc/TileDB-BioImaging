@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from operator import itemgetter
-from typing import Any, Dict, Sequence
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 import numpy as np
@@ -69,25 +69,12 @@ class ImageWriter(ABC):
         pass
 
     @abstractmethod
-    def level_image(self, array: tiledb.Array) -> np.ndarray:
-        """Return the image from the given TileDB array as numpy array."""
+    def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        """Write the image at the given level."""
 
     @abstractmethod
-    def level_metadata(self, array: tiledb.Array) -> Dict[str, Any]:
-        """Return the metadata from the given TileDB array."""
-
-    @abstractmethod
-    def group_metadata(self, group: tiledb.Group) -> Dict[str, Any]:
-        """Return the metadata from the given TileDB group."""
-
-    @abstractmethod
-    def write(
-        self,
-        images: Sequence[np.ndarray],
-        level_metadata: Sequence[Dict[str, Any]],
-        group_metadata: Dict[str, Any],
-    ) -> None:
-        """Write back to writer format"""
+    def write_group_metadata(self, group: tiledb.Group) -> None:
+        """Write the metadata for the whole multi-resolution image."""
 
 
 class ImageConverter(ABC):
@@ -110,20 +97,23 @@ class ImageConverter(ABC):
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
         """
+        # open all level arrays, keep those with level >= level_min and sort them by level
+        level_arrays = []
+        group = tiledb.Group(input_path, "r")
+        for member in group:
+            array = tiledb.open(member.uri)
+            level = array.meta.get("level", 0)
+            if level < level_min:
+                array.close()
+                continue
+            level_arrays.append((level, array))
+        level_arrays.sort(key=itemgetter(0))
+
         with self._get_image_writer(output_path) as writer:
-            group = tiledb.Group(input_path, "r")
-            entries = []
-            for member in group:
-                with tiledb.open(member.uri) as a:
-                    level = a.meta.get("level", 0)
-                    if level < level_min:
-                        continue
-                    image = writer.level_image(a)
-                    level_metadata = writer.level_metadata(a)
-                    entries.append((level, image, level_metadata))
-            entries.sort(key=itemgetter(0))
-            levels, images, levels_metadata = zip(*entries)
-            writer.write(images, levels_metadata, writer.group_metadata(group))
+            writer.write_group_metadata(group)
+            for level, array in level_arrays:
+                writer.write_level_array(level, array)
+                array.close()
 
     def to_tiledb(
         self, input_path: str, output_group_path: str, level_min: int = 0

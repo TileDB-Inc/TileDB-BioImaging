@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, Sequence, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
 import tiledb
@@ -16,44 +16,43 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 class OMEZarrWriter(ImageWriter):
     def __init__(self, output_path: str):
-        self._output_group = zarr.group(
+        self._zarr_group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )
+        self._pyramid: List[np.ndarray] = []
+        self._storage_options: List[Dict[str, Any]] = []
+        self._group_metadata: Dict[str, Any] = {}
 
-    def level_image(self, array: tiledb.Array) -> np.ndarray:
-        data = array[:]
-        c, y, x = data.shape
+    def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        # store the image to be written at __exit__
+        image = array[:]
+        c, y, x = image.shape
         tczyx_shape = (1, c, 1, y, x)
-        return data.reshape(tczyx_shape)
+        self._pyramid.append(image.reshape(tczyx_shape))
 
-    def level_metadata(self, array: tiledb.Array) -> Dict[str, Any]:
+        # store the zarrat metadata to be written at __exit__
         zarray = json.loads(array.meta["json_zarray"])
         compressor = zarray["compressor"]
         del compressor["id"]
         zarray["compressor"] = Blosc.from_config(compressor)
-        return cast(Dict[str, Any], zarray)
+        self._storage_options.append(zarray)
 
-    def group_metadata(self, group: tiledb.Group) -> Dict[str, Any]:
-        return cast(Dict[str, Any], json.loads(group.meta["json_zarrwriter_kwargs"]))
+    def write_group_metadata(self, group: tiledb.Group) -> None:
+        self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
 
-    def write(
-        self,
-        images: Sequence[np.ndarray],
-        level_metadata: Sequence[Dict[str, Any]],
-        group_metadata: Dict[str, Any],
-    ) -> None:
-        # Write image does not support incremental pyramid write
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        group_metadata = self._group_metadata
         write_multiscale(
-            list(images),
-            group=self._output_group,
+            pyramid=self._pyramid,
+            group=self._zarr_group,
             axes=group_metadata["axes"],
             coordinate_transformations=group_metadata["coordinate_transformations"],
-            storage_options=list(level_metadata),
+            storage_options=self._storage_options,
             name=group_metadata["name"],
             metadata=group_metadata["metadata"],
         )
         if group_metadata["omero"]:
-            self._output_group.attrs["omero"] = group_metadata["omero"]
+            self._zarr_group.attrs["omero"] = group_metadata["omero"]
 
 
 class OMEZarrReader(ImageReader):
