@@ -32,6 +32,10 @@ class ImageReader(ABC):
         """Return the number of levels for this multi-resolution image"""
 
     @abstractmethod
+    def level_axes(self, level: int) -> Axes:
+        """Return the axes for the given level."""
+
+    @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
         """
         Return the image for the given level as numpy array.
@@ -40,16 +44,12 @@ class ImageReader(ABC):
         """
 
     @abstractmethod
-    def level_axes(self, level: int) -> Axes:
-        """Return the axes for the given level."""
-
     def level_metadata(self, level: int) -> Dict[str, Any]:
         """Return the metadata for the given level."""
-        return {}
 
+    @abstractmethod
     def metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
-        return {}
 
 
 class ImageWriter(ABC):
@@ -57,13 +57,13 @@ class ImageWriter(ABC):
     def level_image(self, array: tiledb.Array) -> np.ndarray:
         """Return the image from the given TileDB array as numpy array."""
 
+    @abstractmethod
     def level_metadata(self, array: tiledb.Array) -> Dict[str, Any]:
         """Return the metadata from the given TileDB array."""
-        return {}
 
+    @abstractmethod
     def metadata(self, group: tiledb.Group) -> Dict[str, Any]:
         """Return the metadata from the given TileDB group."""
-        return {}
 
     @abstractmethod
     def write(

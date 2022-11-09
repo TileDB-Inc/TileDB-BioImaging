@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, Dict, cast
 
 import numpy as np
 import openslide as osd
@@ -24,6 +24,12 @@ class OpenSlideReader(ImageReader):
         # np.asarray() transposes it to (height, width, channel) == YXC
         # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
         return np.asarray(image)
+
+    def level_metadata(self, level: int) -> Dict[str, Any]:
+        return {}
+
+    def metadata(self) -> Dict[str, Any]:
+        return {}
 
 
 class OpenSlideConverter(ImageConverter):
