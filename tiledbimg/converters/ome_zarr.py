@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import json
 import os
-import pickle
 from typing import Any, Dict, Sequence, cast
 
 import numpy as np
@@ -27,17 +27,14 @@ class OMEZarrWriter(ImageWriter):
         return data.reshape(tczyx_shape)
 
     def level_metadata(self, array: tiledb.Array) -> Dict[str, Any]:
-        level_meta = pickle.loads(array.meta["pickled_zarrwriter_kwargs"])
-        zarray = level_meta["zarray"]
+        zarray = json.loads(array.meta["json_zarray"])
         compressor = zarray["compressor"]
         del compressor["id"]
         zarray["compressor"] = Blosc.from_config(compressor)
         return cast(Dict[str, Any], zarray)
 
     def metadata(self, group: tiledb.Group) -> Dict[str, Any]:
-        return cast(
-            Dict[str, Any], pickle.loads(group.meta["pickled_zarrwriter_kwargs"])
-        )
+        return cast(Dict[str, Any], json.loads(group.meta["json_zarrwriter_kwargs"]))
 
     def write(
         self,
@@ -86,8 +83,7 @@ class OMEZarrReader(ImageReader):
         return np.asarray(data[0]).squeeze()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        writer_kwargs = dict(zarray=self.nodes[level].zarr.zarray)
-        return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
+        return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
 
     def metadata(self) -> Dict[str, Any]:
         multiscale = self._multiscale
@@ -101,7 +97,7 @@ class OMEZarrReader(ImageReader):
             metadata=multiscale.get("metadata"),
             omero=self.root_attrs.get("omero"),
         )
-        return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
+        return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
 
     @property
     def _multiscale(self) -> Dict[str, Any]:
