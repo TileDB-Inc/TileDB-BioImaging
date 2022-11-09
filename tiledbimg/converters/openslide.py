@@ -10,6 +10,9 @@ class OpenSlideReader(ImageReader):
     def __init__(self, input_path: str):
         self._osd = osd.OpenSlide(input_path)
 
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._osd.close()
+
     @property
     def level_count(self) -> int:
         return cast(int, self._osd.level_count)

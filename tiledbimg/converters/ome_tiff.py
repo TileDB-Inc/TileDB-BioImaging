@@ -15,6 +15,9 @@ class OMETiffReader(ImageReader):
         # XXX ignore all but the first series
         self._levels = self._tiff.series[0].levels
 
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._tiff.close()
+
     @property
     def level_count(self) -> int:
         return len(self._levels)
