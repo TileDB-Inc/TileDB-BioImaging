@@ -1,8 +1,7 @@
 import os
 from abc import ABC, abstractmethod
-from concurrent import futures
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Sequence
 from urllib.parse import urlparse
 
 import numpy as np
@@ -144,46 +143,6 @@ class ImageConverter(ABC):
                     G.add(level_uri, relative=False)
                 else:
                     G.add(os.path.basename(level_uri), relative=True)
-
-    def convert_images(
-        self,
-        input_paths: Sequence[str],
-        output_path: str,
-        level_min: int = 0,
-        max_workers: Optional[int] = None,
-    ) -> None:
-        """
-        Convert a batch of images to TileDB Groups of Arrays (one per level)
-
-        :param input_paths: paths to the input images
-        :param output_path: parent directory of the paths to the TiledDB groups of arrays
-        :param level_min: minimum level of the image to be converted. By default set to 0
-            to convert all levels.
-        :param max_workers: Number of parallel workers to convert the images. By default
-            (None) all cores are used. Pass 0 for sequential conversion.
-        """
-
-        def get_group_path(p: str) -> str:
-            return os.path.join(output_path, os.path.splitext(os.path.basename(p))[0])
-
-        if max_workers != 0:
-            with futures.ProcessPoolExecutor(max_workers) as executor:
-                fs = [
-                    executor.submit(
-                        self.to_tiledb,
-                        input_path,
-                        get_group_path(input_path),
-                        level_min,
-                    )
-                    for input_path in input_paths
-                ]
-                futures.wait(fs)
-                for f in fs:
-                    # reraise exception raised on worker
-                    f.result()
-        else:
-            for input_path in input_paths:
-                self.to_tiledb(input_path, get_group_path(input_path), level_min)
 
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
