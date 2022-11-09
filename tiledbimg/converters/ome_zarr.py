@@ -33,27 +33,27 @@ class OMEZarrWriter(ImageWriter):
         zarray["compressor"] = Blosc.from_config(compressor)
         return cast(Dict[str, Any], zarray)
 
-    def metadata(self, group: tiledb.Group) -> Dict[str, Any]:
+    def group_metadata(self, group: tiledb.Group) -> Dict[str, Any]:
         return cast(Dict[str, Any], json.loads(group.meta["json_zarrwriter_kwargs"]))
 
     def write(
         self,
         images: Sequence[np.ndarray],
         level_metadata: Sequence[Dict[str, Any]],
-        metadata: Dict[str, Any],
+        group_metadata: Dict[str, Any],
     ) -> None:
         # Write image does not support incremental pyramid write
         write_multiscale(
             list(images),
             group=self._output_group,
-            axes=metadata["axes"],
-            coordinate_transformations=metadata["coordinate_transformations"],
+            axes=group_metadata["axes"],
+            coordinate_transformations=group_metadata["coordinate_transformations"],
             storage_options=list(level_metadata),
-            name=metadata["name"],
-            metadata=metadata["metadata"],
+            name=group_metadata["name"],
+            metadata=group_metadata["metadata"],
         )
-        if metadata["omero"]:
-            self._output_group.attrs["omero"] = metadata["omero"]
+        if group_metadata["omero"]:
+            self._output_group.attrs["omero"] = group_metadata["omero"]
 
 
 class OMEZarrReader(ImageReader):
@@ -85,7 +85,8 @@ class OMEZarrReader(ImageReader):
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
 
-    def metadata(self) -> Dict[str, Any]:
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
         multiscale = self._multiscale
         coordinate_transformations = (
             d.get("coordinateTransformations") for d in multiscale["datasets"]

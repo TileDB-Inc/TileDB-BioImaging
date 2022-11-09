@@ -47,8 +47,9 @@ class ImageReader(ABC):
     def level_metadata(self, level: int) -> Dict[str, Any]:
         """Return the metadata for the given level."""
 
+    @property
     @abstractmethod
-    def metadata(self) -> Dict[str, Any]:
+    def group_metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
 
 
@@ -62,7 +63,7 @@ class ImageWriter(ABC):
         """Return the metadata from the given TileDB array."""
 
     @abstractmethod
-    def metadata(self, group: tiledb.Group) -> Dict[str, Any]:
+    def group_metadata(self, group: tiledb.Group) -> Dict[str, Any]:
         """Return the metadata from the given TileDB group."""
 
     @abstractmethod
@@ -70,7 +71,7 @@ class ImageWriter(ABC):
         self,
         images: Sequence[np.ndarray],
         level_metadata: Sequence[Dict[str, Any]],
-        metadata: Dict[str, Any],
+        group_metadata: Dict[str, Any],
     ) -> None:
         """Write back to writer format"""
 
@@ -108,7 +109,7 @@ class ImageConverter(ABC):
                 entries.append((level, image, level_metadata))
         entries.sort(key=itemgetter(0))
         levels, images, levels_metadata = zip(*entries)
-        writer.write(images, levels_metadata, writer.metadata(group))
+        writer.write(images, levels_metadata, writer.group_metadata(group))
 
     def to_tiledb(
         self, input_path: str, output_group_path: str, level_min: int = 0
@@ -137,9 +138,7 @@ class ImageConverter(ABC):
 
         # Write group metadata
         with tiledb.Group(output_group_path, "w") as G:
-            metadata = reader.metadata()
-            if metadata:
-                G.meta.update(metadata)
+            G.meta.update(reader.group_metadata)
             for level_uri in uris:
                 if urlparse(level_uri).scheme == "tiledb":
                     G.add(level_uri, relative=False)

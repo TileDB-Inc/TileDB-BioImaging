@@ -55,7 +55,8 @@ class OMETiffReader(ImageReader):
         )
         return {"pickled_write_kwargs": pickle.dumps(write_kwargs)}
 
-    def metadata(self) -> Dict[str, Any]:
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
         writer_kwargs = dict(
             bigtiff=self._tiff.is_bigtiff,
             byteorder=self._tiff.byteorder,

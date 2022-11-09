@@ -28,7 +28,8 @@ class OpenSlideReader(ImageReader):
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {}
 
-    def metadata(self) -> Dict[str, Any]:
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
         return {}
 
 
