@@ -32,5 +32,5 @@ class OpenSlideConverter(ImageConverter):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         return OpenSlideReader(input_path)
 
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        pass
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
+        raise NotImplementedError

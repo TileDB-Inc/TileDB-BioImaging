@@ -15,71 +15,48 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrWriter(ImageWriter):
-    def __init__(self, input_path: str, output_path: str):
-        # OME ZARR GROUP
+    def __init__(self, output_path: str):
         self._output_group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )
-        self._input_group = tiledb.Group(input_path, "r")
 
-        # levels is a list of TLDB ARRAYS
-        self._levels = {}
-        for resolution in self._input_group:
-            uri = resolution.uri
-            with tiledb.open(uri) as a:
-                level = a.meta.get("level", 0)
-            self._levels.update({level: uri})
+    def level_image(self, array: tiledb.Array) -> np.ndarray:
+        data = array[:]
+        c, y, x = data.shape
+        tczyx_shape = (1, c, 1, y, x)
+        return data.reshape(tczyx_shape)
 
-    @property
-    def level_count(self) -> int:
-        return len(self._levels)
+    def level_metadata(self, array: tiledb.Array) -> Dict[str, Any]:
+        level_meta = pickle.loads(array.meta["pickled_zarrwriter_kwargs"])
+        zarray = level_meta["zarray"]
+        compressor = zarray["compressor"]
+        del compressor["id"]
+        zarray["compressor"] = Blosc.from_config(compressor)
+        return cast(Dict[str, Any], zarray)
 
-    def level_image(self, level: int) -> np.ndarray:
-        with tiledb.open(self._levels.get(level)) as L:
-            data = L[:]
-            c, y, x = data.shape
-            tczyx_shape = (1, c, 1, y, x)
-            return data.reshape(tczyx_shape)
-
-    def level_metadata(self, level: int) -> Dict[str, Any]:
-        with tiledb.open(self._levels.get(level)) as L:
-            return cast(
-                Dict[str, Any], pickle.loads(L.meta["pickled_zarrwriter_kwargs"])
-            )
-
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self, group: tiledb.Group) -> Dict[str, Any]:
         return cast(
-            Dict[str, Any],
-            pickle.loads(self._input_group.meta["pickled_zarrwriter_kwargs"]),
+            Dict[str, Any], pickle.loads(group.meta["pickled_zarrwriter_kwargs"])
         )
 
     def write(
         self,
         images: Sequence[np.ndarray],
-        level_metas: Sequence[Dict[str, Any]],
-        image_meta: Dict[str, Any] = {},
+        level_metadata: Sequence[Dict[str, Any]],
+        metadata: Dict[str, Any],
     ) -> None:
-        level_metas_zarray = []
-        for level_meta in level_metas:
-            zarray_meta = level_meta.get("zarray")
-            if zarray_meta is not None:
-                compressor = zarray_meta["compressor"]
-                del compressor["id"]
-                zarray_meta["compressor"] = Blosc.from_config(compressor)
-                level_metas_zarray.append(zarray_meta)
-
         # Write image does not support incremental pyramid write
         write_multiscale(
-            images,
+            list(images),
             group=self._output_group,
-            axes=image_meta["axes"],
-            coordinate_transformations=image_meta["coordinate_transformations"],
-            storage_options=level_metas_zarray,
-            name=image_meta["name"],
-            metadata=image_meta["metadata"],
+            axes=metadata["axes"],
+            coordinate_transformations=metadata["coordinate_transformations"],
+            storage_options=list(level_metadata),
+            name=metadata["name"],
+            metadata=metadata["metadata"],
         )
-        if image_meta["omero"]:
-            self._output_group.attrs["omero"] = image_meta["omero"]
+        if metadata["omero"]:
+            self._output_group.attrs["omero"] = metadata["omero"]
 
 
 class OMEZarrReader(ImageReader):
@@ -139,5 +116,5 @@ class OMEZarrConverter(ImageConverter):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         return OMEZarrReader(input_path)
 
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        return OMEZarrWriter(input_path, output_path)
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
+        return OMEZarrWriter(output_path)

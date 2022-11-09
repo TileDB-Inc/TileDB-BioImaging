@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from operator import itemgetter
 from typing import Any, Dict, Sequence
 from urllib.parse import urlparse
 
@@ -52,27 +53,24 @@ class ImageReader(ABC):
 
 
 class ImageWriter(ABC):
-    @property
     @abstractmethod
-    def level_count(self) -> int:
-        """Return the number of levels for this multi-resolution image"""
+    def level_image(self, array: tiledb.Array) -> np.ndarray:
+        """Return the image from the given TileDB array as numpy array."""
 
-    @abstractmethod
-    def level_image(self, level: int) -> np.ndarray:
-        """Return the image for the given level as (X, Y, C) 3D numpy array"""
-
-    def level_metadata(self, level: int) -> Dict[str, Any]:
+    def level_metadata(self, array: tiledb.Array) -> Dict[str, Any]:
+        """Return the metadata from the given TileDB array."""
         return {}
 
-    def metadata(self) -> Dict[str, Any]:
+    def metadata(self, group: tiledb.Group) -> Dict[str, Any]:
+        """Return the metadata from the given TileDB group."""
         return {}
 
     @abstractmethod
     def write(
         self,
-        image: Sequence[np.ndarray],
+        images: Sequence[np.ndarray],
         level_metadata: Sequence[Dict[str, Any]],
-        image_meta: Dict[str, Any],
+        metadata: Dict[str, Any],
     ) -> None:
         """Write back to writer format"""
 
@@ -97,16 +95,20 @@ class ImageConverter(ABC):
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
         """
-
-        writer = self._get_image_writer(input_path, output_path)
-
-        images = []
-        levels_metadata = []
-        for level in range(level_min, writer.level_count):
-            images.append(writer.level_image(level))
-            levels_metadata.append(writer.level_metadata(level))
-        image_metadata = writer.metadata()
-        writer.write(images, levels_metadata, image_metadata)
+        writer = self._get_image_writer(output_path)
+        group = tiledb.Group(input_path, "r")
+        entries = []
+        for member in group:
+            with tiledb.open(member.uri) as a:
+                level = a.meta.get("level", 0)
+                if level < level_min:
+                    continue
+                image = writer.level_image(a)
+                level_metadata = writer.level_metadata(a)
+                entries.append((level, image, level_metadata))
+        entries.sort(key=itemgetter(0))
+        levels, images, levels_metadata = zip(*entries)
+        writer.write(images, levels_metadata, writer.metadata(group))
 
     def to_tiledb(
         self, input_path: str, output_group_path: str, level_min: int = 0
@@ -171,7 +173,7 @@ class ImageConverter(ABC):
                 A.meta.update(metadata)
 
     @abstractmethod
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
         """Return an ImageWriter for the given input path."""
 
     @abstractmethod
