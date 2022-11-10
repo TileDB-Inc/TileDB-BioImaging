@@ -71,11 +71,16 @@ class ImageWriter(ABC):
 
     @abstractmethod
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        """Write the image at the given level."""
+        """Write the image at the given level.
+        :param level:
+        :param array:
+        """
 
     @abstractmethod
     def write_group_metadata(self, group: tiledb.Group) -> None:
-        """Write the metadata for the whole multi-resolution image."""
+        """Write the metadata for the whole multi-resolution image.
+        :param group:
+        """
 
 
 class ImageConverter(ABC):
@@ -151,6 +156,12 @@ class ImageConverter(ABC):
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
     ) -> None:
+        """
+
+        :param uri:
+        :param image:
+        :param metadata:
+        """
         assert len(image.shape) == len(self._dims)
         # find the smallest dtype that can hold the number of image scalar values
         dim_dtype = np.min_scalar_type(image.size)
@@ -176,8 +187,12 @@ class ImageConverter(ABC):
 
     @abstractmethod
     def _get_image_writer(self, output_path: str) -> ImageWriter:
-        """Return an ImageWriter for the given input path."""
+        """Return an ImageWriter for the given input path.
+        :param output_path:
+        """
 
     @abstractmethod
     def _get_image_reader(self, input_path: str) -> ImageReader:
-        """Return an ImageReader for the given input path."""
+        """Return an ImageReader for the given input path.
+        :param input_path:
+        """

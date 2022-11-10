@@ -15,6 +15,11 @@ class TileDBOpenSlide:
 
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
+        """
+
+        :param uri:
+        :return:
+        """
         with tiledb.Group(uri) as G:
             level_info = []
             for o in G:
@@ -79,6 +84,9 @@ class TileDBOpenSlide:
         return np.moveaxis(data, 0, 2)
 
     def get_best_level_for_downsample(self, factor: float) -> int:
-        """Return the best level for displaying the given downsample."""
+        """Return the best level for displaying the given downsample.
+        :param factor:
+        :return:
+        """
         lla = np.where(np.array(self.level_downsamples) < factor)[0]
         return int(lla.max() if len(lla) > 0 else 0)

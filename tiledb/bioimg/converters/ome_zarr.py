@@ -25,12 +25,26 @@ class OMEZarrReader(ImageReader):
 
     @property
     def level_count(self) -> int:
+        """
+
+        :return:
+        """
         return len(self.nodes)
 
     def level_axes(self, level: int) -> Axes:
+        """
+
+        :param level:
+        :return:
+        """
         return Axes("CYX")
 
     def level_image(self, level: int) -> np.ndarray:
+        """
+
+        :param level:
+        :return:
+        """
         data = self.nodes[level].data
         assert len(data) == 1
         leveled_zarray = data[0]
@@ -42,10 +56,19 @@ class OMEZarrReader(ImageReader):
         return np.asarray(data[0]).squeeze()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
+        """
+
+        :param level:
+        :return:
+        """
         return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
+        """
+
+        :return:
+        """
         multiscale = self._multiscale
         writer_kwargs = dict(
             axes=multiscale.get("axes"),
@@ -60,6 +83,10 @@ class OMEZarrReader(ImageReader):
 
     @property
     def _multiscale(self) -> Dict[str, Any]:
+        """
+
+        :return:
+        """
         multiscales = self.root_attrs["multiscales"]
         assert len(multiscales) == 1, multiscales
         return cast(Dict[str, Any], multiscales[0])
@@ -67,6 +94,10 @@ class OMEZarrReader(ImageReader):
 
 class OMEZarrWriter(ImageWriter):
     def __init__(self, output_path: str):
+        """
+
+        :param output_path:
+        """
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )
@@ -75,6 +106,11 @@ class OMEZarrWriter(ImageWriter):
         self._group_metadata: Dict[str, Any] = {}
 
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        """
+
+        :param level:
+        :param array:
+        """
         # store the image to be written at __exit__
         image = array[:]
         c, y, x = image.shape
@@ -89,6 +125,10 @@ class OMEZarrWriter(ImageWriter):
         self._storage_options.append(zarray)
 
     def write_group_metadata(self, group: tiledb.Group) -> None:
+        """
+
+        :param group:
+        """
         self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

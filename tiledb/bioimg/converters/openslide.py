@@ -8,6 +8,10 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 class OpenSlideReader(ImageReader):
     def __init__(self, input_path: str):
+        """
+
+        :param input_path:
+        """
         self._osd = osd.OpenSlide(input_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -15,12 +19,26 @@ class OpenSlideReader(ImageReader):
 
     @property
     def level_count(self) -> int:
+        """
+
+        :return:
+        """
         return cast(int, self._osd.level_count)
 
     def level_axes(self, level: int) -> Axes:
+        """
+
+        :param level:
+        :return:
+        """
         return Axes("YXC")
 
     def level_image(self, level: int) -> np.ndarray:
+        """
+
+        :param level:
+        :return:
+        """
         dims = self._osd.level_dimensions[level]
         # image is in (width, height, channel) == XYC
         image = self._osd.read_region((0, 0), level, dims).convert("RGB")
@@ -29,10 +47,19 @@ class OpenSlideReader(ImageReader):
         return np.asarray(image)
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
+        """
+
+        :param level:
+        :return:
+        """
         return {}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
+        """
+
+        :return:
+        """
         return {}
 
 
@@ -40,7 +67,16 @@ class OpenSlideConverter(ImageConverter):
     """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
 
     def _get_image_reader(self, input_path: str) -> ImageReader:
+        """
+
+        :param input_path:
+        :return:
+        """
         return OpenSlideReader(input_path)
 
     def _get_image_writer(self, output_path: str) -> ImageWriter:
+        """
+
+        :param output_path:
+        """
         raise NotImplementedError

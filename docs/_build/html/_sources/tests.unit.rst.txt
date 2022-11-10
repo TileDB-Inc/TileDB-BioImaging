@@ -1,0 +1,29 @@
+tests.unit package
+==================
+
+Submodules
+----------
+
+tests.unit.test\_axes module
+----------------------------
+
+.. automodule:: tests.unit.test_axes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+tests.unit.test\_openslide module
+---------------------------------
+
+.. automodule:: tests.unit.test_openslide
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: tests.unit
+   :members:
+   :undoc-members:
+   :show-inheritance:

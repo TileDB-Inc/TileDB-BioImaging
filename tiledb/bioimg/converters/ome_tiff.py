@@ -22,15 +22,34 @@ class OMETiffReader(ImageReader):
 
     @property
     def level_count(self) -> int:
+        """
+
+        :return:
+        """
         return len(self._levels)
 
     def level_axes(self, level: int) -> Axes:
+        """
+
+        :param level:
+        :return:
+        """
         return Axes(self._levels[level].axes.replace("S", "C"))
 
     def level_image(self, level: int) -> np.ndarray:
+        """
+
+        :param level:
+        :return:
+        """
         return self._levels[level].asarray()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
+        """
+
+        :param level:
+        :return:
+        """
         series = self._levels[level]
         if level == 0:
             subifds: Optional[int] = len(series.levels) - 1
@@ -62,6 +81,10 @@ class OMETiffReader(ImageReader):
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
+        """
+
+        :return:
+        """
         writer_kwargs = dict(
             bigtiff=self._tiff.is_bigtiff,
             byteorder=self._tiff.byteorder,
@@ -97,6 +120,11 @@ class OMETiffConverter(ImageConverter):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
     def _get_image_reader(self, input_path: str) -> ImageReader:
+        """
+
+        :param input_path:
+        :return:
+        """
         return OMETiffReader(input_path)
 
     def _get_image_writer(self, output_path: str) -> ImageWriter:

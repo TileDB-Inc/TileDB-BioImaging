@@ -1,0 +1,37 @@
+tests.integration.converters package
+====================================
+
+Submodules
+----------
+
+tests.integration.converters.test\_ome\_tiff module
+---------------------------------------------------
+
+.. automodule:: tests.integration.converters.test_ome_tiff
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+tests.integration.converters.test\_ome\_zarr module
+---------------------------------------------------
+
+.. automodule:: tests.integration.converters.test_ome_zarr
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+tests.integration.converters.test\_openslide module
+---------------------------------------------------
+
+.. automodule:: tests.integration.converters.test_openslide
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: tests.integration.converters
+   :members:
+   :undoc-members:
+   :show-inheritance:
