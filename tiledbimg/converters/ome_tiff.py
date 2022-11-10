@@ -15,6 +15,9 @@ class OMETiffReader(ImageReader):
         # XXX ignore all but the first series
         self._levels = self._tiff.series[0].levels
 
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._tiff.close()
+
     @property
     def level_count(self) -> int:
         return len(self._levels)
@@ -55,7 +58,8 @@ class OMETiffReader(ImageReader):
         )
         return {"pickled_write_kwargs": pickle.dumps(write_kwargs)}
 
-    def metadata(self) -> Dict[str, Any]:
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
         writer_kwargs = dict(
             bigtiff=self._tiff.is_bigtiff,
             byteorder=self._tiff.byteorder,
@@ -72,5 +76,5 @@ class OMETiffConverter(ImageConverter):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         return OMETiffReader(input_path)
 
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        pass
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
+        raise NotImplementedError

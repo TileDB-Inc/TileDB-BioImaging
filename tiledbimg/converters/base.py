@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Sequence
+from operator import itemgetter
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 import numpy as np
@@ -25,10 +28,20 @@ class Dimension:
 
 
 class ImageReader(ABC):
+    def __enter__(self) -> ImageReader:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
+
     @property
     @abstractmethod
     def level_count(self) -> int:
         """Return the number of levels for this multi-resolution image"""
+
+    @abstractmethod
+    def level_axes(self, level: int) -> Axes:
+        """Return the axes for the given level."""
 
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
@@ -39,42 +52,29 @@ class ImageReader(ABC):
         """
 
     @abstractmethod
-    def level_axes(self, level: int) -> Axes:
-        """Return the axes for the given level."""
-
     def level_metadata(self, level: int) -> Dict[str, Any]:
         """Return the metadata for the given level."""
-        return {}
 
-    def metadata(self) -> Dict[str, Any]:
+    @property
+    @abstractmethod
+    def group_metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
-        return {}
 
 
 class ImageWriter(ABC):
-    @property
-    @abstractmethod
-    def level_count(self) -> int:
-        """Return the number of levels for this multi-resolution image"""
+    def __enter__(self) -> ImageWriter:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
 
     @abstractmethod
-    def level_image(self, level: int) -> np.ndarray:
-        """Return the image for the given level as (X, Y, C) 3D numpy array"""
-
-    def level_metadata(self, level: int) -> Dict[str, Any]:
-        return {}
-
-    def metadata(self) -> Dict[str, Any]:
-        return {}
+    def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        """Write the image at the given level."""
 
     @abstractmethod
-    def write(
-        self,
-        image: Sequence[np.ndarray],
-        level_metadata: Sequence[Dict[str, Any]],
-        image_meta: Dict[str, Any],
-    ) -> None:
-        """Write back to writer format"""
+    def write_group_metadata(self, group: tiledb.Group) -> None:
+        """Write the metadata for the whole multi-resolution image."""
 
 
 class ImageConverter(ABC):
@@ -97,16 +97,23 @@ class ImageConverter(ABC):
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
         """
+        # open all level arrays, keep those with level >= level_min and sort them by level
+        level_arrays = []
+        group = tiledb.Group(input_path, "r")
+        for member in group:
+            array = tiledb.open(member.uri)
+            level = array.meta.get("level", 0)
+            if level < level_min:
+                array.close()
+                continue
+            level_arrays.append((level, array))
+        level_arrays.sort(key=itemgetter(0))
 
-        writer = self._get_image_writer(input_path, output_path)
-
-        images = []
-        levels_metadata = []
-        for level in range(level_min, writer.level_count):
-            images.append(writer.level_image(level))
-            levels_metadata.append(writer.level_metadata(level))
-        image_metadata = writer.metadata()
-        writer.write(images, levels_metadata, image_metadata)
+        with self._get_image_writer(output_path) as writer:
+            writer.write_group_metadata(group)
+            for level, array in level_arrays:
+                writer.write_level_array(level, array)
+                array.close()
 
     def to_tiledb(
         self, input_path: str, output_group_path: str, level_min: int = 0
@@ -120,29 +127,25 @@ class ImageConverter(ABC):
             to convert all levels.
         """
         tiledb.group_create(output_group_path)
-        reader = self._get_image_reader(input_path)
-
-        # Create a TileDB array for each level in range(level_min, reader.level_count)
-        uris = []
-        for level in range(level_min, reader.level_count):
-            uri = os.path.join(output_group_path, f"l_{level}.tdb")
-            image = reader.level_image(level)
-            canonical_image = reader.level_axes(level).transpose(image)
-            level_metadata = reader.level_metadata(level)
-            level_metadata["level"] = level
-            self._write_image(uri, canonical_image, level_metadata)
-            uris.append(uri)
-
-        # Write group metadata
-        with tiledb.Group(output_group_path, "w") as G:
-            metadata = reader.metadata()
-            if metadata:
-                G.meta.update(metadata)
-            for level_uri in uris:
-                if urlparse(level_uri).scheme == "tiledb":
-                    G.add(level_uri, relative=False)
-                else:
-                    G.add(os.path.basename(level_uri), relative=True)
+        with self._get_image_reader(input_path) as reader:
+            # Create a TileDB array for each level in range(level_min, reader.level_count)
+            uris = []
+            for level in range(level_min, reader.level_count):
+                uri = os.path.join(output_group_path, f"l_{level}.tdb")
+                image = reader.level_image(level)
+                canonical_image = reader.level_axes(level).transpose(image)
+                level_metadata = reader.level_metadata(level)
+                level_metadata["level"] = level
+                self._write_image(uri, canonical_image, level_metadata)
+                uris.append(uri)
+            # Write group metadata
+            with tiledb.Group(output_group_path, "w") as group:
+                group.meta.update(reader.group_metadata)
+                for level_uri in uris:
+                    if urlparse(level_uri).scheme == "tiledb":
+                        group.add(level_uri, relative=False)
+                    else:
+                        group.add(os.path.basename(level_uri), relative=True)
 
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
@@ -171,7 +174,7 @@ class ImageConverter(ABC):
                 A.meta.update(metadata)
 
     @abstractmethod
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
         """Return an ImageWriter for the given input path."""
 
     @abstractmethod
