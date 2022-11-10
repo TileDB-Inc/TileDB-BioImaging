@@ -25,7 +25,7 @@ class ISyntaxReader(ImageReader):
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
-        return {}
+        return cast(Dict[str, Any], self._ophi.properties)
 
     def level_image(self, level: int) -> np.ndarray:
         dims = self._ophi.level_dimensions[level]
