@@ -8,7 +8,10 @@ tiff = [
     "tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7",
     "imagecodecs",
 ]
-full = sorted({*zarr, *openslide, *tiff})
+
+isyntax = ["openphi"]
+
+full = sorted({*zarr, *openslide, *tiff, *isyntax})
 
 setuptools.setup(
     setup_requires=["setuptools_scm"],
@@ -21,6 +24,7 @@ setuptools.setup(
     extras_require={
         "zarr": zarr,
         "openslide": openslide,
+        "isyntax": isyntax,
         "tiff": tiff,
         "full": full,
     },
