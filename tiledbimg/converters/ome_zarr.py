@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
-import pickle
-from typing import Any, Dict, Sequence, cast
+from typing import Any, Dict, List, cast
 
 import numpy as np
 import tiledb
@@ -12,74 +12,6 @@ from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
-
-
-class OMEZarrWriter(ImageWriter):
-    def __init__(self, input_path: str, output_path: str):
-        # OME ZARR GROUP
-        self._output_group = zarr.group(
-            store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
-        )
-        self._input_group = tiledb.Group(input_path, "r")
-
-        # levels is a list of TLDB ARRAYS
-        self._levels = {}
-        for resolution in self._input_group:
-            uri = resolution.uri
-            with tiledb.open(uri) as a:
-                level = a.meta.get("level", 0)
-            self._levels.update({level: uri})
-
-    @property
-    def level_count(self) -> int:
-        return len(self._levels)
-
-    def level_image(self, level: int) -> np.ndarray:
-        with tiledb.open(self._levels.get(level)) as L:
-            data = L[:]
-            c, y, x = data.shape
-            tczyx_shape = (1, c, 1, y, x)
-            return data.reshape(tczyx_shape)
-
-    def level_metadata(self, level: int) -> Dict[str, Any]:
-        with tiledb.open(self._levels.get(level)) as L:
-            return cast(
-                Dict[str, Any], pickle.loads(L.meta["pickled_zarrwriter_kwargs"])
-            )
-
-    def metadata(self) -> Dict[str, Any]:
-        return cast(
-            Dict[str, Any],
-            pickle.loads(self._input_group.meta["pickled_zarrwriter_kwargs"]),
-        )
-
-    def write(
-        self,
-        images: Sequence[np.ndarray],
-        level_metas: Sequence[Dict[str, Any]],
-        image_meta: Dict[str, Any] = {},
-    ) -> None:
-        level_metas_zarray = []
-        for level_meta in level_metas:
-            zarray_meta = level_meta.get("zarray")
-            if zarray_meta is not None:
-                compressor = zarray_meta["compressor"]
-                del compressor["id"]
-                zarray_meta["compressor"] = Blosc.from_config(compressor)
-                level_metas_zarray.append(zarray_meta)
-
-        # Write image does not support incremental pyramid write
-        write_multiscale(
-            images,
-            group=self._output_group,
-            axes=image_meta["axes"],
-            coordinate_transformations=image_meta["coordinate_transformations"],
-            storage_options=level_metas_zarray,
-            name=image_meta["name"],
-            metadata=image_meta["metadata"],
-        )
-        if image_meta["omero"]:
-            self._output_group.attrs["omero"] = image_meta["omero"]
 
 
 class OMEZarrReader(ImageReader):
@@ -109,22 +41,21 @@ class OMEZarrReader(ImageReader):
         return np.asarray(data[0]).squeeze()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        writer_kwargs = dict(zarray=self.nodes[level].zarr.zarray)
-        return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
+        return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
 
-    def metadata(self) -> Dict[str, Any]:
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
         multiscale = self._multiscale
-        coordinate_transformations = (
-            d.get("coordinateTransformations") for d in multiscale["datasets"]
-        )
         writer_kwargs = dict(
             axes=multiscale.get("axes"),
-            coordinate_transformations=list(filter(None, coordinate_transformations)),
+            coordinate_transformations=[
+                d.get("coordinateTransformations") for d in multiscale["datasets"]
+            ],
             name=multiscale.get("name"),
             metadata=multiscale.get("metadata"),
             omero=self.root_attrs.get("omero"),
         )
-        return {"pickled_zarrwriter_kwargs": pickle.dumps(writer_kwargs)}
+        return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
 
     @property
     def _multiscale(self) -> Dict[str, Any]:
@@ -133,11 +64,52 @@ class OMEZarrReader(ImageReader):
         return cast(Dict[str, Any], multiscales[0])
 
 
+class OMEZarrWriter(ImageWriter):
+    def __init__(self, output_path: str):
+        self._group = zarr.group(
+            store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
+        )
+        self._pyramid: List[np.ndarray] = []
+        self._storage_options: List[Dict[str, Any]] = []
+        self._group_metadata: Dict[str, Any] = {}
+
+    def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        # store the image to be written at __exit__
+        image = array[:]
+        c, y, x = image.shape
+        tczyx_shape = (1, c, 1, y, x)
+        self._pyramid.append(image.reshape(tczyx_shape))
+
+        # store the zarray metadata to be written at __exit__
+        zarray = json.loads(array.meta["json_zarray"])
+        compressor = zarray["compressor"]
+        del compressor["id"]
+        zarray["compressor"] = Blosc.from_config(compressor)
+        self._storage_options.append(zarray)
+
+    def write_group_metadata(self, group: tiledb.Group) -> None:
+        self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        group_metadata = self._group_metadata
+        write_multiscale(
+            pyramid=self._pyramid,
+            group=self._group,
+            axes=group_metadata["axes"],
+            coordinate_transformations=group_metadata["coordinate_transformations"],
+            storage_options=self._storage_options,
+            name=group_metadata["name"],
+            metadata=group_metadata["metadata"],
+        )
+        if group_metadata["omero"]:
+            self._group.attrs["omero"] = group_metadata["omero"]
+
+
 class OMEZarrConverter(ImageConverter):
     """Converter of Zarr-supported images to TileDB Groups of Arrays"""
 
     def _get_image_reader(self, input_path: str) -> ImageReader:
         return OMEZarrReader(input_path)
 
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        return OMEZarrWriter(input_path, output_path)
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
+        return OMEZarrWriter(output_path)

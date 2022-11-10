@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, Dict, cast
 
 import numpy as np
 import openslide as osd
@@ -9,6 +9,9 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 class OpenSlideReader(ImageReader):
     def __init__(self, input_path: str):
         self._osd = osd.OpenSlide(input_path)
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._osd.close()
 
     @property
     def level_count(self) -> int:
@@ -25,6 +28,13 @@ class OpenSlideReader(ImageReader):
         # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
         return np.asarray(image)
 
+    def level_metadata(self, level: int) -> Dict[str, Any]:
+        return {}
+
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
+        return {}
+
 
 class OpenSlideConverter(ImageConverter):
     """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
@@ -32,5 +42,5 @@ class OpenSlideConverter(ImageConverter):
     def _get_image_reader(self, input_path: str) -> ImageReader:
         return OpenSlideReader(input_path)
 
-    def _get_image_writer(self, input_path: str, output_path: str) -> ImageWriter:
-        pass
+    def _get_image_writer(self, output_path: str) -> ImageWriter:
+        raise NotImplementedError
