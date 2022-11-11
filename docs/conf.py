@@ -9,6 +9,8 @@ import sys
 import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../tiledb"))
+
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -16,13 +18,13 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "TileDB-BioImaging"
 copyright = "2022, TileDB, Inc."
 author = "TileDB, Inc."
-release = "0.0.1"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ["sphinx.ext.autodoc", "sphinx.ext.doctest", "sphinx.ext.intersphinx"]
-
+autodoc_inherit_docstrings = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

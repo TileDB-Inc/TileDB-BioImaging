@@ -38,28 +38,48 @@ class ImageReader(ABC):
     @property
     @abstractmethod
     def level_count(self) -> int:
-        """Return the number of levels for this multi-resolution image"""
+        """Return the number of levels for this multi-resolution image.
+        Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
+
+        :return: The number of levels in the slide
+        """
 
     @abstractmethod
     def level_axes(self, level: int) -> Axes:
-        """Return the axes for the given level."""
+        """Return the axes for the given level.
+
+        :param level: Number corresponding to a level
+
+        :return: Axes object containing the axes members
+        """
 
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
         """
         Return the image for the given level as numpy array.
-
         The axes of the array are specified by `level_axes(level)`
+
+        :param level: Number corresponding to a level
+
+        :return: np.ndarray of the image on the level given
         """
 
     @abstractmethod
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        """Return the metadata for the given level."""
+        """Return the metadata for the given level.
+
+        :param level: Number corresponding to a level
+
+        :return: A Dict containing the metadata of the given level
+        """
 
     @property
     @abstractmethod
     def group_metadata(self) -> Dict[str, Any]:
-        """Return the metadata for the whole multi-resolution image."""
+        """Return the metadata for the whole multi-resolution image.
+
+        :return: A Dict containing the metadata of the image
+        """
 
 
 class ImageWriter(ABC):
@@ -71,15 +91,21 @@ class ImageWriter(ABC):
 
     @abstractmethod
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        """Write the image at the given level.
-        :param level:
-        :param array:
+        """
+        Writes the resolution image of the level given from a TileDB array
+
+        :param level: Number corresponding to a level
+        :param array: tiledb.Array containing the data of the level
+
         """
 
     @abstractmethod
     def write_group_metadata(self, group: tiledb.Group) -> None:
-        """Write the metadata for the whole multi-resolution image.
-        :param group:
+        """
+        Writes metadata of the image
+
+        :param group: tiledb.Group that contains the image
+
         """
 
 
@@ -156,12 +182,6 @@ class ImageConverter(ABC):
     def _write_image(
         self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
     ) -> None:
-        """
-
-        :param uri:
-        :param image:
-        :param metadata:
-        """
         assert len(image.shape) == len(self._dims)
         # find the smallest dtype that can hold the number of image scalar values
         dim_dtype = np.min_scalar_type(image.size)
@@ -187,12 +207,8 @@ class ImageConverter(ABC):
 
     @abstractmethod
     def _get_image_writer(self, output_path: str) -> ImageWriter:
-        """Return an ImageWriter for the given input path.
-        :param output_path:
-        """
+        """Return an ImageWriter for the given input path."""
 
     @abstractmethod
     def _get_image_reader(self, input_path: str) -> ImageReader:
-        """Return an ImageReader for the given input path.
-        :param input_path:
-        """
+        """Return an ImageReader for the given input path."""

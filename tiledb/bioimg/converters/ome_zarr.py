@@ -31,31 +31,12 @@ class OMEZarrReader(ImageReader):
 
     @property
     def level_count(self) -> int:
-        """
-        Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
-
-        :return: The number of levels in the slide
-        """
         return len(self.nodes)
 
     def level_axes(self, level: int) -> Axes:
-        """
-        Axes of this level
-
-        :param level: Number corresponding to a level
-
-        :return: Axes object containing the axes members
-        """
         return Axes("CYX")
 
     def level_image(self, level: int) -> np.ndarray:
-        """
-        The image of a resolution
-
-        :param level: Number corresponding to a level
-
-        :return: np.ndarray of the image on the level given
-        """
         data = self.nodes[level].data
         assert len(data) == 1
         leveled_zarray = data[0]
@@ -67,21 +48,10 @@ class OMEZarrReader(ImageReader):
         return np.asarray(data[0]).squeeze()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        """
-        The metadata of a resolution
-
-        :param level: Number corresponding to a level
-
-        :return: A Dict containing the metadata of the given level
-        """
         return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
-        """
-        The metadata of a group of resolutions (whole image)
-        :return: A Dict containing the metadata of the image
-        """
         multiscale = self._multiscale
         writer_kwargs = dict(
             axes=multiscale.get("axes"),
@@ -117,13 +87,6 @@ class OMEZarrWriter(ImageWriter):
         self._group_metadata: Dict[str, Any] = {}
 
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        """
-        Writes the resolution image of the level given from a TileDB array
-
-        :param level: Number corresponding to a level
-        :param array: tiledb.Array containing the data of the level
-
-        """
         # store the image to be written at __exit__
         image = array[:]
         c, y, x = image.shape
@@ -138,12 +101,6 @@ class OMEZarrWriter(ImageWriter):
         self._storage_options.append(zarray)
 
     def write_group_metadata(self, group: tiledb.Group) -> None:
-        """
-        Writes metadata of the image
-
-        :param group: tiledb.Group that contains the image
-
-        """
         self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
