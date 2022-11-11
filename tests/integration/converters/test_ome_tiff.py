@@ -1,5 +1,6 @@
 import numpy as np
 import PIL.Image
+import tifffile
 import tiledb
 
 from tests import get_path, get_schema
@@ -42,3 +43,52 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     with tiledb.open(str(tmp_path / "l_2.tdb")) as A:
         assert A.schema.domain.dtype == np.uint16
         assert A.attr(0).dtype == np.uint16
+
+
+def test_tiledb_to_ome_tiff_rountrip(tmp_path):
+    input_path = get_path("CMU-1-Small-Region.ome.tiff")
+    tiledb_path = tmp_path / "to_tiledb"
+    output_path = tmp_path / "from_tiledb"
+
+    cnv = OMETiffConverter()
+    # Store it to Tiledb
+    cnv.to_tiledb(input_path, str(tiledb_path))
+    # Store it back to NGFF Zarr
+    cnv.from_tiledb(str(tiledb_path), output_path)
+
+    with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
+        compare_tifffiles(t1, t2)
+        # only the first series is copied
+        assert len(t1.series) == 3
+        assert len(t2.series) == 1
+        compare_tiff_page_series(t1.series[0], t2.series[0])
+
+
+def compare_tifffiles(t1, t2):
+    assert t1.byteorder == t2.byteorder
+    assert t1.is_bigtiff == t2.is_bigtiff
+    assert t1.is_imagej == t2.is_imagej
+    assert t1.is_ome == t2.is_ome
+
+
+def compare_tiff_page_series(s1, s2):
+    assert isinstance(s1, tifffile.TiffPageSeries)
+    assert isinstance(s2, tifffile.TiffPageSeries)
+
+    assert s1.shape == s2.shape
+    assert s1.dtype == s2.dtype
+    np.testing.assert_array_equal(s1.asarray(), s2.asarray())
+
+    # XXX: if the tile length and/or width of the input are not a multiple of 16,
+    # we don't write tile to the output. In this case the hashes don't match
+    if s1.keyframe.tile is None or all(t % 16 == 0 for t in s1.keyframe.tile):
+        assert s1.keyframe.hash == s2.keyframe.hash
+    else:
+        assert s2.keyframe.tile is None
+
+    assert len(s1.pages) == len(s2.pages)
+    assert len(s1.levels) == len(s2.levels)
+    assert s1.levels[0] is s1
+    assert s2.levels[0] is s2
+    for l1, l2 in zip(s1.levels[1:], s2.levels[1:]):
+        compare_tiff_page_series(l1, l2)

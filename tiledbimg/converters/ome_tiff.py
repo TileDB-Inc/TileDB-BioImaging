@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import tifffile
+import tiledb
 
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
@@ -70,6 +71,27 @@ class OMETiffReader(ImageReader):
         return {"pickled_tiffwriter_kwargs": pickle.dumps(writer_kwargs)}
 
 
+class OmeTiffWriter(ImageWriter):
+    def __init__(self, output_path: str):
+        self._output_path = output_path
+
+    def write_group_metadata(self, group: tiledb.Group) -> None:
+        tiffwriter_kwargs = pickle.loads(group.meta["pickled_tiffwriter_kwargs"])
+        self._writer = tifffile.TiffWriter(self._output_path, **tiffwriter_kwargs)
+
+    def write_level_array(self, level: int, array: tiledb.Array) -> None:
+        write_kwargs = pickle.loads(array.meta["pickled_write_kwargs"])
+        # XXX: The tile length and width must be a multiple of 16; if not ignore it
+        tile = write_kwargs["tile"]
+        if len(tile) < 2 or tile[-1] % 16 or tile[-2] % 16 or any(i < 1 for i in tile):
+            del write_kwargs["tile"]
+        # TODO: ensure the axes is consistent with the returned array
+        self._writer.write(array[:], **write_kwargs)
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._writer.close()
+
+
 class OMETiffConverter(ImageConverter):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
@@ -77,4 +99,4 @@ class OMETiffConverter(ImageConverter):
         return OMETiffReader(input_path)
 
     def _get_image_writer(self, output_path: str) -> ImageWriter:
-        raise NotImplementedError
+        return OmeTiffWriter(output_path)
