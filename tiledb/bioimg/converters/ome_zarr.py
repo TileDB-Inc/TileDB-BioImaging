@@ -17,6 +17,12 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
+        """
+        OME-Zarr image reader
+
+        :param input_path: The path to the Zarr image
+
+        """
         self.root_attrs = ZarrLocation(input_path).root_attrs
         self.nodes = []
         for dataset in self._multiscale["datasets"]:
@@ -26,24 +32,29 @@ class OMEZarrReader(ImageReader):
     @property
     def level_count(self) -> int:
         """
+        Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
 
-        :return:
+        :return: The number of levels in the slide
         """
         return len(self.nodes)
 
     def level_axes(self, level: int) -> Axes:
         """
+        Axes of this level
 
-        :param level:
-        :return:
+        :param level: Number corresponding to a level
+
+        :return: Axes object containing the axes members
         """
         return Axes("CYX")
 
     def level_image(self, level: int) -> np.ndarray:
         """
+        The image of a resolution
 
-        :param level:
-        :return:
+        :param level: Number corresponding to a level
+
+        :return: np.ndarray of the image on the level given
         """
         data = self.nodes[level].data
         assert len(data) == 1
@@ -57,17 +68,19 @@ class OMEZarrReader(ImageReader):
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         """
+        The metadata of a resolution
 
-        :param level:
-        :return:
+        :param level: Number corresponding to a level
+
+        :return: A Dict containing the metadata of the given level
         """
         return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
         """
-
-        :return:
+        The metadata of a group of resolutions (whole image)
+        :return: A Dict containing the metadata of the image
         """
         multiscale = self._multiscale
         writer_kwargs = dict(
@@ -83,10 +96,6 @@ class OMEZarrReader(ImageReader):
 
     @property
     def _multiscale(self) -> Dict[str, Any]:
-        """
-
-        :return:
-        """
         multiscales = self.root_attrs["multiscales"]
         assert len(multiscales) == 1, multiscales
         return cast(Dict[str, Any], multiscales[0])
@@ -95,8 +104,10 @@ class OMEZarrReader(ImageReader):
 class OMEZarrWriter(ImageWriter):
     def __init__(self, output_path: str):
         """
+        OME-Zarr image writer from TileDB
 
-        :param output_path:
+        :param output_path: The path to the Zarr image
+
         """
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
@@ -107,9 +118,11 @@ class OMEZarrWriter(ImageWriter):
 
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
         """
+        Writes the resolution image of the level given from a TileDB array
 
-        :param level:
-        :param array:
+        :param level: Number corresponding to a level
+        :param array: tiledb.Array containing the data of the level
+
         """
         # store the image to be written at __exit__
         image = array[:]
@@ -126,8 +139,10 @@ class OMEZarrWriter(ImageWriter):
 
     def write_group_metadata(self, group: tiledb.Group) -> None:
         """
+        Writes metadata of the image
 
-        :param group:
+        :param group: tiledb.Group that contains the image
+
         """
         self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
 

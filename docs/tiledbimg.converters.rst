@@ -23,6 +23,15 @@ Openslide
    :undoc-members:
    :show-inheritance:
 
+
+Base
+--------------------------------
+.. autoclass:: tiledbimg.converters.base.ImageConverter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 Module contents
 ---------------
 

@@ -61,3 +61,12 @@ from tiledb.bioimg.converters.openslide import OpenSlideConverter
 cnv = OpenSlideConverter()
 cnv.convert_image("path_to_open_slide_image", "tiledb_array_group_path")
 ```
+
+## Documentation
+`API Documentation` is auto-generated. Following the instructions below:
+
+```shell
+cd docs && make html
+```
+
+will generate a `docs/_build` directory, where you can now open the `index.html`

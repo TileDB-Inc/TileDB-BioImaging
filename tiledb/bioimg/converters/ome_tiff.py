@@ -11,6 +11,12 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 class OMETiffReader(ImageReader):
     def __init__(self, input_path: str):
+        """
+        OME-TIFF image reader
+
+        :param input_path: The path to the TIFF image
+
+        """
         self._tiff = tifffile.TiffFile(input_path)
         omexml = self._tiff.ome_metadata
         self._ome_metadata = tifffile.xml2dict(omexml) if omexml else {}
@@ -23,32 +29,39 @@ class OMETiffReader(ImageReader):
     @property
     def level_count(self) -> int:
         """
+        Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
 
-        :return:
+        :return: The number of levels in the slide
         """
         return len(self._levels)
 
     def level_axes(self, level: int) -> Axes:
         """
+        Axes of this level
 
-        :param level:
-        :return:
+        :param level: Number corresponding to a level
+
+        :return: Axes object containing the axes members
         """
         return Axes(self._levels[level].axes.replace("S", "C"))
 
     def level_image(self, level: int) -> np.ndarray:
         """
+        The image of a resolution
 
-        :param level:
-        :return:
+        :param level: Number corresponding to a level
+
+        :return: np.ndarray of the image on the level given
         """
         return self._levels[level].asarray()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         """
+        The metadata of a resolution
 
-        :param level:
-        :return:
+        :param level: Number corresponding to a level
+
+        :return: A Dict containing the metadata of the given level
         """
         series = self._levels[level]
         if level == 0:
@@ -82,8 +95,9 @@ class OMETiffReader(ImageReader):
     @property
     def group_metadata(self) -> Dict[str, Any]:
         """
+        The metadata of a group of resolutions (whole image)
 
-        :return:
+        :return: A Dict containing the metadata of the image
         """
         writer_kwargs = dict(
             bigtiff=self._tiff.is_bigtiff,
@@ -120,12 +134,8 @@ class OMETiffConverter(ImageConverter):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
     def _get_image_reader(self, input_path: str) -> ImageReader:
-        """
-
-        :param input_path:
-        :return:
-        """
         return OMETiffReader(input_path)
 
     def _get_image_writer(self, output_path: str) -> ImageWriter:
         return OmeTiffWriter(output_path)
+
