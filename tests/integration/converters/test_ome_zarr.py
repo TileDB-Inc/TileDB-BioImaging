@@ -41,37 +41,44 @@ def test_ome_zarr_converter(tmp_path, series_idx):
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
-    input_zarr_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
-    output_zarr_path = tmp_path / "from_tiledb"
+    output_path = tmp_path / "from_tiledb"
 
+    cnv = OMEZarrConverter()
     # Store it to Tiledb
-    OMEZarrConverter().to_tiledb(input_zarr_path, str(tiledb_path))
+    cnv.to_tiledb(input_path, str(tiledb_path))
     # Store it back to NGFF Zarr
-    OMEZarrConverter().from_tiledb(str(tiledb_path), output_zarr_path)
+    cnv.from_tiledb(str(tiledb_path), output_path)
 
-    # Same number of layers
-    input_zarr_group = zarr.open_group(input_zarr_path, mode="r")
+    # Same number of levels
+    input_group = zarr.open_group(input_path, mode="r")
     tiledb_group = tiledb.Group(str(tiledb_path), mode="r")
-    output_zarr_group = zarr.open_group(output_zarr_path, mode="r")
-    assert len(input_zarr_group) == len(tiledb_group)
-    assert len(input_zarr_group) == len(output_zarr_group)
+    output_group = zarr.open_group(output_path, mode="r")
+    assert len(input_group) == len(tiledb_group)
+    assert len(input_group) == len(output_group)
 
     # Compare the .zattrs files
-    with open(input_zarr_path / ".zattrs") as f:
+    with open(input_path / ".zattrs") as f:
         input_attrs = json.load(f)
         # ome-zarr-py replaces empty name with "/"
         name = input_attrs["multiscales"][0]["name"]
         if not name:
             input_attrs["multiscales"][0]["name"] = "/"
-    with open(output_zarr_path / ".zattrs") as f:
+    with open(output_path / ".zattrs") as f:
         output_attrs = json.load(f)
     assert input_attrs == output_attrs
 
-    # Compare the .zarray files
-    for i in range(len(input_zarr_group)):
-        with open(input_zarr_path / str(i) / ".zarray") as f:
+    # Compare the level arrays
+    for i in range(len(input_group)):
+        # Compare the .zarray files
+        with open(input_path / str(i) / ".zarray") as f:
             input_zarray = json.load(f)
-        with open(output_zarr_path / str(i) / ".zarray") as f:
+        with open(output_path / str(i) / ".zarray") as f:
             output_zarray = json.load(f)
         assert input_zarray == output_zarray
+
+        # Compare the actual data
+        input_zarray = zarr.open(input_path / str(i))
+        output_zarray = zarr.open(output_path / str(i))
+        np.testing.assert_array_equal(input_zarray[:], output_zarray[:])
