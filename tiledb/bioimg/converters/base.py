@@ -8,6 +8,7 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 import numpy as np
+
 import tiledb
 
 from .axes import Axes

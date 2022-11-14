@@ -1,9 +1,8 @@
 import random
 
 import tiledb
-
 from tests import get_schema
-from tiledbimg.openslide import TileDBOpenSlide
+from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 class TestTileDBOpenSlide:

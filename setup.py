@@ -15,7 +15,7 @@ setuptools.setup(
     use_scm_version={
         "version_scheme": "guess-next-dev",
         "local_scheme": "dirty-tag",
-        "write_to": "tiledbimg/version.py",
+        "write_to": "tiledb/bioimg/version.py",
     },
     install_requires=["levenshtein", "tiledb"],
     extras_require={

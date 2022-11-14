@@ -3,7 +3,7 @@ import itertools as it
 import numpy as np
 import pytest
 
-from tiledbimg.converters.axes import Axes, Move, Swap, minimize_transpositions
+from tiledb.bioimg.converters.axes import Axes, Move, Swap, minimize_transpositions
 
 
 class TestTranspositions:

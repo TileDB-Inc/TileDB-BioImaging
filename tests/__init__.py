@@ -5,6 +5,7 @@ from pathlib import Path
 
 import boto3
 import numpy as np
+
 import tiledb
 
 if os.name == "posix":
