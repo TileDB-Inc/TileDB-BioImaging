@@ -11,6 +11,12 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 class OMETiffReader(ImageReader):
     def __init__(self, input_path: str):
+        """
+        OME-TIFF image reader
+
+        :param input_path: The path to the TIFF image
+
+        """
         self._tiff = tifffile.TiffFile(input_path)
         omexml = self._tiff.ome_metadata
         self._ome_metadata = tifffile.xml2dict(omexml) if omexml else {}

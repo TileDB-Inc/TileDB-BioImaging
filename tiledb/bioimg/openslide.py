@@ -15,6 +15,10 @@ class TileDBOpenSlide:
 
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
+        """
+        :param uri: uri of a tiledb.Group containing the image
+        :return: A TileDBOpenSlide object
+        """
         with tiledb.Group(uri) as G:
             level_info = []
             for o in G:
@@ -31,8 +35,10 @@ class TileDBOpenSlide:
     @property
     def level_count(self) -> int:
         """
-        The number of levels in the slide. Levels are numbered from 0 (highest resolution)
+        Levels are numbered from 0 (highest resolution)
         to level_count - 1 (lowest resolution).
+
+        :return: The number of levels in the slide
         """
         return len(self._level_dims)
 
@@ -46,6 +52,8 @@ class TileDBOpenSlide:
         """
         A sequence of (width, height) tuples, one for each level of the slide.
         level_dimensions[k] are the dimensions of level k.
+
+        :return: A sequence of dimensions for each level
         """
         return self._level_dims
 
@@ -79,6 +87,11 @@ class TileDBOpenSlide:
         return np.moveaxis(data, 0, 2)
 
     def get_best_level_for_downsample(self, factor: float) -> int:
-        """Return the best level for displaying the given downsample."""
+        """Return the best level for displaying the given downsample filtering by factor.
+
+        :param factor: The factor of downsamples. Above this value downsamples are filtered out.
+
+        :return: The number corresponding to a level
+        """
         lla = np.where(np.array(self.level_downsamples) < factor)[0]
         return int(lla.max() if len(lla) > 0 else 0)

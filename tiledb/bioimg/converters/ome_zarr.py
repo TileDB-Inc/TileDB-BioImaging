@@ -17,6 +17,12 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
+        """
+        OME-Zarr image reader
+
+        :param input_path: The path to the Zarr image
+
+        """
         self.root_attrs = ZarrLocation(input_path).root_attrs
         self.nodes = []
         for dataset in self._multiscale["datasets"]:
@@ -67,6 +73,12 @@ class OMEZarrReader(ImageReader):
 
 class OMEZarrWriter(ImageWriter):
     def __init__(self, output_path: str):
+        """
+        OME-Zarr image writer from TileDB
+
+        :param output_path: The path to the Zarr image
+
+        """
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )
