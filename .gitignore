@@ -11,7 +11,7 @@ __pycache__/
 *.py[cod]
 
 # setuptools-scm
-tiledbimg/version.py
+tiledb/bioimg/version.py
 
 # Unit test / coverage reports
 .coverage

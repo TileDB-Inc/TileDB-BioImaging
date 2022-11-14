@@ -1,11 +1,11 @@
 import numpy as np
 import openslide
 import PIL.Image
-import tiledb
 
+import tiledb
 from tests import get_path, get_schema
-from tiledbimg.converters.openslide import OpenSlideConverter
-from tiledbimg.openslide import TileDBOpenSlide
+from tiledb.bioimg.converters.openslide import OpenSlideConverter
+from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 def test_openslide_converter(tmp_path):

@@ -5,11 +5,12 @@ import os
 from typing import Any, Dict, List, cast
 
 import numpy as np
-import tiledb
 import zarr
 from numcodecs import Blosc
 from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
+
+import tiledb
 
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
 

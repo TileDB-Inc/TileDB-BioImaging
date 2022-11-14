@@ -3,12 +3,12 @@ import json
 import numpy as np
 import PIL.Image
 import pytest
-import tiledb
 import zarr
 
+import tiledb
 from tests import get_path, get_schema
-from tiledbimg.converters.ome_zarr import OMEZarrConverter
-from tiledbimg.openslide import TileDBOpenSlide
+from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
+from tiledb.bioimg.openslide import TileDBOpenSlide
 
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
