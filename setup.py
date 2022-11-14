@@ -1,13 +1,8 @@
 import setuptools
 
-zarr = [
-    "ome-zarr",
-]
+zarr = ["ome-zarr"]
 openslide = ["openslide-python"]
-tiff = [
-    "tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7",
-    "imagecodecs",
-]
+tiff = ["tifffile", "imagecodecs"]
 full = sorted({*zarr, *openslide, *tiff})
 
 setuptools.setup(

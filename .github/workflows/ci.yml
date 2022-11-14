@@ -37,7 +37,9 @@ jobs:
       run: pre-commit run -a
 
     - name: Install package
-      run: pip install -e .[full]
+      run: |
+        pip install tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7
+        pip install -e .[full]
 
     - name: Run tests with coverage
       id: stats

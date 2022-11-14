@@ -20,13 +20,17 @@ Breaking changes to the underlying data format and the API are to be expected.
     - Open-Slide
 
 ### Ingestion from TileDB Groups of Arrays to:
-    - OME-Zarr (Coming soon)
-    - OME-Tiff (Coming soon)
+    - OME-Zarr
+    - OME-Tiff
 
 
 ## Quick Installation
 
-- from source by cloning the [Git](https://github.com/TileDB-Inc/TileDB-BioImaging) repository:
+- From PyPI:
+
+      pip install tiledb-bioimg[full]
+
+- From source:
 
       git clone https://github.com/TileDB-Inc/TileDB-BioImaging.git
       cd TileDB-BioImaging
@@ -34,9 +38,11 @@ Breaking changes to the underlying data format and the API are to be expected.
       # If you use zsh replace .[full] with .\[full\]
       pip install -e .[full]
 
-- with pip from git:
+**Note:** For `tiff` support (`[tiff]` or `[full]` extra dependencies) on Python 3.7, you
+should first install our [tifffile fork](https://github.com/TileDB-Inc/tifffile) rather
+than the older PyPI upstream package:
 
-      pip install git+https://github.com/TileDB-Inc/TileDB-BioImaging.git@main
+      pip install tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7
 
 ## Examples
 How to convert imaging data from standard biomedical formats to group of TileDB arrays.
