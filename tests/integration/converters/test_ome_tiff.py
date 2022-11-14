@@ -1,8 +1,8 @@
 import numpy as np
 import PIL.Image
 import tifffile
-import tiledb
 
+import tiledb
 from tests import get_path, get_schema
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
