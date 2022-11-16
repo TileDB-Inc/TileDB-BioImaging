@@ -50,7 +50,7 @@ class ImageReader(ABC):
 
         :param level: Number corresponding to a level
 
-        :return: Axes object containing the axes members
+        :return: Axes object containing the axes of the given level.
         """
 
     @abstractmethod
@@ -164,8 +164,9 @@ class ImageConverter(ABC):
             uris = []
             for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_group_path, f"l_{level}.tdb")
+                axes = reader.level_axes(level)
                 image = reader.level_image(level)
-                canonical_image = reader.level_axes(level).transpose(image)
+                canonical_image = axes.transpose(image, axes.canonical(image))
                 level_metadata = reader.level_metadata(level)
                 level_metadata["level"] = level
                 self._write_image(uri, canonical_image, level_metadata)

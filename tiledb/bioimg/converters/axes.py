@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass
 from operator import itemgetter
-from typing import Iterator, List, MutableSequence, Sequence, TypeVar
+from typing import Iterable, Iterator, List, MutableSequence, Sequence, TypeVar
 
 import Levenshtein
 import numpy as np
@@ -49,6 +49,32 @@ class Move(Transpose):
         return np.moveaxis(a, self.i, self.j)
 
 
+def transpose_array(a: np.ndarray, s: Sequence[T], t: Sequence[T]) -> np.ndarray:
+    s_set, t_set = frozenset(s), frozenset(t)
+
+    if s_set > t_set:
+        # source has extra dims: squeeze them (assuming their size is 1)
+        common, squeeze_axes = [], []
+        for i, m in enumerate(s):
+            if m in t_set:
+                common.append(m)
+            else:
+                squeeze_axes.append(i)
+        s = common
+        a = np.squeeze(a, tuple(squeeze_axes))
+
+    elif s_set < t_set:
+        # source has missing dims: expand them
+        missing = t_set - s_set
+        s = list(missing) + list(s)
+        a = np.expand_dims(a, tuple(range(len(missing))))
+
+    for transposition in minimize_transpositions(s, t):
+        a = transposition.transposed_array(a)
+
+    return a
+
+
 def minimize_transpositions(s: Sequence[T], t: Sequence[T]) -> Sequence[Transpose]:
     assert Counter(s) == Counter(t)
     n = len(s)
@@ -74,24 +100,47 @@ def gen_transpositions(n: int) -> Iterator[Transpose]:
             yield Move(j, i)
 
 
+@dataclass(frozen=True)
 class Axes:
-    _CANONICAL_MEMBERS = "TCZYX"
+    dims: str
+    __slots__ = ("dims",)
+    CANONICAL_DIMS = "TCZYX"
 
-    def __init__(self, members: str) -> None:
-        axes = set(members)
-        if len(members) != len(axes):
-            raise ValueError(f"Duplicate axes: {members}")
-        axes.difference_update(self._CANONICAL_MEMBERS)
+    def __init__(self, dims: Iterable[str]):
+        if not isinstance(dims, str):
+            dims = "".join(dims)
+        axes = set(dims)
+        if len(dims) != len(axes):
+            raise ValueError(f"Duplicate axes: {dims}")
+        for required_axis in "X", "Y":
+            if required_axis not in axes:
+                raise ValueError(f"Missing required axis {required_axis!r}")
+        axes.difference_update(self.CANONICAL_DIMS)
         if axes:
             raise ValueError(f"{axes.pop()!r} is not a valid Axis")
-        self.members = members
+        object.__setattr__(self, "dims", dims)
 
-    def canonical(self) -> Axes:
-        """Return an Axes instance with the same axis members as this one in canonical order"""
-        return Axes("".join(m for m in self._CANONICAL_MEMBERS if m in self.members))
+    def canonical(self, a: np.ndarray) -> Axes:
+        """
+        Return a new Axes instance with the dimensions of this axes whose size in `a` are
+        greater than 1 and ordered in canonical order (TCZYX)
+        """
+        assert len(self.dims) == len(a.shape)
+        dims = frozenset(dim for dim, size in zip(self.dims, a.shape) if size > 1)
+        return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
-    def transpose(self, a: np.ndarray) -> np.ndarray:
-        """Transpose the given array to the canonical axes order"""
-        for t in minimize_transpositions(self.members, self.canonical().members):
-            a = t.transposed_array(a)
-        return a
+    def transpose(self, a: np.ndarray, target: Axes) -> np.ndarray:
+        """Transpose a Numpy array from this axes to a target axes.
+
+        - If the dims of this axes are a superset of target's, squeeze the extra dims
+          (provided the extra dims are of length one).
+        - If the dims of this axes are a subset of target's, insert the missing dims at
+          the front with length one.
+        - Finally transpose the dims of this axes  to match the target.
+
+        :param a: Numpy array to transpose
+        :param target: Axes of the transposed array
+        :return: The transposed array
+        """
+        assert len(self.dims) == len(a.shape)
+        return transpose_array(a, self.dims, target.dims)

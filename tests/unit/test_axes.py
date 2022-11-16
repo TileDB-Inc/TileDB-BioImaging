@@ -54,7 +54,7 @@ class TestTranspositions:
 
 class TestAxes:
     def test_init(self):
-        assert Axes("XYZ").members == "XYZ"
+        assert Axes("XYZ").dims == "XYZ"
 
         with pytest.raises(ValueError) as excinfo:
             Axes("XYZW")
@@ -64,104 +64,202 @@ class TestAxes:
             Axes("XYZX")
         assert "Duplicate axes" in str(excinfo.value)
 
+        with pytest.raises(ValueError) as excinfo:
+            Axes("ZYTC")
+        assert str(excinfo.value) == "Missing required axis 'X'"
+
+        with pytest.raises(ValueError) as excinfo:
+            Axes("XTC")
+        assert str(excinfo.value) == "Missing required axis 'Y'"
+
     @pytest.mark.parametrize(
-        "canonical_axes", ["YX", "ZYX", "CYX", "TYX", "CZYX", "TCYX", "TZYX", "TCZYX"]
+        "canonical_dims",
+        ["YX", "ZYX", "CYX", "TYX", "CZYX", "TCYX", "TZYX", "TCZYX"],
     )
-    def test_canonical(self, canonical_axes):
-        for axes in map(Axes, it.permutations(canonical_axes)):
-            assert axes.canonical().members == canonical_axes
+    def test_canonical_unsqueezed(self, canonical_dims):
+        a = np.random.rand(*np.random.randint(2, 20, size=len(canonical_dims)))
+        for axes in map(Axes, it.permutations(canonical_dims)):
+            assert axes.canonical(a).dims == canonical_dims
 
-    def test_transpose_2d(self):
+    def test_canonical_squeezed(self):
+        a = np.random.rand(1, 60, 40)
+        for s in "ZXY", "CXY", "TXY":
+            assert Axes(s).canonical(a) == Axes("YX")
+
+        a = np.random.rand(1, 1, 60, 40)
+        for s in "CZXY", "TCXY", "TZXY":
+            assert Axes(s).canonical(a) == Axes("YX")
+
+        a = np.random.rand(3, 1, 60, 40)
+        assert Axes("CZXY").canonical(a) == Axes("CYX")
+        assert Axes("TCXY").canonical(a) == Axes("TYX")
+        assert Axes("ZTXY").canonical(a) == Axes("ZYX")
+
+        a = np.random.rand(1, 1, 1, 60, 40)
+        for s in "TCZXY", "TZCXY", "CZTXY":
+            assert Axes(s).canonical(a) == Axes("YX")
+
+        a = np.random.rand(1, 3, 1, 60, 40)
+        assert Axes("TCZXY").canonical(a) == Axes("CYX")
+        assert Axes("ZTCXY").canonical(a) == Axes("TYX")
+        assert Axes("CZTXY").canonical(a) == Axes("ZYX")
+
+        a = np.random.rand(7, 3, 1, 60, 40)
+        assert Axes("CTZXY").canonical(a) == Axes("TCYX")
+        assert Axes("ZTCXY").canonical(a) == Axes("TZYX")
+        assert Axes("ZCTXY").canonical(a) == Axes("CZYX")
+
+    def test_transpose_canonical_2d(self):
         a = np.random.rand(60, 40)
-        assert_transpose("YX", a, a)
-        assert_transpose("XY", a, np.swapaxes(a, 0, 1))
+        assert_canonical_transpose("YX", a, a)
+        assert_canonical_transpose("XY", a, np.swapaxes(a, 0, 1))
 
-    def test_transpose_3d(self):
+    def test_transpose_canonical_3d(self):
         a = np.random.rand(10, 60, 40)
         for s in "ZYX", "CYX", "TYX":
-            assert_transpose(s, a, a)
+            assert_canonical_transpose(s, a, a)
         for s in "XYZ", "XYC", "XYT":
-            assert_transpose(s, a, np.swapaxes(a, 0, 2))
+            assert_canonical_transpose(s, a, np.swapaxes(a, 0, 2))
         for s in "ZXY", "CXY", "TXY":
-            assert_transpose(s, a, np.swapaxes(a, 1, 2))
+            assert_canonical_transpose(s, a, np.swapaxes(a, 1, 2))
         for s in "YXZ", "YXC", "YXT":
-            assert_transpose(s, a, np.moveaxis(a, 2, 0))
+            assert_canonical_transpose(s, a, np.moveaxis(a, 2, 0))
 
-    def test_transpose_4d(self):
+    def test_transpose_canonical_4d(self):
         a = np.random.rand(3, 10, 60, 40)
         for s in "CZYX", "TCYX", "TZYX":
-            assert_transpose(s, a, a)
+            assert_canonical_transpose(s, a, a)
         for s in "ZCYX", "CTYX", "ZTYX":
-            assert_transpose(s, a, np.swapaxes(a, 0, 1))
+            assert_canonical_transpose(s, a, np.swapaxes(a, 0, 1))
         for s in "CZXY", "TCXY", "TZXY":
-            assert_transpose(s, a, np.swapaxes(a, 2, 3))
+            assert_canonical_transpose(s, a, np.swapaxes(a, 2, 3))
         for s in "ZYXC", "CYXT", "ZYXT":
-            assert_transpose(s, a, np.moveaxis(a, 3, 0))
+            assert_canonical_transpose(s, a, np.moveaxis(a, 3, 0))
         for s in "CYXZ", "TYXC", "TYXZ":
-            assert_transpose(s, a, np.moveaxis(a, 3, 1))
+            assert_canonical_transpose(s, a, np.moveaxis(a, 3, 1))
         for s in "YXZC", "YXCT", "YXZT":
-            assert_transpose(s, a, np.moveaxis(np.moveaxis(a, 2, 0), 3, 0))
+            assert_canonical_transpose(s, a, np.moveaxis(np.moveaxis(a, 2, 0), 3, 0))
         for s in "YXCZ", "YXTC", "YXTZ":
-            assert_transpose(s, a, np.moveaxis(np.moveaxis(a, 2, 0), 3, 1))
+            assert_canonical_transpose(s, a, np.moveaxis(np.moveaxis(a, 2, 0), 3, 1))
         for s in "ZCXY", "CTXY", "ZTXY":
-            assert_transpose(s, a, np.swapaxes(np.swapaxes(a, 0, 1), 2, 3))
+            assert_canonical_transpose(s, a, np.swapaxes(np.swapaxes(a, 0, 1), 2, 3))
         for s in "XYZC", "XYCT", "XYZT":
-            assert_transpose(s, a, np.swapaxes(np.swapaxes(a, 0, 3), 1, 2))
+            assert_canonical_transpose(s, a, np.swapaxes(np.swapaxes(a, 0, 3), 1, 2))
         for s in "CXYZ", "TXYC", "TXYZ":
-            assert_transpose(s, a, np.swapaxes(np.moveaxis(a, 3, 1), 2, 3))
+            assert_canonical_transpose(s, a, np.swapaxes(np.moveaxis(a, 3, 1), 2, 3))
         for s in "ZXYC", "CXYT", "ZXYT":
-            assert_transpose(s, a, np.swapaxes(np.moveaxis(a, 3, 0), 2, 3))
+            assert_canonical_transpose(s, a, np.swapaxes(np.moveaxis(a, 3, 0), 2, 3))
         for s in "XYCZ", "XYTC", "XYTZ":
-            assert_transpose(s, a, np.swapaxes(np.moveaxis(a, 2, 0), 1, 3))
+            assert_canonical_transpose(s, a, np.swapaxes(np.moveaxis(a, 2, 0), 1, 3))
 
-    def test_transpose_5d(self):
+    def test_transpose_canonical_5d(self):
         a = np.random.rand(7, 3, 10, 60, 40)
-        assert_transpose("TCZYX", a, a)
+        assert_canonical_transpose("TCZYX", a, a)
 
-        assert_transpose("CTZYX", a, np.swapaxes(a, 0, 1))
-        assert_transpose("ZCTYX", a, np.swapaxes(a, 0, 2))
-        assert_transpose("TZCYX", a, np.swapaxes(a, 1, 2))
-        assert_transpose("TCXYZ", a, np.swapaxes(a, 2, 4))
-        assert_transpose("TCZXY", a, np.swapaxes(a, 3, 4))
+        assert_canonical_transpose("CTZYX", a, np.swapaxes(a, 0, 1))
+        assert_canonical_transpose("ZCTYX", a, np.swapaxes(a, 0, 2))
+        assert_canonical_transpose("TZCYX", a, np.swapaxes(a, 1, 2))
+        assert_canonical_transpose("TCXYZ", a, np.swapaxes(a, 2, 4))
+        assert_canonical_transpose("TCZXY", a, np.swapaxes(a, 3, 4))
 
-        assert_transpose("ZTCYX", a, np.moveaxis(a, 0, 2))
-        assert_transpose("CZTYX", a, np.moveaxis(a, 2, 0))
-        assert_transpose("CZYXT", a, np.moveaxis(a, 4, 0))
-        assert_transpose("TZYXC", a, np.moveaxis(a, 4, 1))
-        assert_transpose("TCYXZ", a, np.moveaxis(a, 4, 2))
+        assert_canonical_transpose("ZTCYX", a, np.moveaxis(a, 0, 2))
+        assert_canonical_transpose("CZTYX", a, np.moveaxis(a, 2, 0))
+        assert_canonical_transpose("CZYXT", a, np.moveaxis(a, 4, 0))
+        assert_canonical_transpose("TZYXC", a, np.moveaxis(a, 4, 1))
+        assert_canonical_transpose("TCYXZ", a, np.moveaxis(a, 4, 2))
 
-        assert_transpose("CTXYZ", a, np.swapaxes(np.swapaxes(a, 0, 1), 2, 4))
-        assert_transpose("CTZXY", a, np.swapaxes(np.swapaxes(a, 0, 1), 3, 4))
-        assert_transpose("ZCTXY", a, np.swapaxes(np.swapaxes(a, 0, 2), 3, 4))
-        assert_transpose("YXZTC", a, np.swapaxes(np.swapaxes(a, 0, 3), 1, 4))
-        assert_transpose("XYZCT", a, np.swapaxes(np.swapaxes(a, 0, 4), 1, 3))
-        assert_transpose("ZCXYT", a, np.swapaxes(np.swapaxes(a, 0, 4), 2, 4))
-        assert_transpose("TZCXY", a, np.swapaxes(np.swapaxes(a, 1, 2), 3, 4))
-        assert_transpose("TZXYC", a, np.swapaxes(np.swapaxes(a, 1, 4), 2, 4))
+        assert_canonical_transpose("CTXYZ", a, np.swapaxes(np.swapaxes(a, 0, 1), 2, 4))
+        assert_canonical_transpose("CTZXY", a, np.swapaxes(np.swapaxes(a, 0, 1), 3, 4))
+        assert_canonical_transpose("ZCTXY", a, np.swapaxes(np.swapaxes(a, 0, 2), 3, 4))
+        assert_canonical_transpose("YXZTC", a, np.swapaxes(np.swapaxes(a, 0, 3), 1, 4))
+        assert_canonical_transpose("XYZCT", a, np.swapaxes(np.swapaxes(a, 0, 4), 1, 3))
+        assert_canonical_transpose("ZCXYT", a, np.swapaxes(np.swapaxes(a, 0, 4), 2, 4))
+        assert_canonical_transpose("TZCXY", a, np.swapaxes(np.swapaxes(a, 1, 2), 3, 4))
+        assert_canonical_transpose("TZXYC", a, np.swapaxes(np.swapaxes(a, 1, 4), 2, 4))
 
-        assert_transpose("ZTXYC", a, np.swapaxes(np.moveaxis(a, 0, 2), 1, 4))
-        assert_transpose("ZTCXY", a, np.swapaxes(np.moveaxis(a, 0, 2), 3, 4))
-        assert_transpose("YXCZT", a, np.swapaxes(np.moveaxis(a, 0, 3), 0, 4))
-        assert_transpose("XYCZT", a, np.swapaxes(np.moveaxis(a, 1, 3), 0, 4))
-        assert_transpose("CZTXY", a, np.swapaxes(np.moveaxis(a, 2, 0), 3, 4))
-        assert_transpose("CXYTZ", a, np.swapaxes(np.moveaxis(a, 3, 0), 2, 4))
-        assert_transpose("CXYZT", a, np.swapaxes(np.moveaxis(a, 4, 0), 2, 4))
-        assert_transpose("CZXYT", a, np.swapaxes(np.moveaxis(a, 4, 0), 3, 4))
-        assert_transpose("ZTYXC", a, np.swapaxes(np.moveaxis(a, 4, 1), 0, 2))
-        assert_transpose("TXYZC", a, np.swapaxes(np.moveaxis(a, 4, 1), 2, 4))
-        assert_transpose("CTYXZ", a, np.swapaxes(np.moveaxis(a, 4, 2), 0, 1))
-        assert_transpose("TXYCZ", a, np.swapaxes(np.moveaxis(a, 4, 2), 1, 4))
+        assert_canonical_transpose("ZTXYC", a, np.swapaxes(np.moveaxis(a, 0, 2), 1, 4))
+        assert_canonical_transpose("ZTCXY", a, np.swapaxes(np.moveaxis(a, 0, 2), 3, 4))
+        assert_canonical_transpose("YXCZT", a, np.swapaxes(np.moveaxis(a, 0, 3), 0, 4))
+        assert_canonical_transpose("XYCZT", a, np.swapaxes(np.moveaxis(a, 1, 3), 0, 4))
+        assert_canonical_transpose("CZTXY", a, np.swapaxes(np.moveaxis(a, 2, 0), 3, 4))
+        assert_canonical_transpose("CXYTZ", a, np.swapaxes(np.moveaxis(a, 3, 0), 2, 4))
+        assert_canonical_transpose("CXYZT", a, np.swapaxes(np.moveaxis(a, 4, 0), 2, 4))
+        assert_canonical_transpose("CZXYT", a, np.swapaxes(np.moveaxis(a, 4, 0), 3, 4))
+        assert_canonical_transpose("ZTYXC", a, np.swapaxes(np.moveaxis(a, 4, 1), 0, 2))
+        assert_canonical_transpose("TXYZC", a, np.swapaxes(np.moveaxis(a, 4, 1), 2, 4))
+        assert_canonical_transpose("CTYXZ", a, np.swapaxes(np.moveaxis(a, 4, 2), 0, 1))
+        assert_canonical_transpose("TXYCZ", a, np.swapaxes(np.moveaxis(a, 4, 2), 1, 4))
 
-        assert_transpose("XYTCZ", a, np.moveaxis(np.moveaxis(a, 0, 4), 0, 3))
-        assert_transpose("YXTCZ", a, np.moveaxis(np.moveaxis(a, 0, 4), 0, 4))
-        assert_transpose("TYXCZ", a, np.moveaxis(np.moveaxis(a, 1, 4), 1, 4))
-        assert_transpose("ZYXTC", a, np.moveaxis(np.moveaxis(a, 3, 0), 4, 1))
-        assert_transpose("CYXTZ", a, np.moveaxis(np.moveaxis(a, 3, 0), 4, 2))
-        assert_transpose("TYXZC", a, np.moveaxis(np.moveaxis(a, 4, 1), 4, 2))
-        assert_transpose("ZCYXT", a, np.moveaxis(np.moveaxis(a, 4, 0), 1, 2))
-        assert_transpose("ZYXCT", a, np.moveaxis(np.moveaxis(a, 4, 0), 4, 1))
-        assert_transpose("CYXZT", a, np.moveaxis(np.moveaxis(a, 4, 0), 4, 2))
+        assert_canonical_transpose("XYTCZ", a, np.moveaxis(np.moveaxis(a, 0, 4), 0, 3))
+        assert_canonical_transpose("YXTCZ", a, np.moveaxis(np.moveaxis(a, 0, 4), 0, 4))
+        assert_canonical_transpose("TYXCZ", a, np.moveaxis(np.moveaxis(a, 1, 4), 1, 4))
+        assert_canonical_transpose("ZYXTC", a, np.moveaxis(np.moveaxis(a, 3, 0), 4, 1))
+        assert_canonical_transpose("CYXTZ", a, np.moveaxis(np.moveaxis(a, 3, 0), 4, 2))
+        assert_canonical_transpose("TYXZC", a, np.moveaxis(np.moveaxis(a, 4, 1), 4, 2))
+        assert_canonical_transpose("ZCYXT", a, np.moveaxis(np.moveaxis(a, 4, 0), 1, 2))
+        assert_canonical_transpose("ZYXCT", a, np.moveaxis(np.moveaxis(a, 4, 0), 4, 1))
+        assert_canonical_transpose("CYXZT", a, np.moveaxis(np.moveaxis(a, 4, 0), 4, 2))
+
+    def test_transpose_squeeze(self):
+        a = np.random.rand(1, 60, 40)
+        assert_transpose("ZXY", "XY", a, np.squeeze(a, 0))
+        assert_transpose("ZXY", "YX", a, np.swapaxes(np.squeeze(a, 0), 0, 1))
+
+        a = np.random.rand(1, 1, 60, 40)
+        assert_transpose("CZXY", "XY", a, np.squeeze(a, (0, 1)))
+        assert_transpose("CZXY", "CXY", a, np.squeeze(a, 1))
+        assert_transpose("CZXY", "ZXY", a, np.squeeze(a, 0))
+        assert_transpose("CZXY", "YX", a, np.swapaxes(np.squeeze(a, (0, 1)), 0, 1))
+        assert_transpose("CZXY", "CYX", a, np.swapaxes(np.squeeze(a, 1), 1, 2))
+        assert_transpose("CZXY", "ZYX", a, np.swapaxes(np.squeeze(a, 0), 1, 2))
+
+        a = np.random.rand(1, 1, 1, 60, 40)
+        assert_transpose("TCZXY", "XY", a, np.squeeze(a, (0, 1, 2)))
+        assert_transpose("TCZXY", "ZXY", a, np.squeeze(a, (0, 1)))
+        assert_transpose("TCZXY", "CXY", a, np.squeeze(a, (0, 2)))
+        assert_transpose("TCZXY", "TXY", a, np.squeeze(a, (1, 2)))
+        assert_transpose("TCZXY", "CZXY", a, np.squeeze(a, 0))
+        assert_transpose("TCZXY", "TZXY", a, np.squeeze(a, 1))
+        assert_transpose("TCZXY", "TCXY", a, np.squeeze(a, 2))
+        assert_transpose("TCZXY", "YX", a, np.swapaxes(np.squeeze(a, (0, 1, 2)), 0, 1))
+        assert_transpose("TCZXY", "ZYX", a, np.swapaxes(np.squeeze(a, (0, 1)), 1, 2))
+        assert_transpose("TCZXY", "CYX", a, np.swapaxes(np.squeeze(a, (0, 2)), 1, 2))
+        assert_transpose("TCZXY", "TYX", a, np.swapaxes(np.squeeze(a, (1, 2)), 1, 2))
+        assert_transpose("TCZXY", "CZYX", a, np.swapaxes(np.squeeze(a, 0), 2, 3))
+        assert_transpose("TCZXY", "TZYX", a, np.swapaxes(np.squeeze(a, 1), 2, 3))
+        assert_transpose("TCZXY", "TCYX", a, np.swapaxes(np.squeeze(a, 2), 2, 3))
+
+    def test_transpose_expand(self):
+        a = np.random.rand(10, 60, 40)
+        assert_transpose("CYX", "ZCYX", a, np.expand_dims(a, 0))
+        assert_transpose("CYX", "CZYX", a, np.expand_dims(a, 1))
+        assert_transpose("CYX", "TZCYX", a, np.expand_dims(a, (0, 1)))
+        assert_transpose("CYX", "TCZYX", a, np.expand_dims(a, (0, 2)))
+        assert_transpose("CYX", "CTZYX", a, np.expand_dims(a, (1, 2)))
+        assert_transpose("CYX", "ZCXY", a, np.swapaxes(np.expand_dims(a, 0), 2, 3))
+        assert_transpose("CYX", "CZXY", a, np.swapaxes(np.expand_dims(a, 1), 2, 3))
+        assert_transpose(
+            "CYX", "TZCXY", a, np.swapaxes(np.expand_dims(a, (0, 1)), 3, 4)
+        )
+        assert_transpose(
+            "CYX", "TCZXY", a, np.swapaxes(np.expand_dims(a, (0, 2)), 3, 4)
+        )
+        assert_transpose(
+            "CYX", "CTZXY", a, np.swapaxes(np.expand_dims(a, (1, 2)), 3, 4)
+        )
 
 
-def assert_transpose(s, a, b):
-    np.testing.assert_array_equal(Axes(s).transpose(a), b)
+def assert_transpose(source, target, a, expected):
+    if not isinstance(source, Axes):
+        source = Axes(source)
+    if not isinstance(target, Axes):
+        target = Axes(target)
+    transposed = source.transpose(a, target)
+    np.testing.assert_array_equal(transposed, expected)
+
+
+def assert_canonical_transpose(source, a, expected):
+    if not isinstance(source, Axes):
+        source = Axes(source)
+    target = source.canonical(a)
+    assert_transpose(source, target, a, expected)
