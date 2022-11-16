@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from operator import itemgetter
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 from urllib.parse import urlparse
 
 import numpy as np
@@ -12,20 +11,6 @@ import numpy as np
 import tiledb
 
 from .axes import Axes
-
-
-@dataclass(frozen=True)
-class Dimension:
-    name: str
-    max_tile: int
-
-    def to_tiledb_dim(self, size: int, dtype: np.dtype) -> tiledb.Dim:
-        return tiledb.Dim(
-            name=self.name,
-            domain=(0, size - 1),
-            dtype=dtype,
-            tile=min(size, self.max_tile),
-        )
 
 
 class ImageReader(ABC):
@@ -96,7 +81,6 @@ class ImageWriter(ABC):
 
         :param level: Number corresponding to a level
         :param array: tiledb.Array containing the data of the level
-
         """
 
     @abstractmethod
@@ -105,21 +89,15 @@ class ImageWriter(ABC):
         Writes metadata of the image
 
         :param group: tiledb.Group that contains the image
-
         """
 
 
 class ImageConverter(ABC):
-    def __init__(
-        self,
-        c_dim: Dimension = Dimension("C", 3),  # channel
-        y_dim: Dimension = Dimension("Y", 1024),  # height
-        x_dim: Dimension = Dimension("X", 1024),  # width
-    ):
-        self._dims = (c_dim, y_dim, x_dim)
+
+    _DEFAULT_TILES = {"T": 1, "C": 3, "Z": 1, "Y": 1024, "X": 1024}
 
     def from_tiledb(
-        self, input_path: str, output_path: str, level_min: int = 0
+        self, input_path: str, output_path: str, *, level_min: int = 0
     ) -> None:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level.
@@ -148,7 +126,13 @@ class ImageConverter(ABC):
                 array.close()
 
     def to_tiledb(
-        self, input_path: str, output_group_path: str, level_min: int = 0
+        self,
+        input_path: str,
+        output_group_path: str,
+        *,
+        level_min: int = 0,
+        tiles: Mapping[str, int] = {},
+        preserve_axes: bool = False,
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -157,20 +141,36 @@ class ImageConverter(ABC):
         :param output_group_path: path to the TileDB group of arrays
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
+        :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
+            the (maximum) tile for this dimension.
+        :param preserve_axes: If true, preserve the axes order of the original image.
         """
         tiledb.group_create(output_group_path)
         with self._get_image_reader(input_path) as reader:
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             for level in range(level_min, reader.level_count):
-                uri = os.path.join(output_group_path, f"l_{level}.tdb")
+                # read and update metadata
+                metadata = reader.level_metadata(level)
+                metadata["level"] = level
+                # read axes and image
                 axes = reader.level_axes(level)
                 image = reader.level_image(level)
-                canonical_image = axes.transpose(image, axes.canonical(image))
-                level_metadata = reader.level_metadata(level)
-                level_metadata["level"] = level
-                self._write_image(uri, canonical_image, level_metadata)
+                if not preserve_axes:
+                    # transpose image to canonical axes
+                    canonical_axes = axes.canonical(image)
+                    image = axes.transpose(image, canonical_axes)
+                    axes = canonical_axes
+                # create TileDB array
+                uri = os.path.join(output_group_path, f"l_{level}.tdb")
+                schema = self._get_schema(image, axes, tiles)
+                tiledb.Array.create(uri, schema)
+                # write image and metadata to TileDB array
+                with tiledb.open(uri, "w") as a:
+                    a[:] = image
+                    a.meta.update(metadata)
                 uris.append(uri)
+
             # Write group metadata
             with tiledb.Group(output_group_path, "w") as group:
                 group.meta.update(reader.group_metadata)
@@ -180,17 +180,24 @@ class ImageConverter(ABC):
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
 
-    def _write_image(
-        self, uri: str, image: np.ndarray, metadata: Dict[str, Any]
-    ) -> None:
-        assert len(image.shape) == len(self._dims)
+    def _get_schema(
+        self, image: np.ndarray, axes: Axes, tiles: Mapping[str, int]
+    ) -> tiledb.ArraySchema:
         # find the smallest dtype that can hold the number of image scalar values
         dim_dtype = np.min_scalar_type(image.size)
-        dims = (
-            dim.to_tiledb_dim(size, dim_dtype)
-            for dim, size in zip(self._dims, image.shape)
-        )
-        schema = tiledb.ArraySchema(
+        dims = []
+        assert len(axes.dims) == len(image.shape)
+        for dim_name, dim_size in zip(axes.dims, image.shape):
+            max_tile = tiles.get(dim_name, self._DEFAULT_TILES[dim_name])
+            dims.append(
+                tiledb.Dim(
+                    dim_name,
+                    domain=(0, dim_size - 1),
+                    dtype=dim_dtype,
+                    tile=min(dim_size, max_tile),
+                )
+            )
+        return tiledb.ArraySchema(
             domain=tiledb.Domain(*dims),
             attrs=[
                 tiledb.Attr(
@@ -200,11 +207,6 @@ class ImageConverter(ABC):
                 )
             ],
         )
-        tiledb.Array.create(uri, schema)
-        with tiledb.open(uri, "w") as A:
-            A[:] = image
-            if metadata:
-                A.meta.update(metadata)
 
     @abstractmethod
     def _get_image_writer(self, output_path: str) -> ImageWriter:
