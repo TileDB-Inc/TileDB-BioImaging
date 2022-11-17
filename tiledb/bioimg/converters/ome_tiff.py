@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import numpy as np
 import tifffile
@@ -15,11 +15,8 @@ class OMETiffReader(ImageReader):
         OME-TIFF image reader
 
         :param input_path: The path to the TIFF image
-
         """
         self._tiff = tifffile.TiffFile(input_path)
-        omexml = self._tiff.ome_metadata
-        self._ome_metadata = tifffile.xml2dict(omexml) if omexml else {}
         # XXX ignore all but the first series
         self._levels = self._tiff.series[0].levels
 
@@ -38,14 +35,14 @@ class OMETiffReader(ImageReader):
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         series = self._levels[level]
+        metadata = dict(axes=series.axes)
         if level == 0:
-            subifds: Optional[int] = len(series.levels) - 1
-            metadata = dict(self._ome_metadata, axes=series.axes)
-        else:
-            subifds = metadata = None
+            omexml = self._tiff.ome_metadata
+            if omexml:
+                metadata.update(tifffile.xml2dict(omexml))
         keyframe = series.keyframe
         write_kwargs = dict(
-            subifds=subifds,
+            subifds=len(series.levels) - 1 if level == 0 else None,
             metadata=metadata,
             photometric=keyframe.photometric,
             planarconfig=keyframe.planarconfig,
@@ -88,12 +85,21 @@ class OmeTiffWriter(ImageWriter):
 
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
         write_kwargs = pickle.loads(array.meta["pickled_write_kwargs"])
-        # XXX: The tile length and width must be a multiple of 16; if not ignore it
         tile = write_kwargs["tile"]
-        if len(tile) < 2 or tile[-1] % 16 or tile[-2] % 16 or any(i < 1 for i in tile):
-            del write_kwargs["tile"]
-        # TODO: ensure the axes is consistent with the returned array
-        self._writer.write(array[:], **write_kwargs)
+        if tile:
+            # XXX: The tile length and width must be a multiple of 16; if not ignore it
+            if (
+                len(tile) < 2
+                or tile[-1] % 16
+                or tile[-2] % 16
+                or any(i < 1 for i in tile)
+            ):
+                del write_kwargs["tile"]
+        # transpose image to the original axes
+        stored_axes = Axes(dim.name for dim in array.domain)
+        original_axes = Axes(write_kwargs["metadata"]["axes"])
+        image = stored_axes.transpose(array[:], original_axes)
+        self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._writer.close()
