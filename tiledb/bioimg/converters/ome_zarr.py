@@ -21,9 +21,9 @@ class OMEZarrReader(ImageReader):
         OME-Zarr image reader
 
         :param input_path: The path to the Zarr image
-
         """
         self.root_attrs = ZarrLocation(input_path).root_attrs
+        self.axes = Axes(axis["name"].upper() for axis in self._multiscale["axes"])
         self.nodes = []
         for dataset in self._multiscale["datasets"]:
             path = os.path.join(input_path, dataset["path"])
@@ -34,18 +34,12 @@ class OMEZarrReader(ImageReader):
         return len(self.nodes)
 
     def level_axes(self, level: int) -> Axes:
-        return Axes("CYX")
+        return self.axes
 
     def level_image(self, level: int) -> np.ndarray:
         data = self.nodes[level].data
         assert len(data) == 1
-        leveled_zarray = data[0]
-        if leveled_zarray.shape[0] != 1:
-            raise NotImplementedError("T axes not supported yet")
-        if leveled_zarray.shape[2] != 1:
-            raise NotImplementedError("Z axes not supported yet")
-        # From NGFF format spec there is guarantee that axes are t,c,z,y,x
-        return np.asarray(data[0]).squeeze()
+        return np.asarray(data[0])
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
@@ -54,6 +48,7 @@ class OMEZarrReader(ImageReader):
     def group_metadata(self) -> Dict[str, Any]:
         multiscale = self._multiscale
         writer_kwargs = dict(
+            dims=self.axes.dims,
             axes=multiscale.get("axes"),
             coordinate_transformations=[
                 d.get("coordinateTransformations") for d in multiscale["datasets"]
@@ -77,7 +72,6 @@ class OMEZarrWriter(ImageWriter):
         OME-Zarr image writer from TileDB
 
         :param output_path: The path to the Zarr image
-
         """
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
@@ -87,11 +81,11 @@ class OMEZarrWriter(ImageWriter):
         self._group_metadata: Dict[str, Any] = {}
 
     def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        # store the image to be written at __exit__
-        image = array[:]
-        c, y, x = image.shape
-        tczyx_shape = (1, c, 1, y, x)
-        self._pyramid.append(image.reshape(tczyx_shape))
+        # transpose image to the original axes and store it to be written at __exit__
+        stored_axes = Axes(dim.name for dim in array.domain)
+        original_axes = Axes(self._group_metadata["dims"])
+        image = stored_axes.transpose(array[:], original_axes)
+        self._pyramid.append(image)
 
         # store the zarray metadata to be written at __exit__
         zarray = json.loads(array.meta["json_zarray"])
