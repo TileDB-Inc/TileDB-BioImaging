@@ -24,11 +24,12 @@ class OMETiffReader(ImageReader):
         self._tiff.close()
 
     @property
+    def axes(self) -> Axes:
+        return Axes(self._levels[0].axes.replace("S", "C"))
+
+    @property
     def level_count(self) -> int:
         return len(self._levels)
-
-    def level_axes(self, level: int) -> Axes:
-        return Axes(self._levels[level].axes.replace("S", "C"))
 
     def level_image(self, level: int) -> np.ndarray:
         return self._levels[level].asarray()

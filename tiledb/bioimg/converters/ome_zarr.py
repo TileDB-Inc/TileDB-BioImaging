@@ -23,18 +23,18 @@ class OMEZarrReader(ImageReader):
         :param input_path: The path to the Zarr image
         """
         self.root_attrs = ZarrLocation(input_path).root_attrs
-        self.axes = Axes(axis["name"].upper() for axis in self._multiscale["axes"])
         self.nodes = []
         for dataset in self._multiscale["datasets"]:
             path = os.path.join(input_path, dataset["path"])
             self.nodes.extend(Reader(ZarrLocation(path))())
 
     @property
+    def axes(self) -> Axes:
+        return Axes(axis["name"].upper() for axis in self._multiscale["axes"])
+
+    @property
     def level_count(self) -> int:
         return len(self.nodes)
-
-    def level_axes(self, level: int) -> Axes:
-        return self.axes
 
     def level_image(self, level: int) -> np.ndarray:
         data = self.nodes[level].data

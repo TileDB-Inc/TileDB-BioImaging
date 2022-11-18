@@ -20,11 +20,12 @@ class OpenSlideReader(ImageReader):
         self._osd.close()
 
     @property
+    def axes(self) -> Axes:
+        return Axes("YXC")
+
+    @property
     def level_count(self) -> int:
         return cast(int, self._osd.level_count)
-
-    def level_axes(self, level: int) -> Axes:
-        return Axes("YXC")
 
     def level_image(self, level: int) -> np.ndarray:
         dims = self._osd.level_dimensions[level]

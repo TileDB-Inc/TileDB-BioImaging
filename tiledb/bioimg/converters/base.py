@@ -22,49 +22,34 @@ class ImageReader(ABC):
 
     @property
     @abstractmethod
-    def level_count(self) -> int:
-        """Return the number of levels for this multi-resolution image.
-        Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
+    def axes(self) -> Axes:
+        """The axes of this multi-resolution image."""
 
-        :return: The number of levels in the slide
-        """
-
+    @property
     @abstractmethod
-    def level_axes(self, level: int) -> Axes:
-        """Return the axes for the given level.
+    def level_count(self) -> int:
+        """
+        The number of levels for this multi-resolution image.
 
-        :param level: Number corresponding to a level
-
-        :return: Axes object containing the axes of the given level.
+        Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
         """
 
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
         """
         Return the image for the given level as numpy array.
-        The axes of the array are specified by `level_axes(level)`
 
-        :param level: Number corresponding to a level
-
-        :return: np.ndarray of the image on the level given
+        The axes of the array are specified by the `axes` property.
         """
 
     @abstractmethod
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        """Return the metadata for the given level.
-
-        :param level: Number corresponding to a level
-
-        :return: A Dict containing the metadata of the given level
-        """
+        """Return the metadata for the given level."""
 
     @property
     @abstractmethod
     def group_metadata(self) -> Dict[str, Any]:
-        """Return the metadata for the whole multi-resolution image.
-
-        :return: A Dict containing the metadata of the image
-        """
+        """Return the metadata for the whole multi-resolution image."""
 
 
 class ImageWriter(ABC):
@@ -154,13 +139,13 @@ class ImageConverter(ABC):
                 metadata = reader.level_metadata(level)
                 metadata["level"] = level
                 # read axes and image
-                axes = reader.level_axes(level)
                 image = reader.level_image(level)
-                if not preserve_axes:
+                if preserve_axes:
+                    axes = reader.axes
+                else:
                     # transpose image to canonical axes
-                    canonical_axes = axes.canonical(image)
-                    image = axes.transpose(image, canonical_axes)
-                    axes = canonical_axes
+                    axes = reader.axes.canonical(image)
+                    image = reader.axes.transpose(image, axes)
                 # create TileDB array
                 uri = os.path.join(output_group_path, f"l_{level}.tdb")
                 schema = self._get_schema(image, axes, tiles)
