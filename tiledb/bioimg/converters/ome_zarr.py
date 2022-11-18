@@ -20,11 +20,11 @@ class OMEZarrReader(ImageReader):
 
         :param input_path: The path to the Zarr image
         """
-        self.root_attrs = ZarrLocation(input_path).root_attrs
-        self.nodes = []
+        self._root_attrs = ZarrLocation(input_path).root_attrs
+        self._nodes = []
         for dataset in self._multiscale["datasets"]:
             path = os.path.join(input_path, dataset["path"])
-            self.nodes.extend(Reader(ZarrLocation(path))())
+            self._nodes.extend(Reader(ZarrLocation(path))())
 
     @property
     def axes(self) -> Axes:
@@ -32,15 +32,15 @@ class OMEZarrReader(ImageReader):
 
     @property
     def level_count(self) -> int:
-        return len(self.nodes)
+        return len(self._nodes)
 
     def level_image(self, level: int) -> np.ndarray:
-        data = self.nodes[level].data
+        data = self._nodes[level].data
         assert len(data) == 1
         return np.asarray(data[0])
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        return {"json_zarray": json.dumps(self.nodes[level].zarr.zarray)}
+        return {"json_zarray": json.dumps(self._nodes[level].zarr.zarray)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
@@ -52,13 +52,13 @@ class OMEZarrReader(ImageReader):
             ],
             name=multiscale.get("name"),
             metadata=multiscale.get("metadata"),
-            omero=self.root_attrs.get("omero"),
+            omero=self._root_attrs.get("omero"),
         )
         return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
 
     @property
     def _multiscale(self) -> Dict[str, Any]:
-        multiscales = self.root_attrs["multiscales"]
+        multiscales = self._root_attrs["multiscales"]
         assert len(multiscales) == 1, multiscales
         return cast(Dict[str, Any], multiscales[0])
 
