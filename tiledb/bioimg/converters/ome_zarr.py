@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Mapping, cast
 
 import numpy as np
 import zarr
 from numcodecs import Blosc
 from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
-
-import tiledb
 
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
@@ -48,7 +46,6 @@ class OMEZarrReader(ImageReader):
     def group_metadata(self) -> Dict[str, Any]:
         multiscale = self._multiscale
         writer_kwargs = dict(
-            dims=self.axes.dims,
             axes=multiscale.get("axes"),
             coordinate_transformations=[
                 d.get("coordinateTransformations") for d in multiscale["datasets"]
@@ -80,22 +77,20 @@ class OMEZarrWriter(ImageWriter):
         self._storage_options: List[Dict[str, Any]] = []
         self._group_metadata: Dict[str, Any] = {}
 
-    def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        # transpose image to the original axes and store it to be written at __exit__
-        stored_axes = Axes(dim.name for dim in array.domain)
-        original_axes = Axes(self._group_metadata["dims"])
-        image = stored_axes.transpose(array[:], original_axes)
-        self._pyramid.append(image)
+    def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        self._group_metadata = json.loads(metadata["json_zarrwriter_kwargs"])
 
+    def write_level_image(
+        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+    ) -> None:
+        # store the image to be written at __exit__
+        self._pyramid.append(image)
         # store the zarray metadata to be written at __exit__
-        zarray = json.loads(array.meta["json_zarray"])
+        zarray = json.loads(metadata["json_zarray"])
         compressor = zarray["compressor"]
         del compressor["id"]
         zarray["compressor"] = Blosc.from_config(compressor)
         self._storage_options.append(zarray)
-
-    def write_group_metadata(self, group: tiledb.Group) -> None:
-        self._group_metadata = json.loads(group.meta["json_zarrwriter_kwargs"])
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         group_metadata = self._group_metadata

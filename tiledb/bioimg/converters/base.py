@@ -60,20 +60,19 @@ class ImageWriter(ABC):
         pass
 
     @abstractmethod
-    def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        """
-        Writes the resolution image of the level given from a TileDB array
-
-        :param level: Number corresponding to a level
-        :param array: tiledb.Array containing the data of the level
-        """
+    def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        """Write metadata for the whole multi-resolution image."""
 
     @abstractmethod
-    def write_group_metadata(self, group: tiledb.Group) -> None:
+    def write_level_image(
+        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+    ) -> None:
         """
-        Writes metadata of the image
+        Write the image for the given level.
 
-        :param group: tiledb.Group that contains the image
+        :param level: Number corresponding to a level
+        :param image: Image for the given level as numpy array
+        :param metadata: Metadata for the given level
         """
 
 
@@ -105,9 +104,14 @@ class ImageConverter(ABC):
         level_arrays.sort(key=itemgetter(0))
 
         with self._get_image_writer(output_path) as writer:
-            writer.write_group_metadata(group)
+            writer.write_group_metadata(group.meta)
+            original_axes = Axes(group.meta["axes"])
             for level, array in level_arrays:
-                writer.write_level_array(level, array)
+                # read image and transpose to the original axes
+                stored_axes = Axes(dim.name for dim in array.domain)
+                image = stored_axes.transpose(array[:], original_axes)
+                # write image and close the array
+                writer.write_level_image(level, image, array.meta)
                 array.close()
 
     def to_tiledb(
@@ -132,33 +136,32 @@ class ImageConverter(ABC):
         """
         tiledb.group_create(output_group_path)
         with self._get_image_reader(input_path) as reader:
+            axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             for level in range(level_min, reader.level_count):
-                # read and update metadata
+                # read metadata and image
                 metadata = reader.level_metadata(level)
-                metadata["level"] = level
-                # read axes and image
                 image = reader.level_image(level)
+                # determine axes and (optionally) transpose image to canonical axes
                 if preserve_axes:
-                    axes = reader.axes
+                    level_axes = axes
                 else:
-                    # transpose image to canonical axes
-                    axes = reader.axes.canonical(image)
-                    image = reader.axes.transpose(image, axes)
+                    level_axes = axes.canonical(image)
+                    image = axes.transpose(image, level_axes)
                 # create TileDB array
                 uri = os.path.join(output_group_path, f"l_{level}.tdb")
-                schema = self._get_schema(image, axes, tiles)
+                schema = self._get_schema(image, level_axes, tiles)
                 tiledb.Array.create(uri, schema)
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
                     a[:] = image
-                    a.meta.update(metadata)
+                    a.meta.update(metadata, level=level)
                 uris.append(uri)
 
             # Write group metadata
             with tiledb.Group(output_group_path, "w") as group:
-                group.meta.update(reader.group_metadata)
+                group.meta.update(reader.group_metadata, axes=axes.dims)
                 for level_uri in uris:
                     if urlparse(level_uri).scheme == "tiledb":
                         group.add(level_uri, relative=False)

@@ -1,10 +1,8 @@
 import pickle
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 import numpy as np
 import tifffile
-
-import tiledb
 
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
@@ -36,11 +34,13 @@ class OMETiffReader(ImageReader):
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         series = self._levels[level]
-        metadata = dict(axes=series.axes)
         if level == 0:
             omexml = self._tiff.ome_metadata
-            if omexml:
-                metadata.update(tifffile.xml2dict(omexml))
+            metadata = tifffile.xml2dict(omexml) if omexml else {}
+            metadata["axes"] = series.axes
+        else:
+            metadata = None
+
         keyframe = series.keyframe
         write_kwargs = dict(
             subifds=len(series.levels) - 1 if level == 0 else None,
@@ -80,12 +80,14 @@ class OmeTiffWriter(ImageWriter):
     def __init__(self, output_path: str):
         self._output_path = output_path
 
-    def write_group_metadata(self, group: tiledb.Group) -> None:
-        tiffwriter_kwargs = pickle.loads(group.meta["pickled_tiffwriter_kwargs"])
+    def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        tiffwriter_kwargs = pickle.loads(metadata["pickled_tiffwriter_kwargs"])
         self._writer = tifffile.TiffWriter(self._output_path, **tiffwriter_kwargs)
 
-    def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        write_kwargs = pickle.loads(array.meta["pickled_write_kwargs"])
+    def write_level_image(
+        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+    ) -> None:
+        write_kwargs = pickle.loads(metadata["pickled_write_kwargs"])
         tile = write_kwargs["tile"]
         if tile:
             # XXX: The tile length and width must be a multiple of 16; if not ignore it
@@ -96,10 +98,6 @@ class OmeTiffWriter(ImageWriter):
                 or any(i < 1 for i in tile)
             ):
                 del write_kwargs["tile"]
-        # transpose image to the original axes
-        stored_axes = Axes(dim.name for dim in array.domain)
-        original_axes = Axes(write_kwargs["metadata"]["axes"])
-        image = stored_axes.transpose(array[:], original_axes)
         self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
