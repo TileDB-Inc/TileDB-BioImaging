@@ -3,7 +3,7 @@ from typing import Any, Dict, cast
 import numpy as np
 import openslide as osd
 
-from .base import Axes, ImageConverter, ImageReader, ImageWriter
+from .base import Axes, ImageReader
 
 
 class OpenSlideReader(ImageReader):
@@ -41,13 +41,3 @@ class OpenSlideReader(ImageReader):
     @property
     def group_metadata(self) -> Dict[str, Any]:
         return {}
-
-
-class OpenSlideConverter(ImageConverter):
-    """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
-
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        return OpenSlideReader(input_path)
-
-    def _get_image_writer(self, output_path: str) -> ImageWriter:
-        raise NotImplementedError

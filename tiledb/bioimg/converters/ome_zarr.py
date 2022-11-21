@@ -10,7 +10,7 @@ from numcodecs import Blosc
 from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
-from .base import Axes, ImageConverter, ImageReader, ImageWriter
+from .base import Axes, ImageReader, ImageWriter
 
 
 class OMEZarrReader(ImageReader):
@@ -105,13 +105,3 @@ class OMEZarrWriter(ImageWriter):
         )
         if group_metadata["omero"]:
             self._group.attrs["omero"] = group_metadata["omero"]
-
-
-class OMEZarrConverter(ImageConverter):
-    """Converter of Zarr-supported images to TileDB Groups of Arrays"""
-
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        return OMEZarrReader(input_path)
-
-    def _get_image_writer(self, output_path: str) -> ImageWriter:
-        return OMEZarrWriter(output_path)

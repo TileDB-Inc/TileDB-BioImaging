@@ -49,23 +49,20 @@ How to convert imaging data from standard biomedical formats to group of TileDB 
 
 ### OME-Zarr to TileDB Group of Arrays
 ```python
-from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
-cnv = OMEZarrConverter()
-cnv.convert_image("path_to_ome_zarr_image", "tiledb_array_group_path")
+from tiledb.bioimg.converters.ome_zarr import OMEZarrReader
+OMEZarrReader.to_tiledb("path_to_ome_zarr_image", "tiledb_array_group_path")
 ```
 
 ### OME-Tiff to TileDB Group of Arrays
 ```python
-from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
-cnv = OMETiffConverter()
-cnv.convert_image("path_to_ome_tiff_image", "tiledb_array_group_path")
+from tiledb.bioimg.converters.ome_tiff import OMETiffReader
+OMETiffReader.to_tiledb("path_to_ome_tiff_image", "tiledb_array_group_path")
 ```
 
 ### Open Slide to TileDB Group of Arrays
 ```python
-from tiledb.bioimg.converters.openslide import OpenSlideConverter
-cnv = OpenSlideConverter()
-cnv.convert_image("path_to_open_slide_image", "tiledb_array_group_path")
+from tiledb.bioimg.converters.openslide import OpenSlideReader
+OpenSlideReader.to_tiledb("path_to_open_slide_image", "tiledb_array_group_path")
 ```
 
 ## Documentation

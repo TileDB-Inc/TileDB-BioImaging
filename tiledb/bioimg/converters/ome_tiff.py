@@ -4,7 +4,7 @@ from typing import Any, Dict, Mapping
 import numpy as np
 import tifffile
 
-from .base import Axes, ImageConverter, ImageReader, ImageWriter
+from .base import Axes, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
@@ -76,7 +76,7 @@ class OMETiffReader(ImageReader):
         return {"pickled_tiffwriter_kwargs": pickle.dumps(writer_kwargs)}
 
 
-class OmeTiffWriter(ImageWriter):
+class OMETiffWriter(ImageWriter):
     def __init__(self, output_path: str):
         self._output_path = output_path
 
@@ -102,13 +102,3 @@ class OmeTiffWriter(ImageWriter):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._writer.close()
-
-
-class OMETiffConverter(ImageConverter):
-    """Converter of Tiff-supported images to TileDB Groups of Arrays"""
-
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        return OMETiffReader(input_path)
-
-    def _get_image_writer(self, output_path: str) -> ImageWriter:
-        return OmeTiffWriter(output_path)
