@@ -3,7 +3,13 @@ import itertools as it
 import numpy as np
 import pytest
 
-from tiledb.bioimg.converters.axes import Axes, Move, Swap, minimize_transpositions
+from tiledb.bioimg.converters.axes import (
+    Axes,
+    Move,
+    Swap,
+    minimize_transpositions,
+    transpose_array,
+)
 
 
 class TestTranspositions:
@@ -250,11 +256,7 @@ class TestAxes:
 
 
 def assert_transpose(source, target, a, expected):
-    if not isinstance(source, Axes):
-        source = Axes(source)
-    if not isinstance(target, Axes):
-        target = Axes(target)
-    transposed = source.transpose(a, target)
+    transposed = transpose_array(a, source, target)
     np.testing.assert_array_equal(transposed, expected)
 
 
@@ -262,4 +264,4 @@ def assert_canonical_transpose(source, a, expected):
     if not isinstance(source, Axes):
         source = Axes(source)
     target = source.canonical(a)
-    assert_transpose(source, target, a, expected)
+    assert_transpose(source.dims, target.dims, a, expected)

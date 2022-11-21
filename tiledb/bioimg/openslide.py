@@ -7,7 +7,7 @@ import numpy as np
 
 import tiledb
 
-from .converters.axes import Axes
+from .converters.axes import transpose_array
 
 
 class TileDBOpenSlide:
@@ -88,7 +88,7 @@ class TileDBOpenSlide:
             dims = [dim.name for dim in a.domain]
             image = a[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
         # transpose image to YXC
-        return Axes(dims).transpose(image, Axes("YXC"))
+        return transpose_array(image, dims, "YXC")
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.

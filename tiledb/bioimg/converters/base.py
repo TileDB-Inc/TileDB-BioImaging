@@ -10,7 +10,7 @@ import numpy as np
 
 import tiledb
 
-from .axes import Axes
+from .axes import Axes, transpose_array
 
 
 class ImageReader(ABC):
@@ -109,7 +109,7 @@ class ImageConverter(ABC):
             for level, array in level_arrays:
                 # read image and transpose to the original axes
                 stored_axes = Axes(dim.name for dim in array.domain)
-                image = stored_axes.transpose(array[:], original_axes)
+                image = transpose_array(array[:], stored_axes.dims, original_axes.dims)
                 # write image and close the array
                 writer.write_level_image(level, image, array.meta)
                 array.close()
@@ -148,7 +148,7 @@ class ImageConverter(ABC):
                     level_axes = axes
                 else:
                     level_axes = axes.canonical(image)
-                    image = axes.transpose(image, level_axes)
+                    image = transpose_array(image, axes.dims, level_axes.dims)
                 # create TileDB array
                 uri = os.path.join(output_group_path, f"l_{level}.tdb")
                 schema = self._get_schema(image, level_axes, tiles)

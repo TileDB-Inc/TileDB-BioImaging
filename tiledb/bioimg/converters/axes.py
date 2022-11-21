@@ -50,6 +50,18 @@ class Move(Transpose):
 
 
 def transpose_array(a: np.ndarray, s: Sequence[T], t: Sequence[T]) -> np.ndarray:
+    """Transpose a Numpy array `a` from source `s` axes to target `t`.
+
+    If `s` is a superset of `t`, squeeze the extra axes (provided they are of length one).
+    If `s` is a subset of `t`, insert the missing axes at the front with length one.
+    Finally find the minimum number of transpositions from `s` to `t` and apply them to `a`.
+
+    :param a: Source array to transpose
+    :param s: Axes of the source array `a`
+    :param t: Axes of the target array
+    :return: The transposed array
+    """
+    assert len(s) == len(a.shape)
     s_set, t_set = frozenset(s), frozenset(t)
 
     if s_set > t_set:
@@ -128,19 +140,3 @@ class Axes:
         assert len(self.dims) == len(a.shape)
         dims = frozenset(dim for dim, size in zip(self.dims, a.shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
-
-    def transpose(self, a: np.ndarray, target: Axes) -> np.ndarray:
-        """Transpose a Numpy array from this axes to a target axes.
-
-        - If the dims of this axes are a superset of target's, squeeze the extra dims
-          (provided the extra dims are of length one).
-        - If the dims of this axes are a subset of target's, insert the missing dims at
-          the front with length one.
-        - Finally transpose the dims of this axes  to match the target.
-
-        :param a: Numpy array to transpose
-        :param target: Axes of the transposed array
-        :return: The transposed array
-        """
-        assert len(self.dims) == len(a.shape)
-        return transpose_array(a, self.dims, target.dims)
