@@ -109,12 +109,12 @@ class TestAxes:
         assert Axes("ZTCXY").canonical(a) == Axes("TZYX")
         assert Axes("ZCTXY").canonical(a) == Axes("CZYX")
 
-    def test_transpose_canonical_2d(self):
+    def test_canonical_transpose_2d(self):
         a = np.random.rand(60, 40)
         assert_canonical_transpose("YX", a, a)
         assert_canonical_transpose("XY", a, np.swapaxes(a, 0, 1))
 
-    def test_transpose_canonical_3d(self):
+    def test_canonical_transpose_3d(self):
         a = np.random.rand(10, 60, 40)
         for s in "ZYX", "CYX", "TYX":
             assert_canonical_transpose(s, a, a)
@@ -125,7 +125,7 @@ class TestAxes:
         for s in "YXZ", "YXC", "YXT":
             assert_canonical_transpose(s, a, np.moveaxis(a, 2, 0))
 
-    def test_transpose_canonical_4d(self):
+    def test_canonical_transpose_4d(self):
         a = np.random.rand(3, 10, 60, 40)
         for s in "CZYX", "TCYX", "TZYX":
             assert_canonical_transpose(s, a, a)
@@ -152,7 +152,7 @@ class TestAxes:
         for s in "XYCZ", "XYTC", "XYTZ":
             assert_canonical_transpose(s, a, np.swapaxes(np.moveaxis(a, 2, 0), 1, 3))
 
-    def test_transpose_canonical_5d(self):
+    def test_canonical_transpose_5d(self):
         a = np.random.rand(7, 3, 10, 60, 40)
         assert_canonical_transpose("TCZYX", a, a)
 
