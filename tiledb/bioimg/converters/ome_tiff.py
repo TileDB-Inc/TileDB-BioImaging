@@ -1,10 +1,8 @@
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping
 
 import numpy as np
 import tifffile
-
-import tiledb
 
 from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
@@ -15,11 +13,8 @@ class OMETiffReader(ImageReader):
         OME-TIFF image reader
 
         :param input_path: The path to the TIFF image
-
         """
         self._tiff = tifffile.TiffFile(input_path)
-        omexml = self._tiff.ome_metadata
-        self._ome_metadata = tifffile.xml2dict(omexml) if omexml else {}
         # XXX ignore all but the first series
         self._levels = self._tiff.series[0].levels
 
@@ -27,11 +22,12 @@ class OMETiffReader(ImageReader):
         self._tiff.close()
 
     @property
+    def axes(self) -> Axes:
+        return Axes(self._levels[0].axes.replace("S", "C"))
+
+    @property
     def level_count(self) -> int:
         return len(self._levels)
-
-    def level_axes(self, level: int) -> Axes:
-        return Axes(self._levels[level].axes.replace("S", "C"))
 
     def level_image(self, level: int) -> np.ndarray:
         return self._levels[level].asarray()
@@ -39,13 +35,15 @@ class OMETiffReader(ImageReader):
     def level_metadata(self, level: int) -> Dict[str, Any]:
         series = self._levels[level]
         if level == 0:
-            subifds: Optional[int] = len(series.levels) - 1
-            metadata = dict(self._ome_metadata, axes=series.axes)
+            omexml = self._tiff.ome_metadata
+            metadata = tifffile.xml2dict(omexml) if omexml else {}
+            metadata["axes"] = series.axes
         else:
-            subifds = metadata = None
+            metadata = None
+
         keyframe = series.keyframe
         write_kwargs = dict(
-            subifds=subifds,
+            subifds=len(series.levels) - 1 if level == 0 else None,
             metadata=metadata,
             photometric=keyframe.photometric,
             planarconfig=keyframe.planarconfig,
@@ -82,18 +80,25 @@ class OmeTiffWriter(ImageWriter):
     def __init__(self, output_path: str):
         self._output_path = output_path
 
-    def write_group_metadata(self, group: tiledb.Group) -> None:
-        tiffwriter_kwargs = pickle.loads(group.meta["pickled_tiffwriter_kwargs"])
+    def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        tiffwriter_kwargs = pickle.loads(metadata["pickled_tiffwriter_kwargs"])
         self._writer = tifffile.TiffWriter(self._output_path, **tiffwriter_kwargs)
 
-    def write_level_array(self, level: int, array: tiledb.Array) -> None:
-        write_kwargs = pickle.loads(array.meta["pickled_write_kwargs"])
-        # XXX: The tile length and width must be a multiple of 16; if not ignore it
+    def write_level_image(
+        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+    ) -> None:
+        write_kwargs = pickle.loads(metadata["pickled_write_kwargs"])
         tile = write_kwargs["tile"]
-        if len(tile) < 2 or tile[-1] % 16 or tile[-2] % 16 or any(i < 1 for i in tile):
-            del write_kwargs["tile"]
-        # TODO: ensure the axes is consistent with the returned array
-        self._writer.write(array[:], **write_kwargs)
+        if tile:
+            # XXX: The tile length and width must be a multiple of 16; if not ignore it
+            if (
+                len(tile) < 2
+                or tile[-1] % 16
+                or tile[-2] % 16
+                or any(i < 1 for i in tile)
+            ):
+                del write_kwargs["tile"]
+        self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._writer.close()

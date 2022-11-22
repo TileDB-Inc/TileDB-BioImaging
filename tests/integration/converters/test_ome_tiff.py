@@ -1,5 +1,6 @@
 import numpy as np
 import PIL.Image
+import pytest
 import tifffile
 
 import tiledb
@@ -61,6 +62,49 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path):
         # only the first series is copied
         assert len(t1.series) == 3
         assert len(t2.series) == 1
+        compare_tiff_page_series(t1.series[0], t2.series[0])
+
+
+@pytest.mark.parametrize(
+    "filename,dims",
+    [
+        ("single-channel.ome.tif", "YX"),
+        ("z-series.ome.tif", "ZYX"),
+        ("multi-channel.ome.tif", "CYX"),
+        ("time-series.ome.tif", "TYX"),
+        ("multi-channel-z-series.ome.tif", "CZYX"),
+        ("multi-channel-time-series.ome.tif", "TCYX"),
+        ("4D-series.ome.tif", "TZYX"),
+        ("multi-channel-4D-series.ome.tif", "TCZYX"),
+    ],
+)
+@pytest.mark.parametrize("tiles", [{}, {"X": 128, "Y": 128, "Z": 2, "C": 1, "T": 3}])
+def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles):
+    input_path = get_path(f"artificial-ome-tiff/{filename}")
+    tiledb_path = tmp_path / "to_tiledb"
+    output_path = tmp_path / "from_tiledb"
+
+    cnv = OMETiffConverter()
+    cnv.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
+
+    t = TileDBOpenSlide.from_group_uri(str(tiledb_path))
+    assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
+
+    with tiledb.open(str(tiledb_path / "l_0.tdb")) as A:
+        assert "".join(dim.name for dim in A.domain) == dims
+        assert A.dtype == np.int8
+        assert A.dim("X").tile == tiles.get("X", 439)
+        assert A.dim("Y").tile == tiles.get("Y", 167)
+        if A.domain.has_dim("Z"):
+            assert A.dim("Z").tile == tiles.get("Z", 1)
+        if A.domain.has_dim("C"):
+            assert A.dim("C").tile == tiles.get("C", 3)
+        if A.domain.has_dim("T"):
+            assert A.dim("T").tile == tiles.get("T", 1)
+
+    cnv.from_tiledb(str(tiledb_path), output_path)
+    with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
+        compare_tifffiles(t1, t2)
         compare_tiff_page_series(t1.series[0], t2.series[0])
 
 

@@ -7,6 +7,8 @@ import numpy as np
 
 import tiledb
 
+from .converters.axes import transpose_array
+
 
 class TileDBOpenSlide:
     def __init__(self, level_info: Sequence[Tuple[str, int, int]]):
@@ -81,10 +83,12 @@ class TileDBOpenSlide:
         """
         x, y = location
         w, h = size
+        dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         with tiledb.open(self._level_uris[level]) as a:
-            data = a[:, y : y + h, x : x + w]
-        # convert from CYX to YXC
-        return np.moveaxis(data, 0, 2)
+            dims = [dim.name for dim in a.domain]
+            image = a[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
+        # transpose image to YXC
+        return transpose_array(image, dims, "YXC")
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.
