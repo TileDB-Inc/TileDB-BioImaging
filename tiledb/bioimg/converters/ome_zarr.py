@@ -110,8 +110,5 @@ class OMEZarrWriter(ImageWriter):
 class OMEZarrConverter(ImageConverter):
     """Converter of Zarr-supported images to TileDB Groups of Arrays"""
 
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        return OMEZarrReader(input_path)
-
-    def _get_image_writer(self, output_path: str) -> ImageWriter:
-        return OMEZarrWriter(output_path)
+    _ImageReaderType = OMEZarrReader
+    _ImageWriterType = OMEZarrWriter

@@ -10,7 +10,7 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 def test_ome_tiff_converter(tmp_path):
-    OMETiffConverter().to_tiledb(get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path))
+    OMETiffConverter.to_tiledb(get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path))
 
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
     assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
@@ -32,7 +32,7 @@ def test_ome_tiff_converter(tmp_path):
 
 def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
-    OMETiffConverter().to_tiledb(path, str(tmp_path))
+    OMETiffConverter.to_tiledb(path, str(tmp_path))
 
     assert len(tiledb.Group(str(tmp_path))) == 3
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
@@ -51,11 +51,10 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path):
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
-    cnv = OMETiffConverter()
     # Store it to Tiledb
-    cnv.to_tiledb(input_path, str(tiledb_path))
+    OMETiffConverter.to_tiledb(input_path, str(tiledb_path))
     # Store it back to NGFF Zarr
-    cnv.from_tiledb(str(tiledb_path), output_path)
+    OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
 
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
         compare_tifffiles(t1, t2)
@@ -84,8 +83,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
-    cnv = OMETiffConverter()
-    cnv.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
+    OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
 
     t = TileDBOpenSlide.from_group_uri(str(tiledb_path))
     assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
@@ -102,7 +100,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
         if A.domain.has_dim("T"):
             assert A.dim("T").tile == tiles.get("T", 1)
 
-    cnv.from_tiledb(str(tiledb_path), output_path)
+    OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
         compare_tifffiles(t1, t2)
         compare_tiff_page_series(t1.series[0], t2.series[0])
