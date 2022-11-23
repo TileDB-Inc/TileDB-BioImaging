@@ -20,7 +20,7 @@ def test_ome_zarr_converter(tmp_path, series_idx):
 
     # check the first (highest) resolution layer only
     schema = schemas[series_idx]
-    with tiledb.open(str(tmp_path / f"l_{0}.tdb")) as A:
+    with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
         assert A.schema == schema
 
     t = TileDBOpenSlide.from_group_uri(str(tmp_path))
@@ -81,3 +81,19 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
         input_zarray = zarr.open(input_path / str(i))
         output_zarray = zarr.open(output_path / str(i))
         np.testing.assert_array_equal(input_zarray[:], output_zarray[:])
+
+
+def test_ome_zarr_converter_incremental(tmp_path):
+    input_path = get_path("CMU-1-Small-Region.ome.zarr/0")
+
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=1)
+    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
+    assert len(tiledb.Group(str(tmp_path))) == t.level_count == 1
+
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0)
+    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
+    assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
+
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0)
+    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
+    assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
