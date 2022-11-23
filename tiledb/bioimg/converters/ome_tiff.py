@@ -76,7 +76,7 @@ class OMETiffReader(ImageReader):
         return {"pickled_tiffwriter_kwargs": pickle.dumps(writer_kwargs)}
 
 
-class OmeTiffWriter(ImageWriter):
+class OMETiffWriter(ImageWriter):
     def __init__(self, output_path: str):
         self._output_path = output_path
 
@@ -107,8 +107,5 @@ class OmeTiffWriter(ImageWriter):
 class OMETiffConverter(ImageConverter):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
-    def _get_image_reader(self, input_path: str) -> ImageReader:
-        return OMETiffReader(input_path)
-
-    def _get_image_writer(self, output_path: str) -> ImageWriter:
-        return OmeTiffWriter(output_path)
+    _ImageReaderType = OMETiffReader
+    _ImageWriterType = OMETiffWriter

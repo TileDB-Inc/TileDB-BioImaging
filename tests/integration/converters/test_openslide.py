@@ -10,7 +10,7 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 
 def test_openslide_converter(tmp_path):
     svs_path = get_path("CMU-1-Small-Region.svs")
-    OpenSlideConverter().to_tiledb(svs_path, str(tmp_path))
+    OpenSlideConverter.to_tiledb(svs_path, str(tmp_path))
 
     assert len(tiledb.Group(str(tmp_path))) == 1
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:

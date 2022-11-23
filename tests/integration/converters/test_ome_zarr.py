@@ -16,7 +16,7 @@ schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 def test_ome_zarr_converter(tmp_path, series_idx):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
-    OMEZarrConverter().to_tiledb(input_path, str(tmp_path))
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path))
 
     # check the first (highest) resolution layer only
     schema = schemas[series_idx]
@@ -45,11 +45,10 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
-    cnv = OMEZarrConverter()
     # Store it to Tiledb
-    cnv.to_tiledb(input_path, str(tiledb_path))
+    OMEZarrConverter.to_tiledb(input_path, str(tiledb_path))
     # Store it back to NGFF Zarr
-    cnv.from_tiledb(str(tiledb_path), output_path)
+    OMEZarrConverter.from_tiledb(str(tiledb_path), output_path)
 
     # Same number of levels
     input_group = zarr.open_group(input_path, mode="r")
