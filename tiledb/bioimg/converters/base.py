@@ -151,12 +151,18 @@ class ImageConverter:
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
 
-        tiledb.group_create(output_path)
+        if tiledb.object_type(output_path) != "group":
+            tiledb.group_create(output_path)
         with cls._ImageReaderType(input_path) as reader:
             axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             for level in range(level_min, reader.level_count):
+                uri = os.path.join(output_path, f"l_{level}.tdb")
+                if tiledb.object_type(uri) == "array":
+                    # level has already been converted
+                    continue
+
                 # read metadata and image
                 metadata = reader.level_metadata(level)
                 image = reader.level_image(level)
@@ -167,7 +173,6 @@ class ImageConverter:
                     level_axes = axes.canonical(image)
                     image = transpose_array(image, axes.dims, level_axes.dims)
                 # create TileDB array
-                uri = os.path.join(output_path, f"l_{level}.tdb")
                 schema = cls._get_schema(image, level_axes, tiles)
                 tiledb.Array.create(uri, schema)
                 # write image and metadata to TileDB array
