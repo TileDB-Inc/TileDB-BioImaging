@@ -9,11 +9,18 @@ from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
-def test_ome_tiff_converter(tmp_path):
-    OMETiffConverter.to_tiledb(get_path("CMU-1-Small-Region.ome.tiff"), str(tmp_path))
+@pytest.mark.parametrize("open_fileobj", [False, True])
+def test_ome_tiff_converter(tmp_path, open_fileobj):
+    input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
+    output_path = str(tmp_path)
+    if open_fileobj:
+        with open(input_path, "rb") as f:
+            OMETiffConverter.to_tiledb(f, output_path)
+    else:
+        OMETiffConverter.to_tiledb(input_path, output_path)
 
-    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
-    assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
+    t = TileDBOpenSlide.from_group_uri(output_path)
+    assert len(tiledb.Group(output_path)) == t.level_count == 2
 
     schemas = (get_schema(2220, 2967), get_schema(574, 768))
     assert t.dimensions == schemas[0].shape[:-3:-1]
