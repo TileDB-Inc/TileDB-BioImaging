@@ -17,16 +17,16 @@ def test_openslide_converter(tmp_path):
         assert A.schema == get_schema(2220, 2967)
 
     o = openslide.open_slide(svs_path)
-    t = TileDBOpenSlide.from_group_uri(str(tmp_path))
+    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
 
-    assert t.level_count == o.level_count
-    assert t.dimensions == o.dimensions
-    assert t.level_dimensions == o.level_dimensions
-    assert t.level_downsamples == o.level_downsamples
+        assert t.level_count == o.level_count
+        assert t.dimensions == o.dimensions
+        assert t.level_dimensions == o.level_dimensions
+        assert t.level_downsamples == o.level_downsamples
 
-    region = t.read_region(level=0, location=(100, 100), size=(300, 400))
-    assert isinstance(region, np.ndarray)
-    assert region.ndim == 3
-    assert region.dtype == np.uint8
-    img = PIL.Image.fromarray(region)
-    assert img.size == (300, 400)
+        region = t.read_region(level=0, location=(100, 100), size=(300, 400))
+        assert isinstance(region, np.ndarray)
+        assert region.ndim == 3
+        assert region.dtype == np.uint8
+        img = PIL.Image.fromarray(region)
+        assert img.size == (300, 400)
