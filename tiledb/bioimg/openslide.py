@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from operator import itemgetter
-from typing import Sequence, Tuple
+from typing import Any, Sequence, Tuple
 
 import numpy as np
 
@@ -11,10 +11,6 @@ from .converters.axes import transpose_array
 
 
 class TileDBOpenSlide:
-    def __init__(self, level_info: Sequence[Tuple[str, int, int]]):
-        self._level_uris = tuple(map(itemgetter(0), level_info))
-        self._level_dims = tuple(map(itemgetter(1, 2), level_info))  # (width, height)
-
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
         """
@@ -24,15 +20,22 @@ class TileDBOpenSlide:
         with tiledb.Group(uri) as G:
             level_info = []
             for o in G:
-                uri = o.uri
-                with tiledb.open(uri) as a:
-                    level = a.meta.get("level", 0)
-                    width = a.shape[-1]
-                    height = a.shape[-2]
-                    level_info.append((level, uri, width, height))
+                array = tiledb.open(o.uri)
+                level = array.meta.get("level", 0)
+                level_info.append((level, array))
             # sort by level
             level_info.sort(key=itemgetter(0))
-        return cls(tuple(map(itemgetter(1, 2, 3), level_info)))
+        return cls(tuple(map(itemgetter(1), level_info)))
+
+    def __init__(self, level_arrays: Sequence[tiledb.Array]):
+        self._level_arrays = level_arrays
+
+    def __enter__(self) -> TileDBOpenSlide:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        for array in self._level_arrays:
+            array.close()
 
     @property
     def level_count(self) -> int:
@@ -42,7 +45,7 @@ class TileDBOpenSlide:
 
         :return: The number of levels in the slide
         """
-        return len(self._level_dims)
+        return len(self._level_arrays)
 
     @property
     def dimensions(self) -> Tuple[int, int]:
@@ -57,7 +60,7 @@ class TileDBOpenSlide:
 
         :return: A sequence of dimensions for each level
         """
-        return self._level_dims
+        return tuple((array.shape[-1], array.shape[-2]) for array in self._level_arrays)
 
     @property
     def level_downsamples(self) -> Sequence[float]:
@@ -84,9 +87,9 @@ class TileDBOpenSlide:
         x, y = location
         w, h = size
         dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
-        with tiledb.open(self._level_uris[level]) as a:
-            dims = [dim.name for dim in a.domain]
-            image = a[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
+        array = self._level_arrays[level]
+        dims = [dim.name for dim in array.domain]
+        image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
         # transpose image to YXC
         return transpose_array(image, dims, "YXC")
 

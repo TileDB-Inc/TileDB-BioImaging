@@ -22,6 +22,6 @@ class TestTileDBOpenSlide:
                     A.meta["level"] = level
                 G.add(level_path)
 
-        tdb_os = TileDBOpenSlide.from_group_uri(group_path)
-        assert tdb_os.level_count == len(level_dimensions)
-        assert tdb_os.level_dimensions == tuple(level_dimensions)
+        with TileDBOpenSlide.from_group_uri(group_path) as t:
+            assert t.level_count == len(level_dimensions)
+            assert t.level_dimensions == tuple(level_dimensions)

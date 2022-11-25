@@ -19,22 +19,22 @@ def test_ome_tiff_converter(tmp_path, open_fileobj):
     else:
         OMETiffConverter.to_tiledb(input_path, output_path)
 
-    t = TileDBOpenSlide.from_group_uri(output_path)
-    assert len(tiledb.Group(output_path)) == t.level_count == 2
+    with TileDBOpenSlide.from_group_uri(output_path) as t:
+        assert len(tiledb.Group(output_path)) == t.level_count == 2
 
-    schemas = (get_schema(2220, 2967), get_schema(574, 768))
-    assert t.dimensions == schemas[0].shape[:-3:-1]
-    for i in range(t.level_count):
-        assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
-        with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
-            assert A.schema == schemas[i]
+        schemas = (get_schema(2220, 2967), get_schema(574, 768))
+        assert t.dimensions == schemas[0].shape[:-3:-1]
+        for i in range(t.level_count):
+            assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
+            with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
+                assert A.schema == schemas[i]
 
-    region = t.read_region(level=0, location=(100, 100), size=(300, 400))
-    assert isinstance(region, np.ndarray)
-    assert region.ndim == 3
-    assert region.dtype == np.uint8
-    img = PIL.Image.fromarray(region)
-    assert img.size == (300, 400)
+        region = t.read_region(level=0, location=(100, 100), size=(300, 400))
+        assert isinstance(region, np.ndarray)
+        assert region.ndim == 3
+        assert region.dtype == np.uint8
+        img = PIL.Image.fromarray(region)
+        assert img.size == (300, 400)
 
 
 def test_ome_tiff_converter_different_dtypes(tmp_path):
@@ -92,8 +92,8 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
 
     OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
 
-    t = TileDBOpenSlide.from_group_uri(str(tiledb_path))
-    assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
+    with TileDBOpenSlide.from_group_uri(str(tiledb_path)) as t:
+        assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
 
     with tiledb.open(str(tiledb_path / "l_0.tdb")) as A:
         assert "".join(dim.name for dim in A.domain) == dims
