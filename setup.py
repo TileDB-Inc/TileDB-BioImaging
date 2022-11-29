@@ -3,8 +3,9 @@ import setuptools
 zarr = ["ome-zarr"]
 openslide = ["openslide-python"]
 tiff = ["tifffile", "imagecodecs", "jsonpickle"]
-full = sorted({*zarr, *openslide, *tiff})
+cloud = ["tiledb-cloud"]
 
+full = sorted({*zarr, *openslide, *tiff, *cloud})
 setuptools.setup(
     setup_requires=["setuptools_scm"],
     use_scm_version={
@@ -18,5 +19,6 @@ setuptools.setup(
         "openslide": openslide,
         "tiff": tiff,
         "full": full,
+        "cloud": cloud,
     },
 )

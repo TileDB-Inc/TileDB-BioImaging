@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import numpy as np
 
 import tiledb
+from tiledb.cloud import groups
 
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles
@@ -225,7 +226,6 @@ class ImageConverter:
                         group.add(level_uri, relative=False)
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
-
 
 def _get_schema(
     axes: Axes,
