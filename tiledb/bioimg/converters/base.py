@@ -8,9 +8,9 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
+from tiledb.cloud import groups
 
 import tiledb
-from tiledb.cloud import groups
 
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles
