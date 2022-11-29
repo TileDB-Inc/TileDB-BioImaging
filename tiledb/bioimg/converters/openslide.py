@@ -1,7 +1,7 @@
 from typing import Any, Dict, cast
 
 import numpy as np
-import openslide as osd
+import tiffslide
 
 from .base import Axes, ImageConverter, ImageReader
 
@@ -14,7 +14,7 @@ class OpenSlideReader(ImageReader):
         :param input_path: The path to the OpenSlide image
 
         """
-        self._osd = osd.OpenSlide(input_path)
+        self._osd = tiffslide.TiffSlide(input_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._osd.close()

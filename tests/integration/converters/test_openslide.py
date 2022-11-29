@@ -1,6 +1,6 @@
 import numpy as np
-import openslide
 import PIL.Image
+import tiffslide
 
 import tiledb
 from tests import get_path, get_schema
@@ -16,7 +16,7 @@ def test_openslide_converter(tmp_path):
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
         assert A.schema == get_schema(2220, 2967)
 
-    o = openslide.open_slide(svs_path)
+    o = tiffslide.TiffSlide(svs_path)
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
 
         assert t.level_count == o.level_count
