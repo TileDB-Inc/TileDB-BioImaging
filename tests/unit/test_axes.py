@@ -14,32 +14,32 @@ from tiledb.bioimg.converters.axes import (
 
 class TestTranspositions:
     @pytest.mark.parametrize(
-        "s,i,j", [("ADCBE", 1, 3), ("DBCAE", 3, 0), ("ACBDE", 2, 1)]
+        "s,i,j", [(b"ADCBE", 1, 3), (b"DBCAE", 3, 0), (b"ACBDE", 2, 1)]
     )
     def test_swap(self, s, i, j):
         swap = Swap(i, j)
-        assert swap.transposed(s) == list("ABCDE")
-        b = list(s)
+        assert swap.transposed(s) == b"ABCDE"
+        b = bytearray(s)
         assert swap.transpose(b) is None
-        assert b == list("ABCDE")
+        assert b == b"ABCDE"
 
     @pytest.mark.parametrize(
         "s,i,j",
         [
-            ("ADBCE", 1, 3),
-            ("ACDBE", 3, 1),
-            ("ACBDE", 1, 2),
-            ("ACBDE", 2, 1),
-            ("EABCD", 0, 4),
-            ("BCDEA", 4, 0),
+            (b"ADBCE", 1, 3),
+            (b"ACDBE", 3, 1),
+            (b"ACBDE", 1, 2),
+            (b"ACBDE", 2, 1),
+            (b"EABCD", 0, 4),
+            (b"BCDEA", 4, 0),
         ],
     )
     def test_move(self, s, i, j):
         move = Move(i, j)
-        assert move.transposed(s) == list("ABCDE")
-        b = list(s)
+        assert move.transposed(s) == b"ABCDE"
+        b = bytearray(s)
         assert move.transpose(b) is None
-        assert b == list("ABCDE")
+        assert b == b"ABCDE"
 
     @pytest.mark.parametrize(
         "s,t,transpositions",
@@ -52,10 +52,10 @@ class TestTranspositions:
     )
     def test_minimize_transpositions(self, s, t, transpositions):
         assert minimize_transpositions(s, t) == transpositions
-        s = list(s)
+        b = bytearray(s.encode())
         for transposition in transpositions:
-            transposition.transpose(s)
-        assert s == list(t)
+            transposition.transpose(b)
+        assert b.decode() == t
 
 
 class TestAxes:

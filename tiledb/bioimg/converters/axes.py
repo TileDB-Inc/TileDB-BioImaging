@@ -4,12 +4,10 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass
 from operator import itemgetter
-from typing import Iterable, Iterator, List, MutableSequence, Sequence, TypeVar
+from typing import Iterable, Iterator, Sequence
 
 import numpy as np
 from edit_operation import levenshtein
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -17,15 +15,15 @@ class Transpose(ABC):
     i: int
     j: int
 
-    def transposed(self, s: Sequence[T]) -> List[T]:
-        """Return the transposed version of the given sequence"""
-        s = list(s)
-        self.transpose(s)
-        return s
+    def transposed(self, s: bytes) -> bytes:
+        """Return the transposed version of the given bytestring"""
+        b = bytearray(s)
+        self.transpose(b)
+        return bytes(b)
 
     @abstractmethod
-    def transpose(self, s: MutableSequence[T]) -> None:
-        """Transpose the given mutable sequence in place"""
+    def transpose(self, s: bytearray) -> None:
+        """Transpose the given bytearray in place"""
 
     @abstractmethod
     def transposed_array(self, a: np.ndarray) -> np.ndarray:
@@ -33,7 +31,7 @@ class Transpose(ABC):
 
 
 class Swap(Transpose):
-    def transpose(self, s: MutableSequence[T]) -> None:
+    def transpose(self, s: bytearray) -> None:
         i, j = self.i, self.j
         s[i], s[j] = s[j], s[i]
 
@@ -42,7 +40,7 @@ class Swap(Transpose):
 
 
 class Move(Transpose):
-    def transpose(self, s: MutableSequence[T]) -> None:
+    def transpose(self, s: bytearray) -> None:
         s.insert(self.j, s.pop(self.i))
 
     def transposed_array(self, a: np.ndarray) -> np.ndarray:
@@ -90,14 +88,16 @@ def transpose_array(a: np.ndarray, s: str, t: str) -> np.ndarray:
 def minimize_transpositions(s: str, t: str) -> Sequence[Transpose]:
     assert Counter(s) == Counter(t)
     n = len(s)
+    sbuf = bytearray(s.encode())
+    tbuf = t.encode()
     transpositions = []
-    while s != t:
+    while sbuf != tbuf:
         weighted_transpositions = (
-            (levenshtein.distance("".join(tr.transposed(s)), t), tr)
+            (levenshtein.distance(tr.transposed(sbuf).decode(), t), tr)
             for tr in gen_transpositions(n)
         )
         best_transposition = min(weighted_transpositions, key=itemgetter(0))[1]
-        s = "".join(best_transposition.transposed(s))
+        best_transposition.transpose(sbuf)
         transpositions.append(best_transposition)
     return transpositions
 
