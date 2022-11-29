@@ -19,6 +19,5 @@ setuptools.setup(
         "openslide": openslide,
         "tiff": tiff,
         "full": full,
-        "cloud": cloud,
     },
 )
