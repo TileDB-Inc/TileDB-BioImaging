@@ -1,4 +1,4 @@
-from typing import Any, Dict, cast
+from typing import Any, Dict, Tuple, cast
 
 import numpy as np
 import openslide as osd
@@ -27,13 +27,18 @@ class OpenSlideReader(ImageReader):
     def level_count(self) -> int:
         return cast(int, self._osd.level_count)
 
-    def level_image(self, level: int) -> np.ndarray:
-        dims = self._osd.level_dimensions[level]
-        # image is in (width, height, channel) == XYC
-        image = self._osd.read_region((0, 0), level, dims).convert("RGB")
-        # np.asarray() transposes it to (height, width, channel) == YXC
+    def level_dtype(self, level: int) -> np.dtype:
+        return np.dtype(np.uint8)
+
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        width, height = self._osd.level_dimensions[level]
+        # np.asarray() of a PIL image returns a (height, width, channel) array
         # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
-        return np.asarray(image)
+        return height, width, 3
+
+    def level_image(self, level: int) -> np.ndarray:
+        size = self._osd.level_dimensions[level]
+        return np.asarray(self._osd.read_region((0, 0), level, size).convert("RGB"))
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {}
