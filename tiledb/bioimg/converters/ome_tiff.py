@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Tuple, cast
 
 import jsonpickle as json
 import numpy as np
@@ -29,8 +29,14 @@ class OMETiffReader(ImageReader):
     def level_count(self) -> int:
         return len(self._series.levels)
 
+    def level_dtype(self, level: int) -> np.dtype:
+        return self._series.levels[level].dtype
+
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        return cast(Tuple[int, ...], self._series.levels[level].shape)
+
     def level_image(self, level: int) -> np.ndarray:
-        return self._series.asarray(level=level)
+        return self._series.levels[level].asarray()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         if level == 0:
