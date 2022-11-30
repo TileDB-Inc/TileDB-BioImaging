@@ -83,37 +83,37 @@ class TestAxes:
         ["YX", "ZYX", "CYX", "TYX", "CZYX", "TCYX", "TZYX", "TCZYX"],
     )
     def test_canonical_unsqueezed(self, canonical_dims):
-        a = np.random.rand(*np.random.randint(2, 20, size=len(canonical_dims)))
+        shape = np.random.randint(2, 20, size=len(canonical_dims))
         for axes in map(Axes, it.permutations(canonical_dims)):
-            assert axes.canonical(a).dims == canonical_dims
+            assert axes.canonical(shape).dims == canonical_dims
 
     def test_canonical_squeezed(self):
-        a = np.random.rand(1, 60, 40)
+        shape = (1, 60, 40)
         for s in "ZXY", "CXY", "TXY":
-            assert Axes(s).canonical(a) == Axes("YX")
+            assert Axes(s).canonical(shape) == Axes("YX")
 
-        a = np.random.rand(1, 1, 60, 40)
+        shape = (1, 1, 60, 40)
         for s in "CZXY", "TCXY", "TZXY":
-            assert Axes(s).canonical(a) == Axes("YX")
+            assert Axes(s).canonical(shape) == Axes("YX")
 
-        a = np.random.rand(3, 1, 60, 40)
-        assert Axes("CZXY").canonical(a) == Axes("CYX")
-        assert Axes("TCXY").canonical(a) == Axes("TYX")
-        assert Axes("ZTXY").canonical(a) == Axes("ZYX")
+        shape = (3, 1, 60, 40)
+        assert Axes("CZXY").canonical(shape) == Axes("CYX")
+        assert Axes("TCXY").canonical(shape) == Axes("TYX")
+        assert Axes("ZTXY").canonical(shape) == Axes("ZYX")
 
-        a = np.random.rand(1, 1, 1, 60, 40)
+        shape = (1, 1, 1, 60, 40)
         for s in "TCZXY", "TZCXY", "CZTXY":
-            assert Axes(s).canonical(a) == Axes("YX")
+            assert Axes(s).canonical(shape) == Axes("YX")
 
-        a = np.random.rand(1, 3, 1, 60, 40)
-        assert Axes("TCZXY").canonical(a) == Axes("CYX")
-        assert Axes("ZTCXY").canonical(a) == Axes("TYX")
-        assert Axes("CZTXY").canonical(a) == Axes("ZYX")
+        shape = (1, 3, 1, 60, 40)
+        assert Axes("TCZXY").canonical(shape) == Axes("CYX")
+        assert Axes("ZTCXY").canonical(shape) == Axes("TYX")
+        assert Axes("CZTXY").canonical(shape) == Axes("ZYX")
 
-        a = np.random.rand(7, 3, 1, 60, 40)
-        assert Axes("CTZXY").canonical(a) == Axes("TCYX")
-        assert Axes("ZTCXY").canonical(a) == Axes("TZYX")
-        assert Axes("ZCTXY").canonical(a) == Axes("CZYX")
+        shape = (7, 3, 1, 60, 40)
+        assert Axes("CTZXY").canonical(shape) == Axes("TCYX")
+        assert Axes("ZTCXY").canonical(shape) == Axes("TZYX")
+        assert Axes("ZCTXY").canonical(shape) == Axes("CZYX")
 
     def test_canonical_transpose_2d(self):
         a = np.random.rand(60, 40)
@@ -263,5 +263,5 @@ def assert_transpose(source, target, a, expected):
 def assert_canonical_transpose(source, a, expected):
     if not isinstance(source, Axes):
         source = Axes(source)
-    target = source.canonical(a)
+    target = source.canonical(a.shape)
     assert_transpose(source.dims, target.dims, a, expected)
