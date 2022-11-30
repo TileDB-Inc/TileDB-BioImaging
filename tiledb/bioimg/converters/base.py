@@ -170,7 +170,7 @@ class ImageConverter:
                 if preserve_axes:
                     level_axes = axes
                 else:
-                    level_axes = axes.canonical(image)
+                    level_axes = axes.canonical(image.shape)
                     image = transpose_array(image, axes.dims, level_axes.dims)
                 # create TileDB array
                 schema = cls._get_schema(image, level_axes, tiles)
