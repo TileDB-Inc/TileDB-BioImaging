@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections import ChainMap
 from operator import itemgetter
-from typing import Any, Dict, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
@@ -134,7 +135,7 @@ class ImageConverter:
         output_path: str,
         *,
         level_min: int = 0,
-        tiles: Mapping[str, int] = {},
+        tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
     ) -> None:
         """
@@ -172,9 +173,16 @@ class ImageConverter:
                 else:
                     level_axes = axes.canonical(image.shape)
                     image = transpose_array(image, axes.dims, level_axes.dims)
+
                 # create TileDB array
-                schema = cls._get_schema(image, level_axes, tiles)
+                schema = _get_schema(
+                    axes=level_axes,
+                    shape=image.shape,
+                    attr_dtype=image.dtype,
+                    max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
+                )
                 tiledb.Array.create(uri, schema)
+
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
                     a[:] = image
@@ -190,31 +198,33 @@ class ImageConverter:
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
 
-    @classmethod
-    def _get_schema(
-        cls, image: np.ndarray, axes: Axes, tiles: Mapping[str, int]
-    ) -> tiledb.ArraySchema:
-        # find the smallest dtype that can hold the number of image scalar values
-        dim_dtype = np.min_scalar_type(image.size)
-        dims = []
-        assert len(axes.dims) == len(image.shape)
-        for dim_name, dim_size in zip(axes.dims, image.shape):
-            max_tile = tiles.get(dim_name, cls._DEFAULT_TILES[dim_name])
-            dims.append(
-                tiledb.Dim(
-                    dim_name,
-                    domain=(0, dim_size - 1),
-                    dtype=dim_dtype,
-                    tile=min(dim_size, max_tile),
-                )
+
+def _get_schema(
+    axes: Axes,
+    shape: Tuple[int, ...],
+    attr_dtype: np.dtype,
+    max_tiles: Mapping[str, int],
+) -> tiledb.ArraySchema:
+    # find the smallest dtype that can hold `np.prod(shape)` values
+    dim_dtype = np.min_scalar_type(np.prod(shape))
+    dims = []
+    assert len(axes.dims) == len(shape)
+    for dim_name, dim_size in zip(axes.dims, shape):
+        dims.append(
+            tiledb.Dim(
+                dim_name,
+                domain=(0, dim_size - 1),
+                dtype=dim_dtype,
+                tile=min(dim_size, max_tiles[dim_name]),
             )
-        return tiledb.ArraySchema(
-            domain=tiledb.Domain(*dims),
-            attrs=[
-                tiledb.Attr(
-                    name="",
-                    dtype=image.dtype,
-                    filters=[tiledb.ZstdFilter(level=0)],
-                )
-            ],
         )
+    return tiledb.ArraySchema(
+        domain=tiledb.Domain(*dims),
+        attrs=[
+            tiledb.Attr(
+                name="",
+                dtype=attr_dtype,
+                filters=[tiledb.ZstdFilter(level=0)],
+            )
+        ],
+    )
