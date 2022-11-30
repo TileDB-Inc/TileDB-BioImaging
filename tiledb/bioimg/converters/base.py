@@ -40,6 +40,14 @@ class ImageReader(ABC):
         """
 
     @abstractmethod
+    def level_dtype(self, level: int) -> np.dtype:
+        """Return the dtype of the image for the given level."""
+
+    @abstractmethod
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        """Return the shape of the image for the given level."""
+
+    @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
         """
         Return the image for the given level as numpy array.
@@ -167,18 +175,20 @@ class ImageConverter:
                 # read metadata and image
                 metadata = reader.level_metadata(level)
                 image = reader.level_image(level)
+                level_dtype = reader.level_dtype(level)
+                level_shape = reader.level_shape(level)
+
                 # determine axes and (optionally) transpose image to canonical axes
-                if preserve_axes:
-                    level_axes = axes
-                else:
-                    level_axes = axes.canonical(image.shape)
+                level_axes = axes if preserve_axes else axes.canonical(level_shape)
+                if level_axes != axes:
                     image = transpose_array(image, axes.dims, level_axes.dims)
+                    level_shape = image.shape
 
                 # create TileDB array
                 schema = _get_schema(
                     axes=level_axes,
-                    shape=image.shape,
-                    attr_dtype=image.dtype,
+                    shape=level_shape,
+                    attr_dtype=level_dtype,
                     max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
                 )
                 tiledb.Array.create(uri, schema)
