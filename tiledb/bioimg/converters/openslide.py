@@ -1,3 +1,7 @@
+# import os
+#
+# os.add_dll_directory("C:/Openslide/bin")
+
 from typing import Any, Dict, cast
 
 import numpy as np

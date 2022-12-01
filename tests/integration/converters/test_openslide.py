@@ -1,3 +1,7 @@
+# import os
+#
+# os.add_dll_directory("C:/Openslide/bin")
+
 import numpy as np
 import openslide
 import PIL.Image
