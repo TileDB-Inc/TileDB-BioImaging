@@ -7,7 +7,7 @@ from operator import itemgetter
 from typing import Iterable, Iterator, Sequence
 
 import numpy as np
-from edit_operation import levenshtein
+from pyeditdistance.distance import levenshtein
 
 
 @dataclass(frozen=True)
@@ -93,7 +93,7 @@ def minimize_transpositions(s: str, t: str) -> Sequence[Transpose]:
     transpositions = []
     while sbuf != tbuf:
         weighted_transpositions = (
-            (levenshtein.distance(tr.transposed(sbuf).decode(), t), tr)
+            (levenshtein(tr.transposed(sbuf).decode(), t), tr)
             for tr in gen_transpositions(n)
         )
         best_transposition = min(weighted_transpositions, key=itemgetter(0))[1]
