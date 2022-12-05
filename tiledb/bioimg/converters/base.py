@@ -12,6 +12,7 @@ import numpy as np
 import tiledb
 
 from .axes import Axes, transpose_array
+from .tiles import iter_tiles
 
 
 class ImageReader(ABC):
@@ -145,6 +146,7 @@ class ImageConverter:
         level_min: int = 0,
         tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
+        chunked: bool = False,
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -156,12 +158,14 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
+        :param chunked: If true, convert one image tile at a time instead of the whole image.
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
 
         if tiledb.object_type(output_path) != "group":
             tiledb.group_create(output_path)
+
         with cls._ImageReaderType(input_path) as reader:
             axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
@@ -174,15 +178,26 @@ class ImageConverter:
 
                 # read metadata and image
                 metadata = reader.level_metadata(level)
-                image = reader.level_image(level)
                 level_dtype = reader.level_dtype(level)
                 level_shape = reader.level_shape(level)
 
                 # determine axes and (optionally) transpose image to canonical axes
                 level_axes = axes if preserve_axes else axes.canonical(level_shape)
-                if level_axes != axes:
-                    image = transpose_array(image, axes.dims, level_axes.dims)
-                    level_shape = image.shape
+                if chunked:
+                    if level_axes != axes:  # TODO
+                        raise NotImplementedError(
+                            "chunked reading is not currently supported "
+                            "when transforming the original axes"
+                        )
+                    if not hasattr(reader, "level_region"):  # TODO
+                        raise NotImplementedError(
+                            f"{reader} does not support chunked reading"
+                        )
+                else:
+                    image = reader.level_image(level)
+                    if level_axes != axes:
+                        image = transpose_array(image, axes.dims, level_axes.dims)
+                        level_shape = image.shape
 
                 # create TileDB array
                 schema = _get_schema(
@@ -195,8 +210,12 @@ class ImageConverter:
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
-                    a[:] = image
                     a.meta.update(metadata, level=level)
+                    if chunked:
+                        for tile in iter_tiles(a.domain):
+                            a[tile] = reader.level_region(level, tile)  # type: ignore[attr-defined]
+                    else:
+                        a[:] = image
                 uris.append(uri)
 
             # Write group metadata
