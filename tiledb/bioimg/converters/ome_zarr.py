@@ -44,6 +44,9 @@ class OMEZarrReader(ImageReader):
     def level_image(self, level: int) -> np.ndarray:
         return np.asarray(self._level_dask_array(level))
 
+    def level_region(self, level: int, tile: Tuple[slice, ...]) -> np.ndarray:
+        return np.asarray(self._level_dask_array(level)[tile])
+
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {"json_zarray": json.dumps(self._nodes[level].zarr.zarray)}
 

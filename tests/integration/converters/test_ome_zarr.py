@@ -42,13 +42,25 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
 
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
-def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
+@pytest.mark.parametrize("preserve_axes", [False, True])
+@pytest.mark.parametrize("chunked", [False, True])
+def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx, preserve_axes, chunked):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
+    to_tiledb_kwargs = dict(
+        input_path=input_path,
+        output_path=str(tiledb_path),
+        preserve_axes=preserve_axes,
+        chunked=chunked,
+    )
+    if chunked and not preserve_axes:
+        with pytest.raises(NotImplementedError):
+            OMEZarrConverter.to_tiledb(**to_tiledb_kwargs)
+        return
 
     # Store it to Tiledb
-    OMEZarrConverter.to_tiledb(input_path, str(tiledb_path))
+    OMEZarrConverter.to_tiledb(**to_tiledb_kwargs)
     # Store it back to NGFF Zarr
     OMEZarrConverter.from_tiledb(str(tiledb_path), output_path)
 
