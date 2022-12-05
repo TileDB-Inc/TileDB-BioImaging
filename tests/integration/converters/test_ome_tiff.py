@@ -10,14 +10,15 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 @pytest.mark.parametrize("open_fileobj", [False, True])
-def test_ome_tiff_converter(tmp_path, open_fileobj):
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
     input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
     output_path = str(tmp_path)
     if open_fileobj:
         with open(input_path, "rb") as f:
-            OMETiffConverter.to_tiledb(f, output_path)
+            OMETiffConverter.to_tiledb(f, output_path, preserve_axes=preserve_axes)
     else:
-        OMETiffConverter.to_tiledb(input_path, output_path)
+        OMETiffConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes)
 
     with TileDBOpenSlide.from_group_uri(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 2
@@ -27,7 +28,8 @@ def test_ome_tiff_converter(tmp_path, open_fileobj):
         for i in range(t.level_count):
             assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
             with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
-                assert A.schema == schemas[i]
+                if not preserve_axes:
+                    assert A.schema == schemas[i]
 
         region = t.read_region(level=0, location=(100, 100), size=(300, 400))
         assert isinstance(region, np.ndarray)

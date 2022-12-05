@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from operator import itemgetter
-from typing import Any, Sequence, Tuple
+from typing import Any, Iterator, Sequence, Tuple
 
 import numpy as np
 
@@ -50,7 +50,7 @@ class TileDBOpenSlide:
     @property
     def dimensions(self) -> Tuple[int, int]:
         """A (width, height) tuple for level 0 of the slide."""
-        return self.level_dimensions[0]
+        return next(self._iter_level_dimensions())
 
     @property
     def level_dimensions(self) -> Sequence[Tuple[int, int]]:
@@ -60,7 +60,7 @@ class TileDBOpenSlide:
 
         :return: A sequence of dimensions for each level
         """
-        return tuple((array.shape[-1], array.shape[-2]) for array in self._level_arrays)
+        return tuple(self._iter_level_dimensions())
 
     @property
     def level_downsamples(self) -> Sequence[float]:
@@ -102,3 +102,8 @@ class TileDBOpenSlide:
         """
         lla = np.where(np.array(self.level_downsamples) < factor)[0]
         return int(lla.max() if len(lla) > 0 else 0)
+
+    def _iter_level_dimensions(self) -> Iterator[Tuple[int, int]]:
+        for a in self._level_arrays:
+            dims = list(a.domain)
+            yield a.shape[dims.index(a.dim("X"))], a.shape[dims.index(a.dim("Y"))]

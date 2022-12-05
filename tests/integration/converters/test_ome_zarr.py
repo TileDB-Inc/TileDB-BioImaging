@@ -14,14 +14,16 @@ schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
-def test_ome_zarr_converter(tmp_path, series_idx):
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
-    OMEZarrConverter.to_tiledb(input_path, str(tmp_path))
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
 
     # check the first (highest) resolution layer only
     schema = schemas[series_idx]
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
-        assert A.schema == schema
+        if not preserve_axes:
+            assert A.schema == schema
 
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
         assert t.dimensions == t.level_dimensions[0] == schema.shape[:-3:-1]

@@ -1,6 +1,7 @@
 import numpy as np
 import openslide
 import PIL.Image
+import pytest
 
 import tiledb
 from tests import get_path, get_schema
@@ -8,13 +9,15 @@ from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
-def test_openslide_converter(tmp_path):
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_openslide_converter(tmp_path, preserve_axes):
     svs_path = get_path("CMU-1-Small-Region.svs")
-    OpenSlideConverter.to_tiledb(svs_path, str(tmp_path))
+    OpenSlideConverter.to_tiledb(svs_path, str(tmp_path), preserve_axes=preserve_axes)
 
     assert len(tiledb.Group(str(tmp_path))) == 1
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
-        assert A.schema == get_schema(2220, 2967)
+        if not preserve_axes:
+            assert A.schema == get_schema(2220, 2967)
 
     o = openslide.open_slide(svs_path)
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
