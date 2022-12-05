@@ -37,8 +37,18 @@ class OpenSlideReader(ImageReader):
         return height, width, 3
 
     def level_image(self, level: int) -> np.ndarray:
-        size = self._osd.level_dimensions[level]
-        return np.asarray(self._osd.read_region((0, 0), level, size).convert("RGB"))
+        return self._read_region(
+            level, location=(0, 0), size=self._osd.level_dimensions[level]
+        )
+
+    def level_region(self, level: int, tile: Tuple[slice, ...]) -> np.ndarray:
+        # tile: (Y slice, X slice, C slice)
+        y, x, _ = tile
+        return self._read_region(
+            level,
+            location=(x.start, y.start),
+            size=(x.stop - x.start, y.stop - y.start),
+        )
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {}
@@ -46,6 +56,11 @@ class OpenSlideReader(ImageReader):
     @property
     def group_metadata(self) -> Dict[str, Any]:
         return {}
+
+    def _read_region(
+        self, level: int, location: Tuple[int, int], size: Tuple[int, int]
+    ) -> np.ndarray:
+        return np.asarray(self._osd.read_region(location, level, size).convert("RGB"))
 
 
 class OpenSlideConverter(ImageConverter):
