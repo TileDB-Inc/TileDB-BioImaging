@@ -38,6 +38,16 @@ class OMETiffReader(ImageReader):
     def level_image(self, level: int) -> np.ndarray:
         return self._series.levels[level].asarray()
 
+    def level_region(self, level: int, tile: Tuple[slice, ...]) -> np.ndarray:
+        try:
+            import zarr
+        except ImportError:
+            raise ImportError("zarr required for reading a Tiff tile region")
+        if not hasattr(self, "_zarr_group"):
+            store = self._series.aszarr(multiscales=True)
+            self._zarr_group = zarr.open(store, mode="r")
+        return np.asarray(self._zarr_group[level][tile])
+
     def level_metadata(self, level: int) -> Dict[str, Any]:
         if level == 0:
             omexml = self._tiff.ome_metadata
