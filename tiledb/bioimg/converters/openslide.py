@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple, cast
+from typing import Any, Dict, Optional, Tuple, cast
 
 import numpy as np
 import openslide as osd
@@ -36,19 +36,18 @@ class OpenSlideReader(ImageReader):
         # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
         return height, width, 3
 
-    def level_image(self, level: int) -> np.ndarray:
-        return self._read_region(
-            level, location=(0, 0), size=self._osd.level_dimensions[level]
-        )
-
-    def level_region(self, level: int, tile: Tuple[slice, ...]) -> np.ndarray:
-        # tile: (Y slice, X slice, C slice)
-        y, x, _ = tile
-        return self._read_region(
-            level,
-            location=(x.start, y.start),
-            size=(x.stop - x.start, y.stop - y.start),
-        )
+    def level_image(
+        self, level: int, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
+        if tile is None:
+            location = (0, 0)
+            size = self._osd.level_dimensions[level]
+        else:
+            # tile: (Y slice, X slice, C slice)
+            y, x, _ = tile
+            location = (x.start, y.start)
+            size = (x.stop - x.start, y.stop - y.start)
+        return np.asarray(self._osd.read_region(location, level, size).convert("RGB"))
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {}
@@ -56,11 +55,6 @@ class OpenSlideReader(ImageReader):
     @property
     def group_metadata(self) -> Dict[str, Any]:
         return {}
-
-    def _read_region(
-        self, level: int, location: Tuple[int, int], size: Tuple[int, int]
-    ) -> np.ndarray:
-        return np.asarray(self._osd.read_region(location, level, size).convert("RGB"))
 
 
 class OpenSlideConverter(ImageConverter):

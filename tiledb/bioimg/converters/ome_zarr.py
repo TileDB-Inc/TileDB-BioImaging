@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Mapping, Tuple, cast
+from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 import dask.array as da
 import numpy as np
@@ -41,11 +41,13 @@ class OMEZarrReader(ImageReader):
     def level_shape(self, level: int) -> Tuple[int, ...]:
         return cast(Tuple[int, ...], self._level_dask_array(level).shape)
 
-    def level_image(self, level: int) -> np.ndarray:
-        return np.asarray(self._level_dask_array(level))
-
-    def level_region(self, level: int, tile: Tuple[slice, ...]) -> np.ndarray:
-        return np.asarray(self._level_dask_array(level)[tile])
+    def level_image(
+        self, level: int, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
+        dask_array = self._level_dask_array(level)
+        if tile is not None:
+            dask_array = dask_array[tile]
+        return np.asarray(dask_array)
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {"json_zarray": json.dumps(self._nodes[level].zarr.zarray)}
