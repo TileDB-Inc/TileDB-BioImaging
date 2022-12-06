@@ -49,11 +49,16 @@ class ImageReader(ABC):
         """Return the shape of the image for the given level."""
 
     @abstractmethod
-    def level_image(self, level: int) -> np.ndarray:
+    def level_image(
+        self, level: int, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
         """
         Return the image for the given level as numpy array.
 
         The axes of the array are specified by the `axes` property.
+
+        :param tile: If not None, a tuple of slices (one per each axes) that specify the
+            subregion of the image to return.
         """
 
     @abstractmethod
@@ -183,21 +188,16 @@ class ImageConverter:
 
                 # determine axes and (optionally) transpose image to canonical axes
                 level_axes = axes if preserve_axes else axes.canonical(level_shape)
-                if chunked:
-                    if level_axes != axes:  # TODO
-                        raise NotImplementedError(
-                            "chunked reading is not currently supported "
-                            "when transforming the original axes"
-                        )
-                    if not hasattr(reader, "level_region"):  # TODO
-                        raise NotImplementedError(
-                            f"{reader} does not support chunked reading"
-                        )
-                else:
+                if not chunked:
                     image = reader.level_image(level)
                     if level_axes != axes:
                         image = transpose_array(image, axes.dims, level_axes.dims)
                         level_shape = image.shape
+                elif level_axes != axes:  # TODO
+                    raise NotImplementedError(
+                        "chunked reading is not currently supported when transforming "
+                        "the original axes"
+                    )
 
                 # create TileDB array
                 schema = _get_schema(
@@ -213,7 +213,7 @@ class ImageConverter:
                     a.meta.update(metadata, level=level)
                     if chunked:
                         for tile in iter_tiles(a.domain):
-                            a[tile] = reader.level_region(level, tile)  # type: ignore[attr-defined]
+                            a[tile] = reader.level_image(level, tile)
                     else:
                         a[:] = image
                 uris.append(uri)

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Tuple, cast
+from typing import Any, Dict, Mapping, Optional, Tuple, cast
 
 import jsonpickle as json
 import numpy as np
@@ -35,10 +35,11 @@ class OMETiffReader(ImageReader):
     def level_shape(self, level: int) -> Tuple[int, ...]:
         return cast(Tuple[int, ...], self._series.levels[level].shape)
 
-    def level_image(self, level: int) -> np.ndarray:
-        return self._series.levels[level].asarray()
-
-    def level_region(self, level: int, tile: Tuple[slice, ...]) -> np.ndarray:
+    def level_image(
+        self, level: int, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
+        if tile is None:
+            return self._series.levels[level].asarray()
         try:
             import zarr
         except ImportError:
