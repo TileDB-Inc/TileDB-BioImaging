@@ -12,7 +12,7 @@ setuptools.setup(
         "local_scheme": "dirty-tag",
         "write_to": "tiledb/bioimg/version.py",
     },
-    install_requires=["levenshtein", "tiledb"],
+    install_requires=["pyeditdistance", "tiledb"],
     extras_require={
         "zarr": zarr,
         "openslide": openslide,

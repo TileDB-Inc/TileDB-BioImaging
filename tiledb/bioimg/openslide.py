@@ -88,7 +88,7 @@ class TileDBOpenSlide:
         w, h = size
         dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         array = self._level_arrays[level]
-        dims = [dim.name for dim in array.domain]
+        dims = "".join(dim.name for dim in array.domain)
         image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
         # transpose image to YXC
         return transpose_array(image, dims, "YXC")
