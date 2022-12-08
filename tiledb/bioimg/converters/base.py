@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from abc import ABC, abstractmethod
 from collections import ChainMap
 from operator import itemgetter
@@ -8,7 +9,11 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
-from tiledb.cloud import groups
+
+try:
+    from tiledb.cloud import groups
+except ImportError:
+    pass
 
 import tiledb
 
@@ -153,6 +158,10 @@ class ImageConverter:
         tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
         chunked: bool = False,
+        namespace: Optional[str] = None,
+        parent_uri: Optional[str] = None,
+        storage_uri: Optional[str] = None,
+        credentials_name: Optional[str] = None,
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -165,6 +174,14 @@ class ImageConverter:
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
         :param chunked: If true, convert one image tile at a time instead of the whole image.
+        :param namespace: The namespace to create the group in.
+            If not provided, the current logged-in user will be used.
+        :param parent_uri: The parent URI to add the group to, if desired.
+        :param storage_uri: The backend URI where the group will be stored.
+            If not provided, uses the namespace's default storage path for groups.
+        :param credentials_name: The name of the storage credential to use for
+            creating the group. If not provided, uses the namespace's default
+            credential for groups.
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -226,6 +243,17 @@ class ImageConverter:
                         group.add(level_uri, relative=False)
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
+
+            # Register group in cloud if package exists
+            if "tiledb.cloud.groups" in sys.modules:
+                groups.register(
+                    name=os.path.basename(output_path),
+                    namespace=namespace,
+                    credentials_name=credentials_name,
+                    storage_uri=storage_uri,
+                    parent_uri=parent_uri,
+                )
+
 
 def _get_schema(
     axes: Axes,
