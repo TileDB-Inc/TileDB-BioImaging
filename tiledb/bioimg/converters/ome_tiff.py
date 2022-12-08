@@ -88,16 +88,6 @@ class OMETiffWriter(ImageWriter):
         self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
     ) -> None:
         write_kwargs = pickle.loads(metadata["pickled_write_kwargs"])
-        tile = write_kwargs["tile"]
-        if tile:
-            # XXX: The tile length and width must be a multiple of 16; if not ignore it
-            if (
-                len(tile) < 2
-                or tile[-1] % 16
-                or tile[-2] % 16
-                or any(i < 1 for i in tile)
-            ):
-                del write_kwargs["tile"]
         self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
