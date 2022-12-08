@@ -18,6 +18,7 @@ setuptools.setup(
         "zarr": zarr,
         "openslide": openslide,
         "tiff": tiff,
+        "cloud": cloud,
         "full": full,
     },
 )
