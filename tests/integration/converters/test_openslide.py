@@ -3,6 +3,10 @@
 # os.add_dll_directory("C:/Openslide/bin")
 
 import numpy as np
+
+import os
+os.add_dll_directory("C:/Openslide/bin")
+
 import openslide
 import PIL.Image
 import pytest
@@ -12,11 +16,13 @@ from tests import get_path, get_schema
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
+from tiledb.bioimg.compressor_factory import ZstdArguments
+
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
 def test_openslide_converter(tmp_path, preserve_axes):
     svs_path = get_path("CMU-1-Small-Region.svs")
-    OpenSlideConverter.to_tiledb(svs_path, str(tmp_path), preserve_axes=preserve_axes)
+    OpenSlideConverter.to_tiledb(svs_path, str(tmp_path), preserve_axes=preserve_axes, compressor_arguments=ZstdArguments(level=0))
 
     assert len(tiledb.Group(str(tmp_path))) == 1
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:

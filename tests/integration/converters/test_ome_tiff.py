@@ -8,6 +8,8 @@ from tests import get_path, get_schema
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
+from tiledb.bioimg.compressor_factory import ZstdArguments
+
 
 @pytest.mark.parametrize("open_fileobj", [False, True])
 @pytest.mark.parametrize("preserve_axes", [False, True])
@@ -16,9 +18,9 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
     output_path = str(tmp_path)
     if open_fileobj:
         with open(input_path, "rb") as f:
-            OMETiffConverter.to_tiledb(f, output_path, preserve_axes=preserve_axes)
+            OMETiffConverter.to_tiledb(f, output_path, preserve_axes=preserve_axes, compressor_arguments=ZstdArguments(level=0))
     else:
-        OMETiffConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes)
+        OMETiffConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes, compressor_arguments=ZstdArguments(level=0))
 
     with TileDBOpenSlide.from_group_uri(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 2
@@ -41,7 +43,7 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
 
 def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
-    OMETiffConverter.to_tiledb(path, str(tmp_path))
+    OMETiffConverter.to_tiledb(path, str(tmp_path), compressor_arguments=ZstdArguments(level=0))
 
     assert len(tiledb.Group(str(tmp_path))) == 3
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
@@ -61,7 +63,7 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path):
     output_path = tmp_path / "from_tiledb"
 
     # Store it to Tiledb
-    OMETiffConverter.to_tiledb(input_path, str(tiledb_path))
+    OMETiffConverter.to_tiledb(input_path, str(tiledb_path), compressor_arguments=ZstdArguments(level=0))
     # Store it back to NGFF Zarr
     OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
 
@@ -92,7 +94,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
-    OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
+    OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles, compressor_arguments=ZstdArguments(level=0))
 
     with TileDBOpenSlide.from_group_uri(str(tiledb_path)) as t:
         assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1

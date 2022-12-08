@@ -1,10 +1,13 @@
 from typing import Any, Dict, Tuple, cast
 
+import os
+
+os.add_dll_directory('C:/Openslide/bin')
+
 import numpy as np
 import openslide as osd
 
 from .base import Axes, ImageConverter, ImageReader
-
 
 class OpenSlideReader(ImageReader):
     def __init__(self, input_path: str):
