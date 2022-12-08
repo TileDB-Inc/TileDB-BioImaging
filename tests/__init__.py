@@ -1,9 +1,7 @@
 import multiprocessing
 import os
-import urllib.parse
 from pathlib import Path
 
-import boto3
 import numpy as np
 
 import tiledb
@@ -32,12 +30,4 @@ def get_schema(x_size, y_size):
 
 
 def get_path(uri):
-    if uri.startswith("s3://"):
-        s3 = boto3.client("s3")
-        parsed_uri = urllib.parse.urlparse(uri)
-        local_path = DATA_DIR / Path(parsed_uri.path).name
-        if not local_path.exists():
-            s3.download_file(parsed_uri.netloc, parsed_uri.path.lstrip("/"), local_path)
-    else:
-        local_path = DATA_DIR / uri
-    return local_path
+    return DATA_DIR / uri
