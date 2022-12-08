@@ -31,7 +31,6 @@ jobs:
           pre-commit
           pytest-cov
           pytest-mock
-          boto3
 
     - name: Run pre-commit hooks
       run: pre-commit run -a
