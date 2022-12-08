@@ -21,6 +21,7 @@ class TileDBOpenSlide:
             level_info = []
             for o in G:
                 array = tiledb.open(o.uri)
+
                 level = array.meta.get("level", 0)
                 level_info.append((level, array))
             # sort by level
@@ -73,7 +74,7 @@ class TileDBOpenSlide:
         return tuple((l0_w / w + l0_h / h) / 2.0 for w, h in level_dims)
 
     def read_region(
-        self, location: Tuple[int, int], level: int, size: Tuple[int, int]
+            self, location: Tuple[int, int], level: int, size: Tuple[int, int]
     ) -> np.ndarray:
         """
         Return an image containing the contents of the specified region as NumPy array.
@@ -90,8 +91,17 @@ class TileDBOpenSlide:
         array = self._level_arrays[level]
         dims = "".join(dim.name for dim in array.domain)
         image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
-        # transpose image to YXC
-        return transpose_array(image, dims, "YXC")
+
+        # print(f"Read shape {image.shape}")
+        # image = np.reshape(image, (-1, image.shape[1] // 3, 3))
+        # print(f"Reshaped shape {image.shape}")
+        if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
+            return np.reshape(image, (-1, image.shape[1] // 3, 3))
+        else:
+            # image = image.transpose((2, 0, 1))
+            # transpose image to YXC
+            return transpose_array(image, dims, "YXC")
+        # return image
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.
