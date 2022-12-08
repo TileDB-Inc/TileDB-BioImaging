@@ -130,13 +130,7 @@ def compare_tiff_page_series(s1, s2):
     assert s1.dtype == s2.dtype
     np.testing.assert_array_equal(s1.asarray(), s2.asarray())
 
-    # XXX: if the tile length and/or width of the input are not a multiple of 16,
-    # we don't write tile to the output. In this case the hashes don't match
-    if s1.keyframe.tile is None or all(t % 16 == 0 for t in s1.keyframe.tile):
-        assert s1.keyframe.hash == s2.keyframe.hash
-    else:
-        assert s2.keyframe.tile is None
-
+    assert s1.keyframe.hash == s2.keyframe.hash
     assert len(s1.pages) == len(s2.pages)
     assert len(s1.levels) == len(s2.levels)
     assert s1.levels[0] is s1
