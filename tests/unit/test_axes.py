@@ -6,7 +6,9 @@ import pytest
 from tiledb.bioimg.converters.axes import (
     Axes,
     Move,
+    Squeeze,
     Swap,
+    Unsqueeze,
     minimize_transpositions,
     transpose_array,
 )
@@ -38,6 +40,37 @@ class TestTranspositions:
         b = bytearray(s)
         assert move.transpose(b) is None
         assert b == b"ABCDE"
+
+    @pytest.mark.parametrize(
+        "s,idxs",
+        [
+            (b"ADBC", (1,)),
+            (b"ADBCF", (1, 4)),
+            (b"ADBCEF", (1, 4, 5)),
+            (b"DAEBFC", (0, 2, 4)),
+        ],
+    )
+    def test_squeeze(self, s, idxs):
+        squeeze = Squeeze(idxs)
+        b = bytearray(s)
+        assert squeeze.transpose(b) is None
+        assert b == b"ABC"
+
+    @pytest.mark.parametrize(
+        "s,idxs,t",
+        [
+            (b"ABC", (1,), b"A_BC"),
+            (b"ABC", (1, 2), b"A__BC"),
+            (b"ABC", (1, 3), b"A_B_C"),
+            (b"ABC", (1, 3, 4), b"A_B__C"),
+            (b"ABC", (1, 3, 5), b"A_B_C_"),
+        ],
+    )
+    def test_unsqueeze(self, s, idxs, t):
+        squeeze = Unsqueeze(idxs, fill_value=ord("_"))
+        b = bytearray(s)
+        assert squeeze.transpose(b) is None
+        assert b == t
 
     @pytest.mark.parametrize(
         "s,t,transpositions",

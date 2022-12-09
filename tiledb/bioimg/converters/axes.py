@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass
-from typing import Iterable, Iterator, MutableSequence, Sequence, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple, TypeVar
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
@@ -11,11 +11,7 @@ from pyeditdistance.distance import levenshtein
 T = TypeVar("T")
 
 
-@dataclass(frozen=True)
 class Transpose(ABC):
-    i: int
-    j: int
-
     @abstractmethod
     def transpose(self, s: MutableSequence[T]) -> None:
         """Transpose the given mutable sequence in place"""
@@ -25,7 +21,11 @@ class Transpose(ABC):
         """Return the transposed version of the given numpy array"""
 
 
+@dataclass(frozen=True)
 class Swap(Transpose):
+    i: int
+    j: int
+
     def transpose(self, s: MutableSequence[T]) -> None:
         i, j = self.i, self.j
         s[i], s[j] = s[j], s[i]
@@ -34,12 +34,41 @@ class Swap(Transpose):
         return np.swapaxes(a, self.i, self.j)
 
 
+@dataclass(frozen=True)
 class Move(Transpose):
+    i: int
+    j: int
+
     def transpose(self, s: MutableSequence[T]) -> None:
         s.insert(self.j, s.pop(self.i))
 
     def transposed_array(self, a: np.ndarray) -> np.ndarray:
         return np.moveaxis(a, self.i, self.j)
+
+
+@dataclass(frozen=True)
+class Squeeze(Transpose):
+    idxs: Tuple[int, ...]
+
+    def transpose(self, s: MutableSequence[T]) -> None:
+        for i in sorted(self.idxs, reverse=True):
+            del s[i]
+
+    def transposed_array(self, a: np.ndarray) -> np.ndarray:
+        return np.squeeze(a, self.idxs)
+
+
+@dataclass(frozen=True)
+class Unsqueeze(Transpose):
+    idxs: Tuple[int, ...]
+    fill_value: Any
+
+    def transpose(self, s: MutableSequence[T]) -> None:
+        for i in sorted(self.idxs):
+            s.insert(i, self.fill_value)
+
+    def transposed_array(self, a: np.ndarray) -> np.ndarray:
+        return np.expand_dims(a, self.idxs)
 
 
 def transpose_array(a: np.ndarray, s: str, t: str) -> np.ndarray:
@@ -56,6 +85,7 @@ def transpose_array(a: np.ndarray, s: str, t: str) -> np.ndarray:
     """
     assert len(s) == len(a.shape)
     s_set, t_set = frozenset(s), frozenset(t)
+    transpositions: MutableSequence[Transpose] = []
 
     if s_set > t_set:
         # source has extra dims: squeeze them (assuming their size is 1)
@@ -66,15 +96,16 @@ def transpose_array(a: np.ndarray, s: str, t: str) -> np.ndarray:
             else:
                 squeeze_axes.append(i)
         s = "".join(common)
-        a = np.squeeze(a, tuple(squeeze_axes))
+        transpositions.append(Squeeze(tuple(squeeze_axes)))
 
     elif s_set < t_set:
         # source has missing dims: expand them
         missing = t_set - s_set
         s = "".join(missing) + s
-        a = np.expand_dims(a, tuple(range(len(missing))))
+        transpositions.append(Unsqueeze(tuple(range(len(missing))), fill_value=1))
 
-    for transposition in minimize_transpositions(s, t):
+    transpositions.extend(minimize_transpositions(s, t))
+    for transposition in transpositions:
         a = transposition.transposed_array(a)
 
     return a
