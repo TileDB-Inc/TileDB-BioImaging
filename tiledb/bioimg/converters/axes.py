@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import Counter
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, MutableSequence, Tuple, TypeVar
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
@@ -84,54 +83,55 @@ def transform_array(a: np.ndarray, s: str, t: str) -> np.ndarray:
     :return: The transformed array
     """
     assert len(s) == len(a.shape)
-    s_set, t_set = frozenset(s), frozenset(t)
-    transforms: MutableSequence[Transform] = []
-
-    if s_set > t_set:
-        # source has extra dims: squeeze them (assuming their size is 1)
-        common, squeeze_axes = [], []
-        for i, m in enumerate(s):
-            if m in t_set:
-                common.append(m)
-            else:
-                squeeze_axes.append(i)
-        s = "".join(common)
-        transforms.append(Squeeze(tuple(squeeze_axes)))
-
-    elif s_set < t_set:
-        # source has missing dims: expand them
-        missing = t_set - s_set
-        s = "".join(missing) + s
-        transforms.append(Unsqueeze(tuple(range(len(missing))), fill_value=1))
-
-    transforms.extend(minimize_transforms(s, t))
-    for transform in transforms:
+    for transform in _iter_transforms(s, t):
         a = transform.transformed_array(a)
-
     return a
 
 
-def minimize_transforms(s: str, t: str) -> Sequence[Transform]:
-    assert Counter(s) == Counter(t)
+def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
+    s_set = frozenset(s)
+    assert len(s_set) == len(s), f"{s!r} contains duplicates"
+    t_set = frozenset(t)
+    assert len(t_set) == len(t), f"{t!r} contains duplicates"
+
+    common, squeeze_axes = [], []
+    for i, m in enumerate(s):
+        if m in t_set:
+            common.append(m)
+        else:
+            squeeze_axes.append(i)
+    if squeeze_axes:
+        # source has extra dims: squeeze them
+        yield Squeeze(tuple(squeeze_axes))
+        s = "".join(common)
+        s_set = frozenset(s)
+
+    missing = t_set - s_set
+    if missing:
+        # source has missing dims: expand them
+        yield Unsqueeze(tuple(range(len(missing))), fill_value=1)
+        s = "".join(missing) + s
+        s_set = frozenset(s)
+
+    # source has the same dims: transpose them
+    assert s_set == t_set
     n = len(s)
     sbuf = bytearray(s.encode())
     tbuf = t.encode()
-    transforms = []
     while sbuf != tbuf:
         min_distance = np.inf
-        for transform in gen_transpositions(n):
+        for candidate_transpose in _iter_transpositions(n):
             buf = bytearray(sbuf)
-            transform.transform(buf)
+            candidate_transpose.transform(buf)
             distance = levenshtein(buf.decode(), t)
             if distance < min_distance:
-                best_transform = transform
+                best_transpose = candidate_transpose
                 min_distance = distance
-        best_transform.transform(sbuf)
-        transforms.append(best_transform)
-    return transforms
+        yield best_transpose
+        best_transpose.transform(sbuf)
 
 
-def gen_transpositions(n: int) -> Iterator[Transform]:
+def _iter_transpositions(n: int) -> Iterator[Transform]:
     for i in range(n):
         for j in range(i + 1, n):
             yield Swap(i, j)

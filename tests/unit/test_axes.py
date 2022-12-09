@@ -9,7 +9,6 @@ from tiledb.bioimg.converters.axes import (
     Squeeze,
     Swap,
     Unsqueeze,
-    minimize_transforms,
     transform_array,
 )
 
@@ -71,22 +70,6 @@ class TestTransforms:
         b = bytearray(s)
         assert squeeze.transform(b) is None
         assert b == t
-
-    @pytest.mark.parametrize(
-        "s,t,transforms",
-        [
-            ("EABCD", "ABCDE", [Move(0, 4)]),
-            ("EADCB", "ABCDE", [Move(0, 4), Swap(1, 3)]),
-            ("ECABD", "ABCDE", [Move(0, 4), Move(0, 2)]),
-            ("AFDEBGC", "ABCDEFG", [Swap(1, 4), Move(6, 2)]),
-        ],
-    )
-    def test_minimize_transforms(self, s, t, transforms):
-        assert minimize_transforms(s, t) == transforms
-        b = bytearray(s.encode())
-        for tr in transforms:
-            tr.transform(b)
-        assert b.decode() == t
 
 
 class TestAxes:
