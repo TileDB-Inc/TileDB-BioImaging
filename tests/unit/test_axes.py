@@ -18,7 +18,6 @@ class TestTranspositions:
     )
     def test_swap(self, s, i, j):
         swap = Swap(i, j)
-        assert swap.transposed(s) == b"ABCDE"
         b = bytearray(s)
         assert swap.transpose(b) is None
         assert b == b"ABCDE"
@@ -36,7 +35,6 @@ class TestTranspositions:
     )
     def test_move(self, s, i, j):
         move = Move(i, j)
-        assert move.transposed(s) == b"ABCDE"
         b = bytearray(s)
         assert move.transpose(b) is None
         assert b == b"ABCDE"

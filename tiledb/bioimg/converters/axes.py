@@ -3,11 +3,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass
-from operator import itemgetter
-from typing import Iterable, Iterator, Sequence, Tuple
+from typing import Iterable, Iterator, MutableSequence, Sequence, Tuple, TypeVar
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -15,15 +16,9 @@ class Transpose(ABC):
     i: int
     j: int
 
-    def transposed(self, s: bytes) -> bytes:
-        """Return the transposed version of the given bytestring"""
-        b = bytearray(s)
-        self.transpose(b)
-        return bytes(b)
-
     @abstractmethod
-    def transpose(self, s: bytearray) -> None:
-        """Transpose the given bytearray in place"""
+    def transpose(self, s: MutableSequence[T]) -> None:
+        """Transpose the given mutable sequence in place"""
 
     @abstractmethod
     def transposed_array(self, a: np.ndarray) -> np.ndarray:
@@ -31,7 +26,7 @@ class Transpose(ABC):
 
 
 class Swap(Transpose):
-    def transpose(self, s: bytearray) -> None:
+    def transpose(self, s: MutableSequence[T]) -> None:
         i, j = self.i, self.j
         s[i], s[j] = s[j], s[i]
 
@@ -40,7 +35,7 @@ class Swap(Transpose):
 
 
 class Move(Transpose):
-    def transpose(self, s: bytearray) -> None:
+    def transpose(self, s: MutableSequence[T]) -> None:
         s.insert(self.j, s.pop(self.i))
 
     def transposed_array(self, a: np.ndarray) -> np.ndarray:
@@ -92,11 +87,14 @@ def minimize_transpositions(s: str, t: str) -> Sequence[Transpose]:
     tbuf = t.encode()
     transpositions = []
     while sbuf != tbuf:
-        weighted_transpositions = (
-            (levenshtein(tr.transposed(sbuf).decode(), t), tr)
-            for tr in gen_transpositions(n)
-        )
-        best_transposition = min(weighted_transpositions, key=itemgetter(0))[1]
+        min_distance = np.inf
+        for transposition in gen_transpositions(n):
+            buf = bytearray(sbuf)
+            transposition.transpose(buf)
+            distance = levenshtein(buf.decode(), t)
+            if distance < min_distance:
+                best_transposition = transposition
+                min_distance = distance
         best_transposition.transpose(sbuf)
         transpositions.append(best_transposition)
     return transpositions
