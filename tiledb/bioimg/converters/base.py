@@ -11,7 +11,7 @@ import numpy as np
 
 import tiledb
 
-from .axes import Axes, transpose_array
+from .axes import Axes, transform_array
 from .tiles import iter_tiles
 
 
@@ -135,9 +135,9 @@ class ImageConverter:
             writer.write_group_metadata(group.meta)
             original_axes = Axes(group.meta["axes"])
             for level, array in level_arrays:
-                # read image and transpose to the original axes
+                # read image and transform to the original axes
                 stored_axes = Axes(dim.name for dim in array.domain)
-                image = transpose_array(array[:], stored_axes.dims, original_axes.dims)
+                image = transform_array(array[:], stored_axes.dims, original_axes.dims)
                 # write image and close the array
                 writer.write_level_image(level, image, array.meta)
                 array.close()
@@ -186,12 +186,12 @@ class ImageConverter:
                 level_dtype = reader.level_dtype(level)
                 level_shape = reader.level_shape(level)
 
-                # determine axes and (optionally) transpose image to canonical axes
+                # determine axes and (optionally) transform image to canonical axes
                 level_axes = axes if preserve_axes else axes.canonical(level_shape)
                 if not chunked:
                     image = reader.level_image(level)
                     if level_axes != axes:
-                        image = transpose_array(image, axes.dims, level_axes.dims)
+                        image = transform_array(image, axes.dims, level_axes.dims)
                         level_shape = image.shape
                 elif level_axes != axes:  # TODO
                     raise NotImplementedError(
