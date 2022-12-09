@@ -59,7 +59,7 @@ class TileDBOpenSlide:
             )
         else:
             assert self._level_arrays[0].schema.has_dim("C")
-            return self._level_arrays[0].schema.domain.dim("X").domain[1] + 1
+            return int(self._level_arrays[0].schema.domain.dim("C").domain[1]) + 1
 
     @property
     def level_count(self) -> int:
