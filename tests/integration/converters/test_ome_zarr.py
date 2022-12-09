@@ -7,7 +7,7 @@ import zarr
 
 import tiledb
 from tests import get_path, get_schema
-from tiledb.bioimg.compressor_factory import ZstdArguments
+from tiledb.bioimg.compressor_factory import WebpArguments, ZstdArguments
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
@@ -43,14 +43,17 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
 
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
-def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
+@pytest.mark.parametrize(
+    "compressor", [ZstdArguments(level=0), WebpArguments(quality=100, lossless=True)]
+)
+def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx, compressor):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
     # Store it to Tiledb
     OMEZarrConverter.to_tiledb(
-        input_path, str(tiledb_path), compressor_arguments=ZstdArguments(level=0)
+        input_path, str(tiledb_path), compressor_arguments=compressor
     )
     # Store it back to NGFF Zarr
     OMEZarrConverter.from_tiledb(str(tiledb_path), output_path)
@@ -85,7 +88,11 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
         # Compare the actual data
         input_zarray = zarr.open(input_path / str(i))
         output_zarray = zarr.open(output_path / str(i))
-        np.testing.assert_array_equal(input_zarray[:], output_zarray[:])
+
+        if isinstance(compressor, ZstdArguments) or compressor.lossless:
+            np.testing.assert_array_equal(input_zarray[:], output_zarray[:])
+        else:
+            np.testing.assert_allclose(input_zarray[:], output_zarray[:], 125)
 
 
 def test_ome_zarr_converter_incremental(tmp_path):

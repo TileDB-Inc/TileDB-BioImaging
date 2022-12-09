@@ -5,7 +5,11 @@ import tifffile
 
 import tiledb
 from tests import get_path, get_schema
-from tiledb.bioimg.compressor_factory import ZstdArguments
+from tiledb.bioimg.compressor_factory import (
+    WebpArguments,
+    ZstdArguments,
+    createCompressor,
+)
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
@@ -27,10 +31,55 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
         schemas = (get_schema(2220, 2967), get_schema(574, 768))
         assert t.dimensions == schemas[0].shape[:-3:-1]
         for i in range(t.level_count):
+
             assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
             with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
                 if not preserve_axes:
                     assert A.schema == schemas[i]
+
+        region = t.read_region(level=0, location=(100, 100), size=(300, 400))
+        assert isinstance(region, np.ndarray)
+        assert region.ndim == 3
+        assert region.dtype == np.uint8
+        img = PIL.Image.fromarray(region)
+        assert img.size == (300, 400)
+
+
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        WebpArguments(quality=0, lossless=False),
+        WebpArguments(quality=50, lossless=False),
+        WebpArguments(quality=100, lossless=False),
+        WebpArguments(quality=100, lossless=True),
+    ],
+)
+def test_ome_tiff_comverter_webp_rgb_compressor(tmp_path, compressor):
+    input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
+    output_path = str(tmp_path)
+    OMETiffConverter.to_tiledb(input_path, output_path, compressor_arguments=compressor)
+
+    with TileDBOpenSlide.from_group_uri(output_path) as t:
+        assert len(tiledb.Group(output_path)) == t.level_count == 2
+
+        schemas = (
+            get_schema(
+                2220, 2967, is_webp=True, compressor=createCompressor(compressor)
+            ),
+            get_schema(574, 768, is_webp=True, compressor=createCompressor(compressor)),
+        )
+        assert t.dimensions == (
+            schemas[0].shape[:-3:-1][0] // 3,
+            schemas[0].shape[:-3:-1][1],
+        )
+
+        for i in range(t.level_count):
+            assert t.level_dimensions[i] == (
+                schemas[i].shape[:-3:-1][0] // 3,
+                schemas[i].shape[:-3:-1][1],
+            )
+            with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
+                assert A.schema == schemas[i]
 
         region = t.read_region(level=0, location=(100, 100), size=(300, 400))
         assert isinstance(region, np.ndarray)
