@@ -51,12 +51,7 @@ class TileDBOpenSlide:
         if isinstance(
             self._level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter
         ):
-            return (
-                4
-                if self._level_arrays[0].attr(0).filters[0].input_format
-                == tiledb.filter.lt.WebpInputFormat.WEBP_RGBA
-                else 3
-            )
+            return 3
         else:
             assert self._level_arrays[0].schema.has_dim("C")
             return int(self._level_arrays[0].schema.domain.dim("C").domain[1]) + 1
