@@ -1,10 +1,8 @@
-import os
+# import os
+# os.add_dll_directory("C:/Openslide/bin")
 from typing import Any, Dict, Tuple, cast
 
-os.add_dll_directory("C:/Openslide/bin")
-
 import numpy as np
-
 import openslide as osd
 
 from .base import Axes, ImageConverter, ImageReader

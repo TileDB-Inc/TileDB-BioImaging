@@ -4,6 +4,7 @@ from operator import itemgetter
 from typing import Any, Iterator, Sequence, Tuple
 
 import numpy as np
+
 import tiledb
 
 from .converters.axes import transpose_array

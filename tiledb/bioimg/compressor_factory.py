@@ -11,7 +11,13 @@ class CompressorArguments(ABC, Generic[T]):
 
 
 class WebpArguments(CompressorArguments[tiledb.filter.WebpFilter]):
-    def __init__(self, quality: int, lossless: bool):
+    def __init__(
+        self,
+        quality: int,
+        lossless: bool = False,
+        image_format: tiledb.filter.lt.WebpInputFormat = tiledb.filter.lt.WebpInputFormat.WEBP_RGB,
+    ):
+        self._image_format = image_format
         self._quality = quality
         self._lossless = lossless
 
@@ -22,6 +28,14 @@ class WebpArguments(CompressorArguments[tiledb.filter.WebpFilter]):
     @property
     def lossless(self) -> bool:
         return self._lossless
+
+    @property
+    def image_format(self) -> tiledb.filter.lt.WebpInputFormat:
+        return self._image_format
+
+    @image_format.setter
+    def image_format(self, f: tiledb.filter.lt.WebpInputFormat) -> None:
+        self._image_format = f
 
 
 class ZstdArguments(CompressorArguments[tiledb.filter.ZstdFilter]):
@@ -35,8 +49,9 @@ class ZstdArguments(CompressorArguments[tiledb.filter.ZstdFilter]):
 
 def createCompressor(arguments: CompressorArguments[T]) -> T:
     if isinstance(arguments, WebpArguments):
+        print(vars(arguments))
         return tiledb.filter.WebpFilter(
-            input_format=tiledb.filter.lt.WebpInputFormat.WEBP_RGB,
+            input_format=arguments.image_format,
             quality=arguments.quality,
             lossless=arguments.lossless,
         )

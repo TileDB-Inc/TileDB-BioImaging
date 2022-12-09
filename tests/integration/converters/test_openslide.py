@@ -1,9 +1,9 @@
-import os
-
-os.add_dll_directory("C:/Openslide/bin")
+# import os
+# os.add_dll_directory("C:/Openslide/bin")
 import numpy as np
 import openslide
 import PIL.Image
+
 import pytest
 
 import tiledb

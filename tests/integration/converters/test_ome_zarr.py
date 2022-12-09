@@ -3,8 +3,9 @@ import json
 import numpy as np
 import PIL.Image
 import pytest
-import tiledb
 import zarr
+
+import tiledb
 from tests import get_path, get_schema
 from tiledb.bioimg.compressor_factory import ZstdArguments
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter

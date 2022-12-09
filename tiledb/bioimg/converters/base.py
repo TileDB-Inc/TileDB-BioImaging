@@ -8,10 +8,16 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
+
 import tiledb
 
-from ..compressor_factory import (CompressorArguments, WebpArguments,
-                                  createCompressor, T, ZstdArguments)
+from ..compressor_factory import (
+    CompressorArguments,
+    T,
+    WebpArguments,
+    ZstdArguments,
+    createCompressor,
+)
 from .axes import Axes, transpose_array
 
 
@@ -217,6 +223,12 @@ class ImageConverter:
                     print(f"Image shape {image.shape}")
                     print(f"Axes {level_axes}")
 
+                    compressor_arguments.image_format = (
+                        tiledb.filter.lt.WebpInputFormat.WEBP_RGB
+                        if image.shape[2] == 3
+                        else tiledb.filter.lt.WebpInputFormat.WEBP_RGBA
+                    )
+
                 # create TileDB array
                 schema = _get_schema(
                     axes=level_axes,
@@ -255,28 +267,24 @@ def _get_schema(
     dims = []
     assert len(axes.dims) == len(shape)
     if isinstance(compression_arguments, WebpArguments):
-        for dim_name, dim_size in zip(axes.dims, shape):
-            if dim_name == "C":
-                continue
-            elif dim_name == "X":
-                # Only rgb images are supported for now. Need to check the C dimension
-                dims.append(
-                    tiledb.Dim(
-                        dim_name,
-                        domain=(0, dim_size * 3 - 1),
-                        dtype=dim_dtype,
-                        tile=min(dim_size, max_tiles[dim_name]) * 3,
-                    )
-                )
-            else:
-                dims.append(
-                    tiledb.Dim(
-                        dim_name,
-                        domain=(0, dim_size - 1),
-                        dtype=dim_dtype,
-                        tile=min(dim_size, max_tiles[dim_name]),
-                    )
-                )
+        assert axes.dims == "YXC"
+        print(vars(compression_arguments))
+        dims.append(
+            tiledb.Dim(
+                "Y",
+                domain=(0, shape[0] - 1),
+                dtype=dim_dtype,
+                tile=min(shape[0], max_tiles["Y"]),
+            )
+        )
+        dims.append(
+            tiledb.Dim(
+                "X",
+                domain=(0, shape[1] * shape[2] - 1),
+                dtype=dim_dtype,
+                tile=min(shape[1], max_tiles["X"]) * shape[2],
+            )
+        )
     else:
         for dim_name, dim_size in zip(axes.dims, shape):
             dims.append(

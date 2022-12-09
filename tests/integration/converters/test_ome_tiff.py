@@ -2,6 +2,7 @@ import numpy as np
 import PIL.Image
 import pytest
 import tifffile
+
 import tiledb
 from tests import get_path, get_schema
 from tiledb.bioimg.compressor_factory import ZstdArguments
