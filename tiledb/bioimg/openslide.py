@@ -4,7 +4,6 @@ from operator import itemgetter
 from typing import Any, Iterator, Sequence, Tuple
 
 import numpy as np
-
 import tiledb
 
 from .converters.axes import transpose_array
@@ -74,7 +73,7 @@ class TileDBOpenSlide:
         return tuple((l0_w / w + l0_h / h) / 2.0 for w, h in level_dims)
 
     def read_region(
-            self, location: Tuple[int, int], level: int, size: Tuple[int, int]
+        self, location: Tuple[int, int], level: int, size: Tuple[int, int]
     ) -> np.ndarray:
         """
         Return an image containing the contents of the specified region as NumPy array.

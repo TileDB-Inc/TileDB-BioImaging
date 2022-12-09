@@ -8,11 +8,11 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
-
 import tiledb
 
+from ..compressor_factory import (CompressorArguments, WebpArguments,
+                                  createCompressor, T, ZstdArguments)
 from .axes import Axes, transpose_array
-from ..compressor_factory import CompressorArguments, createCompressor, WebpArguments
 
 
 class ImageReader(ABC):
@@ -143,13 +143,15 @@ class ImageConverter:
                     image = array[:]
                     print(f"Read shape {image.shape}")
                     image = np.reshape(image, (-1, image.shape[1] // 3, 3))
-                    image = transpose_array(image, 'YXC', original_axes.dims)
+                    image = transpose_array(image, "YXC", original_axes.dims)
                     print(f"Image shape {image.shape}")
                 else:
                     # read image and transpose to the original axes
                     stored_axes = Axes(dim.name for dim in array.domain)
                     print(f"Stored axes {stored_axes}")
-                    image = transpose_array(array[:], stored_axes.dims, original_axes.dims)
+                    image = transpose_array(
+                        array[:], stored_axes.dims, original_axes.dims
+                    )
                     print(f"Image shape {image.shape}")
 
                 # write image and close   the array
@@ -165,7 +167,7 @@ class ImageConverter:
         level_min: int = 0,
         tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
-        compressor_arguments: CompressorArguments = None
+        compressor_arguments: CompressorArguments[T] = ZstdArguments(level=0),
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -208,10 +210,9 @@ class ImageConverter:
                     image = transpose_array(image, axes.dims, level_axes.dims)
                     level_shape = image.shape
 
-
                 if isinstance(compressor_arguments, WebpArguments):
-                    image = transpose_array(image, level_axes.dims, 'YXC')
-                    level_axes = Axes('YXC')
+                    image = transpose_array(image, level_axes.dims, "YXC")
+                    level_axes = Axes("YXC")
                     level_shape = image.shape
                     print(f"Image shape {image.shape}")
                     print(f"Axes {level_axes}")
@@ -222,7 +223,7 @@ class ImageConverter:
                     shape=level_shape,
                     attr_dtype=level_dtype,
                     max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
-                    compression_arguments=compressor_arguments
+                    compression_arguments=compressor_arguments,
                 )
                 tiledb.Array.create(uri, schema)
 
@@ -241,12 +242,13 @@ class ImageConverter:
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
 
+
 def _get_schema(
     axes: Axes,
     shape: Tuple[int, ...],
     attr_dtype: np.dtype,
     max_tiles: Mapping[str, int],
-    compression_arguments: CompressorArguments
+    compression_arguments: CompressorArguments[T],
 ) -> tiledb.ArraySchema:
     # find the smallest dtype that can hold the number of image scalar values
     dim_dtype = np.min_scalar_type(np.prod(shape))
@@ -254,9 +256,9 @@ def _get_schema(
     assert len(axes.dims) == len(shape)
     if isinstance(compression_arguments, WebpArguments):
         for dim_name, dim_size in zip(axes.dims, shape):
-            if dim_name == 'C':
+            if dim_name == "C":
                 continue
-            elif dim_name == 'X':
+            elif dim_name == "X":
                 # Only rgb images are supported for now. Need to check the C dimension
                 dims.append(
                     tiledb.Dim(

@@ -1,22 +1,16 @@
-# import os
-#
-# os.add_dll_directory("C:/Openslide/bin")
-
-import numpy as np
-
 import os
-os.add_dll_directory("C:/Openslide/bin")
 
+os.add_dll_directory("C:/Openslide/bin")
+import numpy as np
 import openslide
 import PIL.Image
 import pytest
 
 import tiledb
 from tests import get_path, get_schema
+from tiledb.bioimg.compressor_factory import ZstdArguments
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
-
-from tiledb.bioimg.compressor_factory import ZstdArguments
 
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
@@ -31,7 +25,6 @@ def test_openslide_converter(tmp_path, preserve_axes):
 
     o = openslide.open_slide(svs_path)
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
-
         assert t.level_count == o.level_count
         assert t.dimensions == o.dimensions
         assert t.level_dimensions == o.level_dimensions

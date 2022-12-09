@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Mapping, Tuple, cast
 
 import dask.array as da
 import numpy as np
-import tiledb
 import zarr
 from numcodecs import Blosc
 from ome_zarr.reader import Reader, ZarrLocation
@@ -27,7 +26,6 @@ class OMEZarrReader(ImageReader):
         for dataset in self._multiscale["datasets"]:
             path = os.path.join(input_path, dataset["path"])
             self._nodes.extend(Reader(ZarrLocation(path))())
-
 
     @property
     def axes(self) -> Axes:

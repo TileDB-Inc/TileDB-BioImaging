@@ -3,13 +3,12 @@ import json
 import numpy as np
 import PIL.Image
 import pytest
-import zarr
-
 import tiledb
+import zarr
 from tests import get_path, get_schema
+from tiledb.bioimg.compressor_factory import ZstdArguments
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.bioimg.compressor_factory import ZstdArguments
 
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
@@ -49,7 +48,9 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
     output_path = tmp_path / "from_tiledb"
 
     # Store it to Tiledb
-    OMEZarrConverter.to_tiledb(input_path, str(tiledb_path), compressor_arguments=ZstdArguments(level=0))
+    OMEZarrConverter.to_tiledb(
+        input_path, str(tiledb_path), compressor_arguments=ZstdArguments(level=0)
+    )
     # Store it back to NGFF Zarr
     OMEZarrConverter.from_tiledb(str(tiledb_path), output_path)
 
@@ -89,14 +90,29 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx):
 def test_ome_zarr_converter_incremental(tmp_path):
     input_path = get_path("CMU-1-Small-Region.ome.zarr/0")
 
-    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=1, compressor_arguments=ZstdArguments(level=0))
+    OMEZarrConverter.to_tiledb(
+        input_path,
+        str(tmp_path),
+        level_min=1,
+        compressor_arguments=ZstdArguments(level=0),
+    )
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 1
 
-    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0, compressor_arguments=ZstdArguments(level=0))
+    OMEZarrConverter.to_tiledb(
+        input_path,
+        str(tmp_path),
+        level_min=0,
+        compressor_arguments=ZstdArguments(level=0),
+    )
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
 
-    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0, compressor_arguments=ZstdArguments(level=0))
+    OMEZarrConverter.to_tiledb(
+        input_path,
+        str(tmp_path),
+        level_min=0,
+        compressor_arguments=ZstdArguments(level=0),
+    )
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
