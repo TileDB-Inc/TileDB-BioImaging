@@ -49,7 +49,6 @@ class ZstdArguments(CompressorArguments[tiledb.filter.ZstdFilter]):
 
 def createCompressor(arguments: CompressorArguments[T]) -> T:
     if isinstance(arguments, WebpArguments):
-        print(vars(arguments))
         return tiledb.filter.WebpFilter(
             input_format=arguments.image_format,
             quality=arguments.quality,

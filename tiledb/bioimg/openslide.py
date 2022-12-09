@@ -29,7 +29,15 @@ class TileDBOpenSlide:
         return cls(tuple(map(itemgetter(1), level_info)))
 
     def __init__(self, level_arrays: Sequence[tiledb.Array]):
+        print(level_arrays)
         self._level_arrays = level_arrays
+
+        self._channel_count = level_arrays[0]
+        self._webp_compressed = (
+            True
+            if isinstance(level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter)
+            else False
+        )
 
     def __enter__(self) -> TileDBOpenSlide:
         return self
@@ -37,6 +45,21 @@ class TileDBOpenSlide:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         for array in self._level_arrays:
             array.close()
+
+    @property
+    def channels(self) -> int:
+        if isinstance(
+            self._level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter
+        ):
+            return (
+                4
+                if self._level_arrays[0].attr(0).filters[0].input_format
+                == tiledb.filter.lt.WebpInputFormat.WEBP_RGBA
+                else 3
+            )
+        else:
+            assert self._level_arrays[0].schema.has_dim("C")
+            return self._level_arrays[0].schema.domain.dim("X").domain[1] + 1
 
     @property
     def level_count(self) -> int:
@@ -61,7 +84,13 @@ class TileDBOpenSlide:
 
         :return: A sequence of dimensions for each level
         """
-        return tuple(self._iter_level_dimensions())
+        if self._webp_compressed:
+            return tuple(
+                (array.shape[-1] // self.channels, array.shape[-2])
+                for array in self._level_arrays
+            )
+        else:
+            return tuple(self._iter_level_dimensions())
 
     @property
     def level_downsamples(self) -> Sequence[float]:
@@ -85,18 +114,27 @@ class TileDBOpenSlide:
 
         :return: 3D (height, width, channel) Numpy array
         """
-        x, y = location
-        w, h = size
-        dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         array = self._level_arrays[level]
         dims = "".join(dim.name for dim in array.domain)
+
+        if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
+
+            x, y = (location[0] * self.channels, location[1])
+            w, h = (size[0] * self.channels, size[1])
+        else:
+            x, y = location
+            w, h = size
+
+        dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
 
         # print(f"Read shape {image.shape}")
         # image = np.reshape(image, (-1, image.shape[1] // 3, 3))
         # print(f"Reshaped shape {image.shape}")
         if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
-            return np.reshape(image, (-1, image.shape[1] // 3, 3))
+            return np.reshape(
+                image, (-1, image.shape[1] // self.channels, self.channels)
+            )
         else:
             # image = image.transpose((2, 0, 1))
             # transpose image to YXC

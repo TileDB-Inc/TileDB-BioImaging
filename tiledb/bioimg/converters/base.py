@@ -135,7 +135,6 @@ class ImageConverter:
         with cls._ImageWriterType(output_path) as writer:
             writer.write_group_metadata(group.meta)
             original_axes = Axes(group.meta["axes"])
-            print(f"Original axes {original_axes}")
             for level, array in level_arrays:
                 # read image and transpose to the original axes
                 # stored_axes = Axes(dim.name for dim in array.domain)
@@ -146,19 +145,23 @@ class ImageConverter:
                 # stored_axes = Axes(dim.name for dim in array.domain)
                 # print(f"Stored axes {stored_axes}")
                 if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
+                    channels = (
+                        4
+                        if array.attr(0).filters[0].input_format
+                        == tiledb.filter.lt.WebpInputFormat.WEBP_RGBA
+                        else 3
+                    )
                     image = array[:]
-                    print(f"Read shape {image.shape}")
-                    image = np.reshape(image, (-1, image.shape[1] // 3, 3))
+                    image = np.reshape(
+                        image, (-1, image.shape[1] // channels, channels)
+                    )
                     image = transpose_array(image, "YXC", original_axes.dims)
-                    print(f"Image shape {image.shape}")
                 else:
                     # read image and transpose to the original axes
                     stored_axes = Axes(dim.name for dim in array.domain)
-                    print(f"Stored axes {stored_axes}")
                     image = transpose_array(
                         array[:], stored_axes.dims, original_axes.dims
                     )
-                    print(f"Image shape {image.shape}")
 
                 # write image and close   the array
                 writer.write_level_image(level, image, array.meta)
@@ -208,8 +211,6 @@ class ImageConverter:
                 level_dtype = reader.level_dtype(level)
                 level_shape = reader.level_shape(level)
 
-                print(f"Original axes {axes} and shape {level_shape}")
-
                 # determine axes and (optionally) transpose image to canonical axes
                 level_axes = axes if preserve_axes else axes.canonical(level_shape)
                 if level_axes != axes:
@@ -220,8 +221,6 @@ class ImageConverter:
                     image = transpose_array(image, level_axes.dims, "YXC")
                     level_axes = Axes("YXC")
                     level_shape = image.shape
-                    print(f"Image shape {image.shape}")
-                    print(f"Axes {level_axes}")
 
                     compressor_arguments.image_format = (
                         tiledb.filter.lt.WebpInputFormat.WEBP_RGB
@@ -238,7 +237,6 @@ class ImageConverter:
                     compression_arguments=compressor_arguments,
                 )
                 tiledb.Array.create(uri, schema)
-
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
                     a[:] = image
@@ -268,7 +266,6 @@ def _get_schema(
     assert len(axes.dims) == len(shape)
     if isinstance(compression_arguments, WebpArguments):
         assert axes.dims == "YXC"
-        print(vars(compression_arguments))
         dims.append(
             tiledb.Dim(
                 "Y",
@@ -295,8 +292,6 @@ def _get_schema(
                     tile=min(dim_size, max_tiles[dim_name]),
                 )
             )
-
-    print(f"Dims {dims}")
     return tiledb.ArraySchema(
         domain=tiledb.Domain(*dims),
         attrs=[
