@@ -145,12 +145,7 @@ class ImageConverter:
                 # stored_axes = Axes(dim.name for dim in array.domain)
                 # print(f"Stored axes {stored_axes}")
                 if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
-                    channels = (
-                        4
-                        if array.attr(0).filters[0].input_format
-                        == tiledb.filter.lt.WebpInputFormat.WEBP_RGBA
-                        else 3
-                    )
+                    channels = 3
                     image = array[:]
                     image = np.reshape(
                         image, (-1, image.shape[1] // channels, channels)
