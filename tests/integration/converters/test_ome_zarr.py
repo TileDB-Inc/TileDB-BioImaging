@@ -54,10 +54,6 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx, preserve_axes, chunke
         preserve_axes=preserve_axes,
         chunked=chunked,
     )
-    if chunked and not preserve_axes:
-        with pytest.raises(NotImplementedError):
-            OMEZarrConverter.to_tiledb(**to_tiledb_kwargs)
-        return
 
     # Store it to Tiledb
     OMEZarrConverter.to_tiledb(**to_tiledb_kwargs)

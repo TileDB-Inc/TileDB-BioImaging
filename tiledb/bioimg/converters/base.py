@@ -207,13 +207,11 @@ class ImageConverter:
                 with tiledb.open(uri, "w") as a:
                     a.meta.update(metadata, level=level)
                     if chunked:
-                        if level_axes != input_axes:  # TODO
-                            raise NotImplementedError(
-                                "chunked reading is not currently supported "
-                                "when transforming the original axes"
-                            )
-                        for tile in iter_tiles(a.domain):
-                            a[tile] = reader.level_image(level, tile)
+                        inv_axes_mapper = AxesMapper(level_axes, input_axes)
+                        for level_tile in iter_tiles(a.domain):
+                            input_tile = inv_axes_mapper.map_tile(level_tile)
+                            image = reader.level_image(level, input_tile)
+                            a[level_tile] = axes_mapper.map_array(image)
                     else:
                         image = reader.level_image(level)
                         a[:] = axes_mapper.map_array(image)

@@ -20,10 +20,6 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked):
         preserve_axes=preserve_axes,
         chunked=chunked,
     )
-    if chunked and not preserve_axes:
-        with pytest.raises(NotImplementedError):
-            OpenSlideConverter.to_tiledb(**to_tiledb_kwargs)
-        return
 
     OpenSlideConverter.to_tiledb(**to_tiledb_kwargs)
     assert len(tiledb.Group(output_path)) == 1

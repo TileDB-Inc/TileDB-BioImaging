@@ -117,10 +117,17 @@ class AxesMapper:
 
     def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
         """Transform the shape of a Numpy array from the source to the target axes."""
-        mapped_shape = list(shape)
+        return self._map_tuple(shape, fill_value=1)
+
+    def map_tile(self, tile: Tuple[slice, ...]) -> Tuple[slice, ...]:
+        """Transform a tile of a Numpy array from the source to the target axes."""
+        return self._map_tuple(tile, fill_value=slice(None))
+
+    def _map_tuple(self, t: Tuple[T, ...], **kwargs: Any) -> Tuple[T, ...]:
+        mapped_t = list(t)
         for transform in self._transforms:
-            transform(mapped_shape, fill_value=1)
-        return tuple(mapped_shape)
+            transform(mapped_t, **kwargs)
+        return tuple(mapped_t)
 
 
 def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
