@@ -20,7 +20,7 @@ class TestTransforms:
     def test_swap(self, s, i, j):
         swap = Swap(i, j)
         b = bytearray(s)
-        assert swap.transform(b) is None
+        assert swap(b) is None
         assert b == b"ABCDE"
 
     @pytest.mark.parametrize(
@@ -37,7 +37,7 @@ class TestTransforms:
     def test_move(self, s, i, j):
         move = Move(i, j)
         b = bytearray(s)
-        assert move.transform(b) is None
+        assert move(b) is None
         assert b == b"ABCDE"
 
     @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ class TestTransforms:
     def test_squeeze(self, s, idxs):
         squeeze = Squeeze(idxs)
         b = bytearray(s)
-        assert squeeze.transform(b) is None
+        assert squeeze(b) is None
         assert b == b"ABC"
 
     @pytest.mark.parametrize(
@@ -66,9 +66,9 @@ class TestTransforms:
         ],
     )
     def test_unsqueeze(self, s, idxs, t):
-        squeeze = Unsqueeze(idxs, fill_value=ord("_"))
+        squeeze = Unsqueeze(idxs)
         b = bytearray(s)
-        assert squeeze.transform(b) is None
+        assert squeeze(b, fill_value=ord("_")) is None
         assert b == t
 
 

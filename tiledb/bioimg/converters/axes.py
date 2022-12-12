@@ -12,7 +12,7 @@ T = TypeVar("T")
 
 class Transform(ABC):
     @abstractmethod
-    def transform(self, s: MutableSequence[T]) -> None:
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
         """Transform the given mutable sequence in place"""
 
     @abstractmethod
@@ -25,7 +25,7 @@ class Swap(Transform):
     i: int
     j: int
 
-    def transform(self, s: MutableSequence[T]) -> None:
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
         i, j = self.i, self.j
         s[i], s[j] = s[j], s[i]
 
@@ -38,7 +38,7 @@ class Move(Transform):
     i: int
     j: int
 
-    def transform(self, s: MutableSequence[T]) -> None:
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
         s.insert(self.j, s.pop(self.i))
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -49,7 +49,7 @@ class Move(Transform):
 class Squeeze(Transform):
     idxs: Tuple[int, ...]
 
-    def transform(self, s: MutableSequence[T]) -> None:
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
         for i in sorted(self.idxs, reverse=True):
             del s[i]
 
@@ -60,11 +60,11 @@ class Squeeze(Transform):
 @dataclass(frozen=True)
 class Unsqueeze(Transform):
     idxs: Tuple[int, ...]
-    fill_value: Any
 
-    def transform(self, s: MutableSequence[T]) -> None:
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
+        fill_value = kwargs["fill_value"]
         for i in sorted(self.idxs):
-            s.insert(i, self.fill_value)
+            s.insert(i, fill_value)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.expand_dims(a, self.idxs)
@@ -119,7 +119,7 @@ class AxesMapper:
         """Transform the shape of a Numpy array from the source to the target axes."""
         mapped_shape = list(shape)
         for transform in self._transforms:
-            transform.transform(mapped_shape)
+            transform(mapped_shape, fill_value=1)
         return tuple(mapped_shape)
 
 
@@ -144,7 +144,7 @@ def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
     missing = t_set - s_set
     if missing:
         # source has missing dims: expand them
-        yield Unsqueeze(tuple(range(len(missing))), fill_value=1)
+        yield Unsqueeze(tuple(range(len(missing))))
         s = "".join(missing) + s
         s_set = frozenset(s)
 
@@ -157,13 +157,13 @@ def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
         min_distance = np.inf
         for candidate_transpose in _iter_transpositions(n):
             buf = bytearray(sbuf)
-            candidate_transpose.transform(buf)
+            candidate_transpose(buf)
             distance = levenshtein(buf.decode(), t)
             if distance < min_distance:
                 best_transpose = candidate_transpose
                 min_distance = distance
         yield best_transpose
-        best_transpose.transform(sbuf)
+        best_transpose(sbuf)
 
 
 def _iter_transpositions(n: int) -> Iterator[Transform]:
