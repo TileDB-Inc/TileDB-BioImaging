@@ -115,6 +115,13 @@ class AxesMapper:
             a = transform.map_array(a)
         return a
 
+    def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
+        """Transform the shape of a Numpy array from the source to the target axes."""
+        mapped_shape = list(shape)
+        for transform in self._transforms:
+            transform.transform(mapped_shape)
+        return tuple(mapped_shape)
+
 
 def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
     s_set = frozenset(s)

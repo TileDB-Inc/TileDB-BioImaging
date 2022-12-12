@@ -271,6 +271,7 @@ class TestAxes:
 
 def assert_transform(source, target, a, expected):
     axes_mapper = AxesMapper(Axes(source), Axes(target))
+    assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
 
 
@@ -278,4 +279,5 @@ def assert_canonical_transform(source, a, expected):
     source = Axes(source)
     target = source.canonical(a.shape)
     axes_mapper = AxesMapper(source, target)
+    assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)

@@ -186,21 +186,13 @@ class ImageConverter:
                 level_dtype = reader.level_dtype(level)
                 level_shape = reader.level_shape(level)
 
-                # determine axes and (optionally) transform image to canonical axes
-                level_axes = (
-                    input_axes if preserve_axes else input_axes.canonical(level_shape)
-                )
-                if not chunked:
-                    image = reader.level_image(level)
-                    if level_axes != input_axes:
-                        axes_mapper = AxesMapper(input_axes, level_axes)
-                        image = axes_mapper.map_array(image)
-                        level_shape = image.shape
-                elif level_axes != input_axes:  # TODO
-                    raise NotImplementedError(
-                        "chunked reading is not currently supported when transforming "
-                        "the original axes"
-                    )
+                # determine level axes and (potentially) transformed level shape
+                if preserve_axes:
+                    level_axes = input_axes
+                else:
+                    level_axes = input_axes.canonical(level_shape)
+                axes_mapper = AxesMapper(input_axes, level_axes)
+                level_shape = axes_mapper.map_shape(level_shape)
 
                 # create TileDB array
                 schema = _get_schema(
@@ -215,10 +207,16 @@ class ImageConverter:
                 with tiledb.open(uri, "w") as a:
                     a.meta.update(metadata, level=level)
                     if chunked:
+                        if level_axes != input_axes:  # TODO
+                            raise NotImplementedError(
+                                "chunked reading is not currently supported "
+                                "when transforming the original axes"
+                            )
                         for tile in iter_tiles(a.domain):
                             a[tile] = reader.level_image(level, tile)
                     else:
-                        a[:] = image
+                        image = reader.level_image(level)
+                        a[:] = axes_mapper.map_array(image)
                 uris.append(uri)
 
             # Write group metadata
