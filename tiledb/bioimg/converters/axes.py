@@ -16,7 +16,7 @@ class Transform(ABC):
         """Transform the given mutable sequence in place"""
 
     @abstractmethod
-    def transformed_array(self, a: np.ndarray) -> np.ndarray:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
         """Return the transformed numpy array"""
 
 
@@ -29,7 +29,7 @@ class Swap(Transform):
         i, j = self.i, self.j
         s[i], s[j] = s[j], s[i]
 
-    def transformed_array(self, a: np.ndarray) -> np.ndarray:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.swapaxes(a, self.i, self.j)
 
 
@@ -41,7 +41,7 @@ class Move(Transform):
     def transform(self, s: MutableSequence[T]) -> None:
         s.insert(self.j, s.pop(self.i))
 
-    def transformed_array(self, a: np.ndarray) -> np.ndarray:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.moveaxis(a, self.i, self.j)
 
 
@@ -53,7 +53,7 @@ class Squeeze(Transform):
         for i in sorted(self.idxs, reverse=True):
             del s[i]
 
-    def transformed_array(self, a: np.ndarray) -> np.ndarray:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.squeeze(a, self.idxs)
 
 
@@ -66,26 +66,54 @@ class Unsqueeze(Transform):
         for i in sorted(self.idxs):
             s.insert(i, self.fill_value)
 
-    def transformed_array(self, a: np.ndarray) -> np.ndarray:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.expand_dims(a, self.idxs)
 
 
-def transform_array(a: np.ndarray, s: str, t: str) -> np.ndarray:
-    """Transform a Numpy array `a` from source `s` axes to target `t`.
+@dataclass(frozen=True)
+class Axes:
+    dims: str
+    __slots__ = ("dims",)
+    CANONICAL_DIMS = "TCZYX"
 
-    If `s` is a superset of `t`, squeeze the extra axes (provided they are of length one).
-    If `s` is a subset of `t`, insert the missing axes at the front with length one.
-    Finally, find the minimum number of transforms from `s` to `t` and apply them to `a`.
+    def __init__(self, dims: Iterable[str]):
+        if not isinstance(dims, str):
+            dims = "".join(dims)
+        axes = set(dims)
+        if len(dims) != len(axes):
+            raise ValueError(f"Duplicate axes: {dims}")
+        for required_axis in "X", "Y":
+            if required_axis not in axes:
+                raise ValueError(f"Missing required axis {required_axis!r}")
+        axes.difference_update(self.CANONICAL_DIMS)
+        if axes:
+            raise ValueError(f"{axes.pop()!r} is not a valid Axis")
+        object.__setattr__(self, "dims", dims)
 
-    :param a: Source array to transform
-    :param s: Axes of the source array `a`
-    :param t: Axes of the target array
-    :return: The transformed array
-    """
-    assert len(s) == len(a.shape)
-    for transform in _iter_transforms(s, t):
-        a = transform.transformed_array(a)
-    return a
+    def canonical(self, shape: Tuple[int, ...]) -> Axes:
+        """
+        Return a new Axes instance with the dimensions of this axes whose size in `shape`
+        are greater than 1 and ordered in canonical order (TCZYX)
+        """
+        assert len(self.dims) == len(shape)
+        dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
+        return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
+
+
+class AxesMapper:
+    def __init__(self, source: Axes, target: Axes):
+        self._transforms = tuple(_iter_transforms(source.dims, target.dims))
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        """Transform a Numpy array from the source axes `s` to the target axes `t`.
+
+        If `s` is a superset of `t`, squeeze the extra axes.
+        If `s` is a subset of `t`, insert the missing axes at the front with length one.
+        Finally, find the minimum number of transforms from `s` to `t` and apply them to `a`.
+        """
+        for transform in self._transforms:
+            a = transform.map_array(a)
+        return a
 
 
 def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
@@ -137,33 +165,3 @@ def _iter_transpositions(n: int) -> Iterator[Transform]:
             yield Swap(i, j)
             yield Move(i, j)
             yield Move(j, i)
-
-
-@dataclass(frozen=True)
-class Axes:
-    dims: str
-    __slots__ = ("dims",)
-    CANONICAL_DIMS = "TCZYX"
-
-    def __init__(self, dims: Iterable[str]):
-        if not isinstance(dims, str):
-            dims = "".join(dims)
-        axes = set(dims)
-        if len(dims) != len(axes):
-            raise ValueError(f"Duplicate axes: {dims}")
-        for required_axis in "X", "Y":
-            if required_axis not in axes:
-                raise ValueError(f"Missing required axis {required_axis!r}")
-        axes.difference_update(self.CANONICAL_DIMS)
-        if axes:
-            raise ValueError(f"{axes.pop()!r} is not a valid Axis")
-        object.__setattr__(self, "dims", dims)
-
-    def canonical(self, shape: Tuple[int, ...]) -> Axes:
-        """
-        Return a new Axes instance with the dimensions of this axes whose size in `shape`
-        are greater than 1 and ordered in canonical order (TCZYX)
-        """
-        assert len(self.dims) == len(shape)
-        dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
-        return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)

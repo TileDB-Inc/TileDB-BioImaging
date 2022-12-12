@@ -7,7 +7,7 @@ import numpy as np
 
 import tiledb
 
-from .converters.axes import transform_array
+from .converters.axes import Axes, AxesMapper
 
 
 class TileDBOpenSlide:
@@ -90,7 +90,7 @@ class TileDBOpenSlide:
         array = self._level_arrays[level]
         dims = "".join(dim.name for dim in array.domain)
         image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
-        return transform_array(image, dims, "YXC")
+        return AxesMapper(Axes(dims), Axes("YXC")).map_array(image)
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.

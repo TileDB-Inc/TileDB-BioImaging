@@ -11,7 +11,7 @@ import numpy as np
 
 import tiledb
 
-from .axes import Axes, transform_array
+from .axes import Axes, AxesMapper
 from .tiles import iter_tiles
 
 
@@ -137,7 +137,7 @@ class ImageConverter:
             for level, array in level_arrays:
                 # read image and transform to the original axes
                 stored_axes = Axes(dim.name for dim in array.domain)
-                image = transform_array(array[:], stored_axes.dims, original_axes.dims)
+                image = AxesMapper(stored_axes, original_axes).map_array(array[:])
                 # write image and close the array
                 writer.write_level_image(level, image, array.meta)
                 array.close()
@@ -172,7 +172,7 @@ class ImageConverter:
             tiledb.group_create(output_path)
 
         with cls._ImageReaderType(input_path) as reader:
-            axes = reader.axes
+            input_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             for level in range(level_min, reader.level_count):
@@ -187,13 +187,16 @@ class ImageConverter:
                 level_shape = reader.level_shape(level)
 
                 # determine axes and (optionally) transform image to canonical axes
-                level_axes = axes if preserve_axes else axes.canonical(level_shape)
+                level_axes = (
+                    input_axes if preserve_axes else input_axes.canonical(level_shape)
+                )
                 if not chunked:
                     image = reader.level_image(level)
-                    if level_axes != axes:
-                        image = transform_array(image, axes.dims, level_axes.dims)
+                    if level_axes != input_axes:
+                        axes_mapper = AxesMapper(input_axes, level_axes)
+                        image = axes_mapper.map_array(image)
                         level_shape = image.shape
-                elif level_axes != axes:  # TODO
+                elif level_axes != input_axes:  # TODO
                     raise NotImplementedError(
                         "chunked reading is not currently supported when transforming "
                         "the original axes"
@@ -220,7 +223,7 @@ class ImageConverter:
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
-                group.meta.update(reader.group_metadata, axes=axes.dims)
+                group.meta.update(reader.group_metadata, axes=input_axes.dims)
                 for level_uri in uris:
                     if urlparse(level_uri).scheme == "tiledb":
                         group.add(level_uri, relative=False)

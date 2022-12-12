@@ -5,11 +5,11 @@ import pytest
 
 from tiledb.bioimg.converters.axes import (
     Axes,
+    AxesMapper,
     Move,
     Squeeze,
     Swap,
     Unsqueeze,
-    transform_array,
 )
 
 
@@ -270,11 +270,12 @@ class TestAxes:
 
 
 def assert_transform(source, target, a, expected):
-    np.testing.assert_array_equal(transform_array(a, source, target), expected)
+    axes_mapper = AxesMapper(Axes(source), Axes(target))
+    np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
 
 
 def assert_canonical_transform(source, a, expected):
-    if not isinstance(source, Axes):
-        source = Axes(source)
+    source = Axes(source)
     target = source.canonical(a.shape)
-    assert_transform(source.dims, target.dims, a, expected)
+    axes_mapper = AxesMapper(source, target)
+    np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
