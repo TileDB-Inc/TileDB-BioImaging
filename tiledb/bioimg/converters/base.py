@@ -145,7 +145,12 @@ class ImageConverter:
                 # stored_axes = Axes(dim.name for dim in array.domain)
                 # print(f"Stored axes {stored_axes}")
                 if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
-                    channels = 3
+                    channels = (
+                        3
+                        if int(array.attr(0).filters[0].input_format)
+                        < int(tiledb.filter.lt.WebpInputFormat.WEBP_RGBA)
+                        else 4
+                    )
                     image = array[:]
                     image = np.reshape(
                         image, (-1, image.shape[1] // channels, channels)
@@ -213,9 +218,25 @@ class ImageConverter:
                     level_shape = image.shape
 
                 if isinstance(compressor_arguments, WebpArguments):
+
+                    if level_dtype != np.uint8:
+                        raise ValueError(
+                            f"WebP compressor in {cls} does not support {level_dtype} data type."
+                        )
+
+                    if any(dim in level_axes.dims for dim in "TZ"):
+                        raise NotImplementedError(
+                            f"WebP compressor in {cls} does not support T ot Z dimensions"
+                        )
+
                     image = transpose_array(image, level_axes.dims, "YXC")
                     level_axes = Axes("YXC")
                     level_shape = image.shape
+
+                    if image.shape[2] != 3 and image.shape[2] != 4:
+                        raise NotImplementedError(
+                            f"WebP compressor in {cls} does not support images with {image.shape[2]} channels"
+                        )
 
                     compressor_arguments.image_format = (
                         tiledb.filter.lt.WebpInputFormat.WEBP_RGB

@@ -31,8 +31,6 @@ class TileDBOpenSlide:
     def __init__(self, level_arrays: Sequence[tiledb.Array]):
         print(level_arrays)
         self._level_arrays = level_arrays
-
-        self._channel_count = level_arrays[0]
         self._webp_compressed = (
             True
             if isinstance(level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter)
@@ -51,7 +49,12 @@ class TileDBOpenSlide:
         if isinstance(
             self._level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter
         ):
-            return 3
+            return (
+                3
+                if int(self._level_arrays[0].attr(0).filters[0].input_format)
+                < int(tiledb.filter.lt.WebpInputFormat.WEBP_RGBA)
+                else 4
+            )
         else:
             assert self._level_arrays[0].schema.has_dim("C")
             return int(self._level_arrays[0].schema.domain.dim("C").domain[1]) + 1

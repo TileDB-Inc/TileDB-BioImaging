@@ -31,7 +31,6 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
         schemas = (get_schema(2220, 2967), get_schema(574, 768))
         assert t.dimensions == schemas[0].shape[:-3:-1]
         for i in range(t.level_count):
-
             assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
             with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
                 if not preserve_axes:
@@ -107,14 +106,21 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
         assert A.attr(0).dtype == np.uint16
 
 
-def test_tiledb_to_ome_tiff_rountrip(tmp_path):
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        # ZstdArguments(level=0),
+        WebpArguments(quality=100, lossless=True),
+    ],
+)
+def test_tiledb_to_ome_tiff_rountrip(tmp_path, compressor):
     input_path = get_path("CMU-1-Small-Region.ome.tiff")
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
     # Store it to Tiledb
     OMETiffConverter.to_tiledb(
-        input_path, str(tiledb_path), compressor_arguments=ZstdArguments(level=0)
+        input_path, str(tiledb_path), compressor_arguments=compressor
     )
     # Store it back to NGFF Zarr
     OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
@@ -141,17 +147,41 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path):
     ],
 )
 @pytest.mark.parametrize("tiles", [{}, {"X": 128, "Y": 128, "Z": 2, "C": 1, "T": 3}])
-def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles):
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        ZstdArguments(level=0),
+        WebpArguments(quality=100, lossless=True),
+    ],
+)
+def test_ome_tiff_converter_artificial_rountrip(
+    tmp_path, filename, dims, tiles, compressor
+):
     input_path = get_path(f"artificial-ome-tiff/{filename}")
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
 
-    OMETiffConverter.to_tiledb(
-        input_path,
-        str(tiledb_path),
-        tiles=tiles,
-        compressor_arguments=ZstdArguments(level=0),
-    )
+    try:
+        OMETiffConverter.to_tiledb(
+            input_path,
+            str(tiledb_path),
+            tiles=tiles,
+            compressor_arguments=compressor,
+        )
+    except NotImplementedError:
+        if (
+            isinstance(compressor, WebpArguments)
+            and any(dim in dims for dim in "TZ")
+            or len(dims) != 3
+        ):
+            assert True
+            return
+        else:
+            assert False
+    except ValueError:
+        if isinstance(compressor, WebpArguments):
+            assert True
+            return
 
     with TileDBOpenSlide.from_group_uri(str(tiledb_path)) as t:
         assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
