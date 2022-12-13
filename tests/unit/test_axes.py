@@ -18,10 +18,15 @@ class TestTransforms:
         "s,i,j", [(b"ADCBE", 1, 3), (b"DBCAE", 3, 0), (b"ACBDE", 2, 1)]
     )
     def test_swap(self, s, i, j):
-        swap = Swap(i, j)
+        transform = Swap(i, j)
         b = bytearray(s)
-        assert swap(b) is None
+        assert transform(b) is None
         assert b == b"ABCDE"
+
+    def test_swap_array(self):
+        transform = Swap(1, 3)
+        a = np.empty((5, 4, 8, 3, 6))
+        np.testing.assert_array_equal(transform.map_array(a), np.swapaxes(a, 1, 3))
 
     @pytest.mark.parametrize(
         "s,i,j",
@@ -35,10 +40,15 @@ class TestTransforms:
         ],
     )
     def test_move(self, s, i, j):
-        move = Move(i, j)
+        transform = Move(i, j)
         b = bytearray(s)
-        assert move(b) is None
+        assert transform(b) is None
         assert b == b"ABCDE"
+
+    def test_move_array(self):
+        transform = Move(1, 3)
+        a = np.empty((5, 4, 8, 3, 6))
+        np.testing.assert_array_equal(transform.map_array(a), np.moveaxis(a, 1, 3))
 
     @pytest.mark.parametrize(
         "s,idxs",
@@ -50,10 +60,15 @@ class TestTransforms:
         ],
     )
     def test_squeeze(self, s, idxs):
-        squeeze = Squeeze(idxs)
+        transform = Squeeze(idxs)
         b = bytearray(s)
-        assert squeeze(b) is None
+        assert transform(b) is None
         assert b == b"ABC"
+
+    def test_squeeze_array(self):
+        transform = Squeeze((1, 3))
+        a = np.empty((5, 1, 8, 1, 6))
+        np.testing.assert_array_equal(transform.map_array(a), np.squeeze(a, (1, 3)))
 
     @pytest.mark.parametrize(
         "s,idxs,t",
@@ -66,10 +81,15 @@ class TestTransforms:
         ],
     )
     def test_unsqueeze(self, s, idxs, t):
-        squeeze = Unsqueeze(idxs)
+        transform = Unsqueeze(idxs)
         b = bytearray(s)
-        assert squeeze(b, fill_value=ord("_")) is None
+        assert transform(b, fill_value=ord("_")) is None
         assert b == t
+
+    def test_unsqueeze_array(self):
+        transform = Unsqueeze((1, 3))
+        a = np.empty((5, 8, 6))
+        np.testing.assert_array_equal(transform.map_array(a), np.expand_dims(a, (1, 3)))
 
 
 class TestAxes:
@@ -129,6 +149,8 @@ class TestAxes:
         assert Axes("ZTCXY").canonical(shape) == Axes("TZYX")
         assert Axes("ZCTXY").canonical(shape) == Axes("CZYX")
 
+
+class TestAxesMapper:
     def test_canonical_transform_2d(self):
         a = np.random.rand(60, 40)
         assert_canonical_transform("YX", a, a)
