@@ -4,7 +4,6 @@
 import numpy as np
 import openslide
 import PIL.Image
-
 import pytest
 
 import tiledb
@@ -16,6 +15,7 @@ from tiledb.bioimg.compressor_factory import (
 )
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
+
 
 @pytest.mark.parametrize(
     "compressor",
@@ -30,7 +30,10 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 def test_openslide_converter(tmp_path, compressor, preserve_axes):
     svs_path = get_path("CMU-1-Small-Region.svs")
     OpenSlideConverter.to_tiledb(
-        svs_path, str(tmp_path), compressor_arguments=compressor, preserve_axes=preserve_axes
+        svs_path,
+        str(tmp_path),
+        compressor_arguments=compressor,
+        preserve_axes=preserve_axes,
     )
 
     assert len(tiledb.Group(str(tmp_path))) == 1

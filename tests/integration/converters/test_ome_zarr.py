@@ -18,7 +18,12 @@ schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 @pytest.mark.parametrize("preserve_axes", [False, True])
 def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
-    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes, compressor_arguments=ZstdArguments(level=0))
+    OMEZarrConverter.to_tiledb(
+        input_path,
+        str(tmp_path),
+        preserve_axes=preserve_axes,
+        compressor_arguments=ZstdArguments(level=0),
+    )
 
     # check the first (highest) resolution layer only
     schema = schemas[series_idx]

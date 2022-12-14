@@ -21,9 +21,19 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
     output_path = str(tmp_path)
     if open_fileobj:
         with open(input_path, "rb") as f:
-            OMETiffConverter.to_tiledb(f, output_path, preserve_axes=preserve_axes, compressor_arguments=ZstdArguments(level=0))
+            OMETiffConverter.to_tiledb(
+                f,
+                output_path,
+                preserve_axes=preserve_axes,
+                compressor_arguments=ZstdArguments(level=0),
+            )
     else:
-        OMETiffConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes, compressor_arguments=ZstdArguments(level=0))
+        OMETiffConverter.to_tiledb(
+            input_path,
+            output_path,
+            preserve_axes=preserve_axes,
+            compressor_arguments=ZstdArguments(level=0),
+        )
 
     with TileDBOpenSlide.from_group_uri(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 2

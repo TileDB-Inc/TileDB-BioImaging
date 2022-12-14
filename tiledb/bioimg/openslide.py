@@ -29,7 +29,6 @@ class TileDBOpenSlide:
         return cls(tuple(map(itemgetter(1), level_info)))
 
     def __init__(self, level_arrays: Sequence[tiledb.Array]):
-        print(level_arrays)
         self._level_arrays = level_arrays
         self._webp_compressed = (
             True
@@ -82,13 +81,7 @@ class TileDBOpenSlide:
 
         :return: A sequence of dimensions for each level
         """
-        if self._webp_compressed:
-            return tuple(
-                (array.shape[-1] // self.channels, array.shape[-2])
-                for array in self._level_arrays
-            )
-        else:
-            return tuple(self._iter_level_dimensions())
+        return tuple(self._iter_level_dimensions())
 
     @property
     def level_downsamples(self) -> Sequence[float]:
@@ -126,9 +119,6 @@ class TileDBOpenSlide:
         dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
 
-        # print(f"Read shape {image.shape}")
-        # image = np.reshape(image, (-1, image.shape[1] // 3, 3))
-        # print(f"Reshaped shape {image.shape}")
         if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
             return np.reshape(
                 image, (-1, image.shape[1] // self.channels, self.channels)
@@ -152,4 +142,10 @@ class TileDBOpenSlide:
     def _iter_level_dimensions(self) -> Iterator[Tuple[int, int]]:
         for a in self._level_arrays:
             dims = list(a.domain)
-            yield a.shape[dims.index(a.dim("X"))], a.shape[dims.index(a.dim("Y"))]
+            yield a.shape[
+                dims.index(a.dim("X"))
+            ] // self.channels if self._webp_compressed else a.shape[
+                dims.index(a.dim("X"))
+            ], a.shape[
+                dims.index(a.dim("Y"))
+            ]

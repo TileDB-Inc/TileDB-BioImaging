@@ -3,9 +3,13 @@ import itertools as it
 import numpy as np
 import pytest
 
-from tiledb.bioimg.converters.axes import (Axes, Move, Swap,
-                                           minimize_transpositions,
-                                           transpose_array)
+from tiledb.bioimg.converters.axes import (
+    Axes,
+    Move,
+    Swap,
+    minimize_transpositions,
+    transpose_array,
+)
 
 
 class TestTranspositions:
