@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections import ChainMap
 from operator import itemgetter
-from typing import Any, Dict, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
 
 import tiledb
 
+from ..compressor_factory import (
+    CompressorArguments,
+    T,
+    WebpArguments,
+    ZstdArguments,
+    createCompressor,
+)
 from .axes import Axes, transpose_array
 
 
@@ -37,6 +45,14 @@ class ImageReader(ABC):
 
         Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
         """
+
+    @abstractmethod
+    def level_dtype(self, level: int) -> np.dtype:
+        """Return the dtype of the image for the given level."""
+
+    @abstractmethod
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        """Return the shape of the image for the given level."""
 
     @abstractmethod
     def level_image(self, level: int) -> np.ndarray:
@@ -121,9 +137,33 @@ class ImageConverter:
             original_axes = Axes(group.meta["axes"])
             for level, array in level_arrays:
                 # read image and transpose to the original axes
-                stored_axes = Axes(dim.name for dim in array.domain)
-                image = transpose_array(array[:], stored_axes.dims, original_axes.dims)
-                # write image and close the array
+                # stored_axes = Axes(dim.name for dim in array.domain)
+                # print(f"Stored axes {stored_axes}")
+                # image = transpose_array(array[:], stored_axes.dims, original_axes.dims)
+                # print(f"Image shape {image.shape}")
+
+                # stored_axes = Axes(dim.name for dim in array.domain)
+                # print(f"Stored axes {stored_axes}")
+                if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
+                    channels = (
+                        3
+                        if int(array.attr(0).filters[0].input_format)
+                        < int(tiledb.filter.lt.WebpInputFormat.WEBP_RGBA)
+                        else 4
+                    )
+                    image = array[:]
+                    image = np.reshape(
+                        image, (-1, image.shape[1] // channels, channels)
+                    )
+                    image = transpose_array(image, "YXC", original_axes.dims)
+                else:
+                    # read image and transpose to the original axes
+                    stored_axes = Axes(dim.name for dim in array.domain)
+                    image = transpose_array(
+                        array[:], stored_axes.dims, original_axes.dims
+                    )
+
+                # write image and close   the array
                 writer.write_level_image(level, image, array.meta)
                 array.close()
 
@@ -134,8 +174,9 @@ class ImageConverter:
         output_path: str,
         *,
         level_min: int = 0,
-        tiles: Mapping[str, int] = {},
+        tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
+        compressor_arguments: CompressorArguments[T] = ZstdArguments(level=0),
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -147,6 +188,7 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
+        :param compressor_arguments: If None no compression filter is used
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -166,14 +208,50 @@ class ImageConverter:
                 # read metadata and image
                 metadata = reader.level_metadata(level)
                 image = reader.level_image(level)
+                level_dtype = reader.level_dtype(level)
+                level_shape = reader.level_shape(level)
+
                 # determine axes and (optionally) transpose image to canonical axes
-                if preserve_axes:
-                    level_axes = axes
-                else:
-                    level_axes = axes.canonical(image)
+                level_axes = axes if preserve_axes else axes.canonical(level_shape)
+                if level_axes != axes:
                     image = transpose_array(image, axes.dims, level_axes.dims)
+                    level_shape = image.shape
+
+                if isinstance(compressor_arguments, WebpArguments):
+
+                    if level_dtype != np.uint8:
+                        raise ValueError(
+                            f"WebP compressor in {cls} does not support {level_dtype} data type."
+                        )
+
+                    if any(dim in level_axes.dims for dim in "TZ"):
+                        raise NotImplementedError(
+                            f"WebP compressor in {cls} does not support T ot Z dimensions"
+                        )
+
+                    image = transpose_array(image, level_axes.dims, "YXC")
+                    level_axes = Axes("YXC")
+                    level_shape = image.shape
+
+                    if image.shape[2] != 3 and image.shape[2] != 4:
+                        raise NotImplementedError(
+                            f"WebP compressor in {cls} does not support images with {image.shape[2]} channels"
+                        )
+
+                    compressor_arguments.image_format = (
+                        tiledb.filter.lt.WebpInputFormat.WEBP_RGB
+                        if image.shape[2] == 3
+                        else tiledb.filter.lt.WebpInputFormat.WEBP_RGBA
+                    )
+
                 # create TileDB array
-                schema = cls._get_schema(image, level_axes, tiles)
+                schema = _get_schema(
+                    axes=level_axes,
+                    shape=level_shape,
+                    attr_dtype=level_dtype,
+                    max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
+                    compression_arguments=compressor_arguments,
+                )
                 tiledb.Array.create(uri, schema)
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
@@ -190,31 +268,53 @@ class ImageConverter:
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
 
-    @classmethod
-    def _get_schema(
-        cls, image: np.ndarray, axes: Axes, tiles: Mapping[str, int]
-    ) -> tiledb.ArraySchema:
-        # find the smallest dtype that can hold the number of image scalar values
-        dim_dtype = np.min_scalar_type(image.size)
-        dims = []
-        assert len(axes.dims) == len(image.shape)
-        for dim_name, dim_size in zip(axes.dims, image.shape):
-            max_tile = tiles.get(dim_name, cls._DEFAULT_TILES[dim_name])
+
+def _get_schema(
+    axes: Axes,
+    shape: Tuple[int, ...],
+    attr_dtype: np.dtype,
+    max_tiles: Mapping[str, int],
+    compression_arguments: CompressorArguments[T],
+) -> tiledb.ArraySchema:
+    # find the smallest dtype that can hold the number of image scalar values
+    dim_dtype = np.min_scalar_type(np.prod(shape))
+    dims = []
+    assert len(axes.dims) == len(shape)
+    if isinstance(compression_arguments, WebpArguments):
+        assert axes.dims == "YXC"
+        dims.append(
+            tiledb.Dim(
+                "Y",
+                domain=(0, shape[0] - 1),
+                dtype=dim_dtype,
+                tile=min(shape[0], max_tiles["Y"]),
+            )
+        )
+        dims.append(
+            tiledb.Dim(
+                "X",
+                domain=(0, shape[1] * shape[2] - 1),
+                dtype=dim_dtype,
+                tile=min(shape[1], max_tiles["X"]) * shape[2],
+            )
+        )
+    else:
+        for dim_name, dim_size in zip(axes.dims, shape):
             dims.append(
                 tiledb.Dim(
                     dim_name,
                     domain=(0, dim_size - 1),
                     dtype=dim_dtype,
-                    tile=min(dim_size, max_tile),
+                    tile=min(dim_size, max_tiles[dim_name]),
                 )
             )
-        return tiledb.ArraySchema(
-            domain=tiledb.Domain(*dims),
-            attrs=[
-                tiledb.Attr(
-                    name="",
-                    dtype=image.dtype,
-                    filters=[tiledb.ZstdFilter(level=0)],
-                )
-            ],
-        )
+    return tiledb.ArraySchema(
+        domain=tiledb.Domain(*dims),
+        attrs=[
+            tiledb.Attr(
+                name="",
+                dtype=attr_dtype,
+                filters=[createCompressor(compression_arguments)],
+            )
+        ],
+    )

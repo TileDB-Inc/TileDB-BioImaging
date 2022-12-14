@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Tuple, cast
 
 import numpy as np
 import tifffile
@@ -16,34 +16,38 @@ class OMETiffReader(ImageReader):
         """
         self._tiff = tifffile.TiffFile(input_path)
         # XXX ignore all but the first series
-        self._levels = self._tiff.series[0].levels
+        self._series = self._tiff.series[0]
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
 
     @property
     def axes(self) -> Axes:
-        return Axes(self._levels[0].axes.replace("S", "C"))
+        return Axes(self._series.axes.replace("S", "C"))
 
     @property
     def level_count(self) -> int:
-        return len(self._levels)
+        return len(self._series.levels)
+
+    def level_dtype(self, level: int) -> np.dtype:
+        return self._series.levels[level].dtype
+
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        return cast(Tuple[int, ...], self._series.levels[level].shape)
 
     def level_image(self, level: int) -> np.ndarray:
-        return self._levels[level].asarray()
+        return self._series.levels[level].asarray()
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        series = self._levels[level]
         if level == 0:
             omexml = self._tiff.ome_metadata
             metadata = tifffile.xml2dict(omexml) if omexml else {}
-            metadata["axes"] = series.axes
+            metadata["axes"] = self._series.axes
         else:
             metadata = None
-
-        keyframe = series.keyframe
+        keyframe = self._series.levels[level].keyframe
         write_kwargs = dict(
-            subifds=len(series.levels) - 1 if level == 0 else None,
+            subifds=self.level_count - 1 if level == 0 else None,
             metadata=metadata,
             photometric=keyframe.photometric,
             planarconfig=keyframe.planarconfig,

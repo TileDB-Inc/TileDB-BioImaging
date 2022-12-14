@@ -21,6 +21,7 @@ class TileDBOpenSlide:
             level_info = []
             for o in G:
                 array = tiledb.open(o.uri)
+
                 level = array.meta.get("level", 0)
                 level_info.append((level, array))
             # sort by level
@@ -29,6 +30,11 @@ class TileDBOpenSlide:
 
     def __init__(self, level_arrays: Sequence[tiledb.Array]):
         self._level_arrays = level_arrays
+        self._webp_compressed = (
+            True
+            if isinstance(level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter)
+            else False
+        )
 
     def __enter__(self) -> TileDBOpenSlide:
         return self
@@ -36,6 +42,21 @@ class TileDBOpenSlide:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         for array in self._level_arrays:
             array.close()
+
+    @property
+    def channels(self) -> int:
+        if isinstance(
+            self._level_arrays[0].attr(0).filters[0], tiledb.filter.WebpFilter
+        ):
+            return (
+                3
+                if int(self._level_arrays[0].attr(0).filters[0].input_format)
+                < int(tiledb.filter.lt.WebpInputFormat.WEBP_RGBA)
+                else 4
+            )
+        else:
+            assert self._level_arrays[0].schema.has_dim("C")
+            return int(self._level_arrays[0].schema.domain.dim("C").domain[1]) + 1
 
     @property
     def level_count(self) -> int:
@@ -84,14 +105,29 @@ class TileDBOpenSlide:
 
         :return: 3D (height, width, channel) Numpy array
         """
-        x, y = location
-        w, h = size
-        dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         array = self._level_arrays[level]
         dims = "".join(dim.name for dim in array.domain)
+
+        if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
+
+            x, y = (location[0] * self.channels, location[1])
+            w, h = (size[0] * self.channels, size[1])
+        else:
+            x, y = location
+            w, h = size
+
+        dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
         image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
-        # transpose image to YXC
-        return transpose_array(image, dims, "YXC")
+
+        if isinstance(array.attr(0).filters[0], tiledb.filter.WebpFilter):
+            return np.reshape(
+                image, (-1, image.shape[1] // self.channels, self.channels)
+            )
+        else:
+            # image = image.transpose((2, 0, 1))
+            # transpose image to YXC
+            return transpose_array(image, dims, "YXC")
+        # return image
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.
@@ -106,4 +142,10 @@ class TileDBOpenSlide:
     def _iter_level_dimensions(self) -> Iterator[Tuple[int, int]]:
         for a in self._level_arrays:
             dims = list(a.domain)
-            yield a.shape[dims.index(a.dim("X"))], a.shape[dims.index(a.dim("Y"))]
+            yield a.shape[
+                dims.index(a.dim("X"))
+            ] // self.channels if self._webp_compressed else a.shape[
+                dims.index(a.dim("X"))
+            ], a.shape[
+                dims.index(a.dim("Y"))
+            ]

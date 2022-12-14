@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass
 from operator import itemgetter
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Iterator, Sequence, Tuple
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
@@ -130,11 +130,11 @@ class Axes:
             raise ValueError(f"{axes.pop()!r} is not a valid Axis")
         object.__setattr__(self, "dims", dims)
 
-    def canonical(self, a: np.ndarray) -> Axes:
+    def canonical(self, shape: Tuple[int, ...]) -> Axes:
         """
-        Return a new Axes instance with the dimensions of this axes whose size in `a` are
-        greater than 1 and ordered in canonical order (TCZYX)
+        Return a new Axes instance with the dimensions of this axes whose size in `shape`
+        are greater than 1 and ordered in canonical order (TCZYX)
         """
-        assert len(self.dims) == len(a.shape)
-        dims = frozenset(dim for dim, size in zip(self.dims, a.shape) if size > 1)
+        assert len(self.dims) == len(shape)
+        dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
