@@ -139,9 +139,35 @@ def compare_tiff_page_series(s1, s2):
     np.testing.assert_array_equal(s1.asarray(), s2.asarray())
 
     assert s1.keyframe.hash == s2.keyframe.hash
+    compare_tiff_page_tags(
+        s1.keyframe,
+        s2.keyframe,
+        skip={"PlanarConfiguration", "SampleFormat"},
+        ignore_value={
+            "ImageDescription",
+            "StripOffsets",
+            "TileOffsets",
+            "TileByteCounts",
+            "SubIFDs",
+            "XResolution",
+            "YResolution",
+        },
+    )
+
     assert len(s1.pages) == len(s2.pages)
     assert len(s1.levels) == len(s2.levels)
     assert s1.levels[0] is s1
     assert s2.levels[0] is s2
     for l1, l2 in zip(s1.levels[1:], s2.levels[1:]):
         compare_tiff_page_series(l1, l2)
+
+
+def compare_tiff_page_tags(p1, p2, skip=(), ignore_value=()):
+    tags1 = [t for t in p1.tags.values() if t.name not in skip]
+    tags2 = [t for t in p2.tags.values() if t.name not in skip]
+    assert len(tags1) == len(tags2)
+    for tag1, tag2 in zip(tags1, tags2):
+        assert tag1.code == tag2.code
+        assert tag1.name == tag2.name
+        if tag1.name not in ignore_value:
+            assert tag1.value == tag2.value, tag1.name
