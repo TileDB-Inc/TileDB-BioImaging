@@ -1,6 +1,6 @@
-import pickle
 from typing import Any, Dict, Mapping
 
+import jsonpickle as json
 import numpy as np
 import tifffile
 
@@ -62,7 +62,7 @@ class OMETiffReader(ImageReader):
             resolution=keyframe.resolution,
             resolutionunit=keyframe.resolutionunit,
         )
-        return {"pickled_write_kwargs": pickle.dumps(write_kwargs)}
+        return {"json_write_kwargs": json.dumps(write_kwargs)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
@@ -73,7 +73,7 @@ class OMETiffReader(ImageReader):
             imagej=self._tiff.is_imagej,
             ome=self._tiff.is_ome,
         )
-        return {"pickled_tiffwriter_kwargs": pickle.dumps(writer_kwargs)}
+        return {"json_tiffwriter_kwargs": json.dumps(writer_kwargs)}
 
 
 class OMETiffWriter(ImageWriter):
@@ -81,13 +81,13 @@ class OMETiffWriter(ImageWriter):
         self._output_path = output_path
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
-        tiffwriter_kwargs = pickle.loads(metadata["pickled_tiffwriter_kwargs"])
+        tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
         self._writer = tifffile.TiffWriter(self._output_path, **tiffwriter_kwargs)
 
     def write_level_image(
         self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
     ) -> None:
-        write_kwargs = pickle.loads(metadata["pickled_write_kwargs"])
+        write_kwargs = json.loads(metadata["json_write_kwargs"])
         self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
