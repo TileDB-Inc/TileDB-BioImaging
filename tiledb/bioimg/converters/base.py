@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections import ChainMap
 from operator import itemgetter
-from typing import Any, Dict, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
 
 import tiledb
 
-from .axes import Axes, transpose_array
+from .axes import Axes, AxesMapper
+from .tiles import iter_tiles
 
 
 class ImageReader(ABC):
@@ -39,11 +41,24 @@ class ImageReader(ABC):
         """
 
     @abstractmethod
-    def level_image(self, level: int) -> np.ndarray:
+    def level_dtype(self, level: int) -> np.dtype:
+        """Return the dtype of the image for the given level."""
+
+    @abstractmethod
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        """Return the shape of the image for the given level."""
+
+    @abstractmethod
+    def level_image(
+        self, level: int, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
         """
         Return the image for the given level as numpy array.
 
         The axes of the array are specified by the `axes` property.
+
+        :param tile: If not None, a tuple of slices (one per each axes) that specify the
+            subregion of the image to return.
         """
 
     @abstractmethod
@@ -120,9 +135,9 @@ class ImageConverter:
             writer.write_group_metadata(group.meta)
             original_axes = Axes(group.meta["axes"])
             for level, array in level_arrays:
-                # read image and transpose to the original axes
+                # read image and transform to the original axes
                 stored_axes = Axes(dim.name for dim in array.domain)
-                image = transpose_array(array[:], stored_axes.dims, original_axes.dims)
+                image = AxesMapper(stored_axes, original_axes).map_array(array[:])
                 # write image and close the array
                 writer.write_level_image(level, image, array.meta)
                 array.close()
@@ -134,8 +149,9 @@ class ImageConverter:
         output_path: str,
         *,
         level_min: int = 0,
-        tiles: Mapping[str, int] = {},
+        tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
+        chunked: bool = False,
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -147,14 +163,16 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
+        :param chunked: If true, convert one image tile at a time instead of the whole image.
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
 
         if tiledb.object_type(output_path) != "group":
             tiledb.group_create(output_path)
+
         with cls._ImageReaderType(input_path) as reader:
-            axes = reader.axes
+            input_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             for level in range(level_min, reader.level_count):
@@ -165,56 +183,76 @@ class ImageConverter:
 
                 # read metadata and image
                 metadata = reader.level_metadata(level)
-                image = reader.level_image(level)
-                # determine axes and (optionally) transpose image to canonical axes
+                level_dtype = reader.level_dtype(level)
+                level_shape = reader.level_shape(level)
+
+                # determine level axes and (potentially) transformed level shape
                 if preserve_axes:
-                    level_axes = axes
+                    level_axes = input_axes
                 else:
-                    level_axes = axes.canonical(image)
-                    image = transpose_array(image, axes.dims, level_axes.dims)
+                    level_axes = input_axes.canonical(level_shape)
+                axes_mapper = AxesMapper(input_axes, level_axes)
+                level_shape = axes_mapper.map_shape(level_shape)
+
                 # create TileDB array
-                schema = cls._get_schema(image, level_axes, tiles)
+                schema = _get_schema(
+                    axes=level_axes,
+                    shape=level_shape,
+                    attr_dtype=level_dtype,
+                    max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
+                )
                 tiledb.Array.create(uri, schema)
+
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
-                    a[:] = image
                     a.meta.update(metadata, level=level)
+                    if chunked:
+                        inv_axes_mapper = AxesMapper(level_axes, input_axes)
+                        for level_tile in iter_tiles(a.domain):
+                            input_tile = inv_axes_mapper.map_tile(level_tile)
+                            image = reader.level_image(level, input_tile)
+                            a[level_tile] = axes_mapper.map_array(image)
+                    else:
+                        image = reader.level_image(level)
+                        a[:] = axes_mapper.map_array(image)
                 uris.append(uri)
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
-                group.meta.update(reader.group_metadata, axes=axes.dims)
+                group.meta.update(reader.group_metadata, axes=input_axes.dims)
                 for level_uri in uris:
                     if urlparse(level_uri).scheme == "tiledb":
                         group.add(level_uri, relative=False)
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
 
-    @classmethod
-    def _get_schema(
-        cls, image: np.ndarray, axes: Axes, tiles: Mapping[str, int]
-    ) -> tiledb.ArraySchema:
-        # find the smallest dtype that can hold the number of image scalar values
-        dim_dtype = np.min_scalar_type(image.size)
-        dims = []
-        assert len(axes.dims) == len(image.shape)
-        for dim_name, dim_size in zip(axes.dims, image.shape):
-            max_tile = tiles.get(dim_name, cls._DEFAULT_TILES[dim_name])
-            dims.append(
-                tiledb.Dim(
-                    dim_name,
-                    domain=(0, dim_size - 1),
-                    dtype=dim_dtype,
-                    tile=min(dim_size, max_tile),
-                )
+
+def _get_schema(
+    axes: Axes,
+    shape: Tuple[int, ...],
+    attr_dtype: np.dtype,
+    max_tiles: Mapping[str, int],
+) -> tiledb.ArraySchema:
+    # find the smallest dtype that can hold `np.prod(shape)` values
+    dim_dtype = np.min_scalar_type(np.prod(shape))
+    dims = []
+    assert len(axes.dims) == len(shape)
+    for dim_name, dim_size in zip(axes.dims, shape):
+        dims.append(
+            tiledb.Dim(
+                dim_name,
+                domain=(0, dim_size - 1),
+                dtype=dim_dtype,
+                tile=min(dim_size, max_tiles[dim_name]),
             )
-        return tiledb.ArraySchema(
-            domain=tiledb.Domain(*dims),
-            attrs=[
-                tiledb.Attr(
-                    name="",
-                    dtype=image.dtype,
-                    filters=[tiledb.ZstdFilter(level=0)],
-                )
-            ],
         )
+    return tiledb.ArraySchema(
+        domain=tiledb.Domain(*dims),
+        attrs=[
+            tiledb.Attr(
+                name="",
+                dtype=attr_dtype,
+                filters=[tiledb.ZstdFilter(level=0)],
+            )
+        ],
+    )

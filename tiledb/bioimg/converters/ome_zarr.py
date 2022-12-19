@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Mapping, cast
+from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
+import dask.array as da
 import numpy as np
 import zarr
 from numcodecs import Blosc
@@ -34,10 +35,19 @@ class OMEZarrReader(ImageReader):
     def level_count(self) -> int:
         return len(self._nodes)
 
-    def level_image(self, level: int) -> np.ndarray:
-        data = self._nodes[level].data
-        assert len(data) == 1
-        return np.asarray(data[0])
+    def level_dtype(self, level: int) -> np.dtype:
+        return self._level_dask_array(level).dtype
+
+    def level_shape(self, level: int) -> Tuple[int, ...]:
+        return cast(Tuple[int, ...], self._level_dask_array(level).shape)
+
+    def level_image(
+        self, level: int, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
+        dask_array = self._level_dask_array(level)
+        if tile is not None:
+            dask_array = dask_array[tile]
+        return np.asarray(dask_array)
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {"json_zarray": json.dumps(self._nodes[level].zarr.zarray)}
@@ -61,6 +71,11 @@ class OMEZarrReader(ImageReader):
         multiscales = self._root_attrs["multiscales"]
         assert len(multiscales) == 1, multiscales
         return cast(Dict[str, Any], multiscales[0])
+
+    def _level_dask_array(self, level: int) -> da.Array:
+        data = self._nodes[level].data
+        assert len(data) == 1
+        return data[0]
 
 
 class OMEZarrWriter(ImageWriter):
