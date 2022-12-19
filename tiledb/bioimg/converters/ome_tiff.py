@@ -1,6 +1,6 @@
-import json
 from typing import Any, Dict, Mapping
 
+import jsonpickle as json
 import numpy as np
 import tifffile
 
