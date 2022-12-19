@@ -57,9 +57,16 @@ class OMETiffReader(ImageReader):
         else:
             metadata = None
         keyframe = self._series.levels[level].keyframe
+        extratags = []
+        get_tag = keyframe.tags.get
+        for key in self._EXTRA_TAGS:
+            tag = get_tag(key)
+            if tag is not None:
+                extratags.append(tag.astuple())
         write_kwargs = dict(
             subifds=self.level_count - 1 if level == 0 else None,
             metadata=metadata,
+            extratags=extratags,
             photometric=keyframe.photometric,
             planarconfig=keyframe.planarconfig,
             extrasamples=keyframe.extrasamples,
@@ -70,7 +77,7 @@ class OMETiffReader(ImageReader):
             subsampling=keyframe.subsampling,
             jpegtables=keyframe.jpegtables,
             colormap=keyframe.colormap,
-            subfiletype=keyframe.subfiletype or None,
+            subfiletype=keyframe.subfiletype,
             software=keyframe.software,
             tile=keyframe.tile,
             datetime=keyframe.datetime,
@@ -90,6 +97,18 @@ class OMETiffReader(ImageReader):
         )
         return {"json_tiffwriter_kwargs": json.dumps(writer_kwargs)}
 
+    _EXTRA_TAGS = (
+        # GeoTiff Tags
+        "IntergraphMatrixTag",
+        "ModelPixelScaleTag",
+        "ModelTransformationTag",
+        "ModelTiepointTag",
+        "RPCCoefficientTag",
+        "GeoKeyDirectoryTag",
+        "GeoDoubleParamsTag",
+        "GeoAsciiParamsTag",
+    )
+
 
 class OMETiffWriter(ImageWriter):
     def __init__(self, output_path: str):
@@ -97,7 +116,9 @@ class OMETiffWriter(ImageWriter):
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
-        self._writer = tifffile.TiffWriter(self._output_path, **tiffwriter_kwargs)
+        self._writer = tifffile.TiffWriter(
+            self._output_path, shaped=False, **tiffwriter_kwargs
+        )
 
     def write_level_image(
         self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
