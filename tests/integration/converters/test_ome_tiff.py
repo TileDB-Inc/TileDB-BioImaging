@@ -55,10 +55,15 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
         assert A.attr(0).dtype == np.uint16
 
 
+@pytest.mark.parametrize(
+    "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
+)
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
-def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked, max_workers):
-    input_path = get_path("CMU-1-Small-Region.ome.tiff")
+def test_tiledb_to_ome_tiff_rountrip(
+    tmp_path, filename, num_series, preserve_axes, chunked, max_workers
+):
+    input_path = get_path(filename)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
     to_tiledb_kwargs = dict(
@@ -67,6 +72,14 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked, max_worke
         preserve_axes=preserve_axes,
         chunked=chunked,
         max_workers=max_workers,
+        reader_kwargs=dict(
+            extra_tags=(
+                "ModelPixelScaleTag",
+                "ModelTiepointTag",
+                "GeoKeyDirectoryTag",
+                "GeoAsciiParamsTag",
+            )
+        ),
     )
 
     # Store it to Tiledb
@@ -77,7 +90,7 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked, max_worke
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
         compare_tifffiles(t1, t2)
         # only the first series is copied
-        assert len(t1.series) == 3
+        assert len(t1.series) == num_series
         assert len(t2.series) == 1
         compare_tiff_page_series(t1.series[0], t2.series[0])
 
@@ -140,9 +153,35 @@ def compare_tiff_page_series(s1, s2):
     np.testing.assert_array_equal(s1.asarray(), s2.asarray())
 
     assert s1.keyframe.hash == s2.keyframe.hash
+    compare_tiff_page_tags(
+        s1.keyframe,
+        s2.keyframe,
+        skip={"PlanarConfiguration", "SampleFormat", "NewSubfileType"},
+        ignore_value={
+            "ImageDescription",
+            "StripOffsets",
+            "TileOffsets",
+            "TileByteCounts",
+            "SubIFDs",
+            "XResolution",
+            "YResolution",
+        },
+    )
+
     assert len(s1.pages) == len(s2.pages)
     assert len(s1.levels) == len(s2.levels)
     assert s1.levels[0] is s1
     assert s2.levels[0] is s2
     for l1, l2 in zip(s1.levels[1:], s2.levels[1:]):
         compare_tiff_page_series(l1, l2)
+
+
+def compare_tiff_page_tags(p1, p2, skip=(), ignore_value=()):
+    tags1 = [t for t in p1.tags.values() if t.name not in skip]
+    tags2 = [t for t in p2.tags.values() if t.name not in skip]
+    assert len(tags1) == len(tags2)
+    for tag1, tag2 in zip(tags1, tags2):
+        assert tag1.code == tag2.code
+        assert tag1.name == tag2.name
+        if tag1.name not in ignore_value:
+            assert tag1.value == tag2.value, tag1.name
