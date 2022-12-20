@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import jsonpickle as json
 import numpy as np
@@ -8,12 +8,14 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(self, input_path: str, extra_tags: Sequence[Union[str, int]] = ()):
         """
         OME-TIFF image reader
 
         :param input_path: The path to the TIFF image
+        :param extra_tags: Extra tags to read, specified either by name or by int code.
         """
+        self._extra_tags = extra_tags
         self._tiff = tifffile.TiffFile(input_path)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
@@ -57,9 +59,16 @@ class OMETiffReader(ImageReader):
         else:
             metadata = None
         keyframe = self._series.levels[level].keyframe
+        extratags = []
+        get_tag = keyframe.tags.get
+        for key in self._extra_tags:
+            tag = get_tag(key)
+            if tag is not None:
+                extratags.append(tag.astuple())
         write_kwargs = dict(
             subifds=self.level_count - 1 if level == 0 else None,
             metadata=metadata,
+            extratags=extratags,
             photometric=keyframe.photometric,
             planarconfig=keyframe.planarconfig,
             extrasamples=keyframe.extrasamples,
@@ -70,7 +79,7 @@ class OMETiffReader(ImageReader):
             subsampling=keyframe.subsampling,
             jpegtables=keyframe.jpegtables,
             colormap=keyframe.colormap,
-            subfiletype=keyframe.subfiletype or None,
+            subfiletype=keyframe.subfiletype,
             software=keyframe.software,
             tile=keyframe.tile,
             datetime=keyframe.datetime,
@@ -97,7 +106,9 @@ class OMETiffWriter(ImageWriter):
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
-        self._writer = tifffile.TiffWriter(self._output_path, **tiffwriter_kwargs)
+        self._writer = tifffile.TiffWriter(
+            self._output_path, shaped=False, **tiffwriter_kwargs
+        )
 
     def write_level_image(
         self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
