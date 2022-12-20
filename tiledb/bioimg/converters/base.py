@@ -9,6 +9,11 @@ from urllib.parse import urlparse
 
 import numpy as np
 
+try:
+    from tiledb.cloud import groups
+except ImportError:
+    pass
+
 import tiledb
 
 from .axes import Axes, AxesMapper
@@ -152,6 +157,7 @@ class ImageConverter:
         tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
         chunked: bool = False,
+        register_kwargs: Optional[Mapping[str, str]] = {},
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -164,6 +170,8 @@ class ImageConverter:
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
         :param chunked: If true, convert one image tile at a time instead of the whole image.
+        :param register_kwargs: Cloud group registration optional args e.g namespace, parent_uri,
+            storage_uri, credentials_name
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -225,6 +233,10 @@ class ImageConverter:
                         group.add(level_uri, relative=False)
                     else:
                         group.add(os.path.basename(level_uri), relative=True)
+
+        # Register group in cloud if package exists
+        if output_path.startswith("tiledb://"):
+            groups.register(name=os.path.basename(output_path), **register_kwargs)
 
 
 def _get_schema(
