@@ -12,7 +12,6 @@ import numpy as np
 try:
     from tiledb.cloud import groups
 except ImportError:
-    groups = None
     pass
 
 import tiledb
@@ -158,7 +157,7 @@ class ImageConverter:
         tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
         chunked: bool = False,
-        **register_kwargs: Mapping[str, str],
+        register_kwargs: Optional[Mapping[str, str]] = {},
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -236,14 +235,8 @@ class ImageConverter:
                         group.add(os.path.basename(level_uri), relative=True)
 
         # Register group in cloud if package exists
-        if groups is not None:
-            groups.register(
-                name=os.path.basename(output_path),
-                namespace=register_kwargs.get("namespace"),
-                credentials_name=register_kwargs.get("credentials_name"),
-                storage_uri=register_kwargs.get("storage_uri"),
-                parent_uri=register_kwargs.get("parent_uri"),
-            )
+        if output_path.startswith("tiledb://"):
+            groups.register(name=os.path.basename(output_path), **register_kwargs)
 
 
 def _get_schema(

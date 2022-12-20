@@ -13,15 +13,9 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
 
-@pytest.fixture(autouse=True, scope="function")
-def mock_register(mocker):
-    with mocker.patch("tiledb.cloud.groups.register") as mock_getter:
-        yield mock_getter
-
-
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
-def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes, mock_register):
+def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
 
@@ -50,7 +44,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes, mock_register):
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked", [False, True])
-def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx, preserve_axes, chunked, mock_register):
+def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx, preserve_axes, chunked):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
@@ -99,7 +93,7 @@ def test_tiledb_to_ome_zarr_rountrip(tmp_path, series_idx, preserve_axes, chunke
         np.testing.assert_array_equal(input_zarray[:], output_zarray[:])
 
 
-def test_ome_zarr_converter_incremental(tmp_path, mock_register):
+def test_ome_zarr_converter_incremental(tmp_path):
     input_path = get_path("CMU-1-Small-Region.ome.zarr/0")
 
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=1)

@@ -9,15 +9,9 @@ from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
-@pytest.fixture(autouse=True, scope="function")
-def mock_register(mocker):
-    with mocker.patch("tiledb.cloud.groups.register") as mock_getter:
-        yield mock_getter
-
-
 @pytest.mark.parametrize("open_fileobj", [False, True])
 @pytest.mark.parametrize("preserve_axes", [False, True])
-def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes, mock_register):
+def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
     input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
     output_path = str(tmp_path)
     if open_fileobj:
@@ -45,7 +39,7 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes, mock_register
         assert img.size == (300, 400)
 
 
-def test_ome_tiff_converter_different_dtypes(tmp_path, mock_register):
+def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")
     OMETiffConverter.to_tiledb(path, str(tmp_path))
 
@@ -63,7 +57,7 @@ def test_ome_tiff_converter_different_dtypes(tmp_path, mock_register):
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked", [False, True])
-def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked, mock_register):
+def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked):
     input_path = get_path("CMU-1-Small-Region.ome.tiff")
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
@@ -101,9 +95,7 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked, mock_regi
     ],
 )
 @pytest.mark.parametrize("tiles", [{}, {"X": 128, "Y": 128, "Z": 2, "C": 1, "T": 3}])
-def test_ome_tiff_converter_artificial_rountrip(
-    tmp_path, filename, dims, tiles, mock_register
-):
+def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles):
     input_path = get_path(f"artificial-ome-tiff/{filename}")
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
