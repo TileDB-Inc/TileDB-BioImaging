@@ -71,6 +71,14 @@ def test_tiledb_to_ome_tiff_rountrip(
         output_path=str(tiledb_path),
         preserve_axes=preserve_axes,
         chunked=chunked,
+        reader_kwargs=dict(
+            extra_tags=(
+                "ModelPixelScaleTag",
+                "ModelTiepointTag",
+                "GeoKeyDirectoryTag",
+                "GeoAsciiParamsTag",
+            )
+        ),
     )
 
     # Store it to Tiledb

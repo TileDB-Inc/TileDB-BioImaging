@@ -22,7 +22,7 @@ from .tiles import iter_tiles
 
 class ImageReader(ABC):
     @abstractmethod
-    def __init__(self, input_path: str):
+    def __init__(self, input_path: str, **kwargs: Any):
         """Initialize this ImageReader"""
 
     def __enter__(self) -> ImageReader:
@@ -154,10 +154,11 @@ class ImageConverter:
         output_path: str,
         *,
         level_min: int = 0,
-        tiles: Optional[Mapping[str, int]] = None,
+        tiles: Mapping[str, int] = {},
         preserve_axes: bool = False,
         chunked: bool = False,
-        register_kwargs: Optional[Mapping[str, str]] = {},
+        register_kwargs: Mapping[str, Any] = {},
+        reader_kwargs: Mapping[str, Any] = {},
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -172,6 +173,7 @@ class ImageConverter:
         :param chunked: If true, convert one image tile at a time instead of the whole image.
         :param register_kwargs: Cloud group registration optional args e.g namespace, parent_uri,
             storage_uri, credentials_name
+        :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -179,7 +181,7 @@ class ImageConverter:
         if tiledb.object_type(output_path) != "group":
             tiledb.group_create(output_path)
 
-        with cls._ImageReaderType(input_path) as reader:
+        with cls._ImageReaderType(input_path, **reader_kwargs) as reader:
             input_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
@@ -207,7 +209,7 @@ class ImageConverter:
                     axes=level_axes,
                     shape=level_shape,
                     attr_dtype=level_dtype,
-                    max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
+                    max_tiles=ChainMap(dict(tiles), cls._DEFAULT_TILES),
                 )
                 tiledb.Array.create(uri, schema)
 

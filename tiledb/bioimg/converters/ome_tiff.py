@@ -1,4 +1,4 @@
-from typing import Any, Dict, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import jsonpickle as json
 import numpy as np
@@ -8,12 +8,14 @@ from .base import Axes, ImageConverter, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(self, input_path: str, extra_tags: Sequence[Union[str, int]] = ()):
         """
         OME-TIFF image reader
 
         :param input_path: The path to the TIFF image
+        :param extra_tags: Extra tags to read, specified either by name or by int code.
         """
+        self._extra_tags = extra_tags
         self._tiff = tifffile.TiffFile(input_path)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
@@ -59,7 +61,7 @@ class OMETiffReader(ImageReader):
         keyframe = self._series.levels[level].keyframe
         extratags = []
         get_tag = keyframe.tags.get
-        for key in self._EXTRA_TAGS:
+        for key in self._extra_tags:
             tag = get_tag(key)
             if tag is not None:
                 extratags.append(tag.astuple())
@@ -96,18 +98,6 @@ class OMETiffReader(ImageReader):
             ome=self._tiff.is_ome,
         )
         return {"json_tiffwriter_kwargs": json.dumps(writer_kwargs)}
-
-    _EXTRA_TAGS = (
-        # GeoTiff Tags
-        "IntergraphMatrixTag",
-        "ModelPixelScaleTag",
-        "ModelTransformationTag",
-        "ModelTiepointTag",
-        "RPCCoefficientTag",
-        "GeoKeyDirectoryTag",
-        "GeoDoubleParamsTag",
-        "GeoAsciiParamsTag",
-    )
 
 
 class OMETiffWriter(ImageWriter):
