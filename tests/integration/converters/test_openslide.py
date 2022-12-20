@@ -8,10 +8,14 @@ from tests import get_path, get_schema
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
+@pytest.fixture(autouse=True, scope="function")
+def mock_register(mocker):
+    with mocker.patch("tiledb.cloud.groups.register") as mock_getter:
+        yield mock_getter
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked", [False, True])
-def test_openslide_converter(tmp_path, preserve_axes, chunked):
+def test_openslide_converter(tmp_path, preserve_axes, chunked, mock_register):
     input_path = get_path("CMU-1-Small-Region.svs")
     output_path = str(tmp_path)
     to_tiledb_kwargs = dict(
