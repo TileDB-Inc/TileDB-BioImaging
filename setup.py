@@ -13,7 +13,7 @@ setuptools.setup(
         "local_scheme": "dirty-tag",
         "write_to": "tiledb/bioimg/version.py",
     },
-    install_requires=["pyeditdistance", "tiledb"],
+    install_requires=["pyeditdistance", "tiledb", "tqdm"],
     extras_require={
         "zarr": zarr,
         "openslide": openslide,

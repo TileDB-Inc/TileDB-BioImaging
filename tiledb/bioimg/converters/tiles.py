@@ -9,6 +9,14 @@ def iter_tiles(domain: tiledb.Domain) -> Iterator[Tuple[slice, ...]]:
     return it.product(*map(iter_slices, map(dim_range, domain)))
 
 
+def num_tiles(domain: tiledb.Domain) -> int:
+    """Compute the number of non-overlapping tiles that cover the given TileDB domain."""
+    n = 1
+    for dim in domain:
+        n *= len(dim_range(dim))
+    return n
+
+
 def dim_range(dim: tiledb.Dim) -> range:
     """Get the range of the given tiledb dimension with step equal to the dimension tile."""
     return range(int(dim.domain[0]), int(dim.domain[1]) + 1, dim.tile)

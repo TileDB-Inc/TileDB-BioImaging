@@ -10,8 +10,8 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
-@pytest.mark.parametrize("chunked", [False, True])
-def test_openslide_converter(tmp_path, preserve_axes, chunked):
+@pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
+def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
     input_path = get_path("CMU-1-Small-Region.svs")
     output_path = str(tmp_path)
     to_tiledb_kwargs = dict(
@@ -19,6 +19,7 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked):
         output_path=output_path,
         preserve_axes=preserve_axes,
         chunked=chunked,
+        max_workers=max_workers,
     )
 
     OpenSlideConverter.to_tiledb(**to_tiledb_kwargs)

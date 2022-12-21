@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from collections import ChainMap
+from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
+from tqdm import tqdm
 
 try:
     from tiledb.cloud import groups
@@ -17,7 +19,7 @@ except ImportError:
 import tiledb
 
 from .axes import Axes, AxesMapper
-from .tiles import iter_tiles
+from .tiles import iter_tiles, num_tiles
 
 
 class ImageReader(ABC):
@@ -157,6 +159,7 @@ class ImageConverter:
         tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
         chunked: bool = False,
+        max_workers: int = 0,
         register_kwargs: Optional[Mapping[str, str]] = {},
     ) -> None:
         """
@@ -170,8 +173,10 @@ class ImageConverter:
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
         :param chunked: If true, convert one image tile at a time instead of the whole image.
-        :param register_kwargs: Cloud group registration optional args e.g namespace, parent_uri,
-            storage_uri, credentials_name
+        :param max_workers: Maximum number of threads that can be used for conversion.
+            Applicable only if chunked=True.
+        :param register_kwargs: Cloud group registration optional args e.g namespace,
+            parent_uri, storage_uri, credentials_name
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -210,29 +215,41 @@ class ImageConverter:
                     max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
                 )
                 tiledb.Array.create(uri, schema)
+                uris.append(uri)
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
                     a.meta.update(metadata, level=level)
-                    if chunked:
+                    if chunked or max_workers:
                         inv_axes_mapper = AxesMapper(level_axes, input_axes)
-                        for level_tile in iter_tiles(a.domain):
+
+                        def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
                             input_tile = inv_axes_mapper.map_tile(level_tile)
                             image = reader.level_image(level, input_tile)
                             a[level_tile] = axes_mapper.map_array(image)
+
+                        ex = ThreadPoolExecutor(max_workers) if max_workers else None
+                        mapper = getattr(ex, "map", map)
+                        for _ in tqdm(
+                            mapper(tile_to_tiledb, iter_tiles(a.domain)),
+                            desc=f"Ingesting level {level} {level_shape}",
+                            total=num_tiles(a.domain),
+                            unit="tiles",
+                        ):
+                            pass
+                        if ex:
+                            ex.shutdown()
                     else:
-                        image = reader.level_image(level)
-                        a[:] = axes_mapper.map_array(image)
-                uris.append(uri)
+                        a[:] = axes_mapper.map_array(reader.level_image(level))
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
                 group.meta.update(reader.group_metadata, axes=input_axes.dims)
-                for level_uri in uris:
-                    if urlparse(level_uri).scheme == "tiledb":
-                        group.add(level_uri, relative=False)
+                for uri in uris:
+                    if urlparse(uri).scheme == "tiledb":
+                        group.add(uri, relative=False)
                     else:
-                        group.add(os.path.basename(level_uri), relative=True)
+                        group.add(os.path.basename(uri), relative=True)
 
         # Register group in cloud if package exists
         if output_path.startswith("tiledb://"):
