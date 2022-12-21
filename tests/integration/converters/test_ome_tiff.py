@@ -56,8 +56,8 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
 
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
-@pytest.mark.parametrize("chunked", [False, True])
-def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked):
+@pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
+def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked, max_workers):
     input_path = get_path("CMU-1-Small-Region.ome.tiff")
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
@@ -66,6 +66,7 @@ def test_tiledb_to_ome_tiff_rountrip(tmp_path, preserve_axes, chunked):
         output_path=str(tiledb_path),
         preserve_axes=preserve_axes,
         chunked=chunked,
+        max_workers=max_workers,
     )
 
     # Store it to Tiledb
