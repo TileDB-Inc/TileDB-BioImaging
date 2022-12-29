@@ -1,4 +1,7 @@
 from typing import Any, Dict, Optional, Tuple, cast
+# import os
+#
+# os.add_dll_directory("C:/openslide/bin")
 
 import numpy as np
 import openslide as osd
