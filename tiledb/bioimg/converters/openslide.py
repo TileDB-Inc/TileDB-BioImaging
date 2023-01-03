@@ -39,13 +39,20 @@ class OpenSlideReader(ImageReader):
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
     ) -> np.ndarray:
+        level_size = self._osd.level_dimensions[level]
         if tile is None:
             location = (0, 0)
-            size = self._osd.level_dimensions[level]
+            size = level_size
         else:
             # tile: (Y slice, X slice, C slice)
             y, x, _ = tile
-            location = (x.start, y.start)
+            full_size = self._osd.level_dimensions[0]
+            # XXX: This is not 100% accurate if the level downsample factors are not integer
+            # See https://github.com/openslide/openslide/issues/256
+            location = (
+                x.start * round(full_size[0] / level_size[0]),
+                y.start * round(full_size[1] / level_size[1]),
+            )
             size = (x.stop - x.start, y.stop - y.start)
         return np.asarray(self._osd.read_region(location, level, size).convert("RGB"))
 

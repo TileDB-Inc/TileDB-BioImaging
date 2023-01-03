@@ -172,7 +172,10 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
-        :param chunked: If true, convert one image tile at a time instead of the whole image.
+        :param chunked: If true, convert one tile at a time instead of the whole image.
+            **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
+            for levels>0, even though the converted images look visually identical to the
+            original ones.
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
         :param register_kwargs: Cloud group registration optional args e.g namespace,
