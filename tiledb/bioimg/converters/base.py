@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 import numpy as np
 from tqdm import tqdm
 
+from ..version import version_tuple as bioimg_version
+
 try:
     from tiledb.cloud import groups
 except ImportError:
@@ -246,7 +248,11 @@ class ImageConverter:
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
-                group.meta.update(reader.group_metadata, axes=input_axes.dims)
+                group.meta.update(
+                    reader.group_metadata,
+                    axes=input_axes.dims,
+                    version=".".join(map(str, bioimg_version[0:3])),
+                )
                 for uri in uris:
                     if urlparse(uri).scheme == "tiledb":
                         group.add(uri, relative=False)
