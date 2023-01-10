@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import numpy as np
 from tqdm import tqdm
 
-from ..version import version_tuple as bioimg_version
+from ..version import version
 
 try:
     from tiledb.cloud import groups
@@ -253,7 +253,7 @@ class ImageConverter:
                 group.meta.update(
                     reader.group_metadata,
                     axes=input_axes.dims,
-                    pckg_version=".".join(map(str, bioimg_version[0:3])),
+                    pkg_version=version,
                     fmt_version=FMT_VERSION,
                 )
                 for uri in uris:
