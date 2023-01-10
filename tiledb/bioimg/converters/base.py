@@ -23,6 +23,8 @@ import tiledb
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
 
+FMT_VERSION = 1
+
 
 class ImageReader(ABC):
     @abstractmethod
@@ -251,7 +253,8 @@ class ImageConverter:
                 group.meta.update(
                     reader.group_metadata,
                     axes=input_axes.dims,
-                    version=".".join(map(str, bioimg_version[0:3])),
+                    pckg_version=".".join(map(str, bioimg_version[0:3])),
+                    fmt_version=FMT_VERSION,
                 )
                 for uri in uris:
                     if urlparse(uri).scheme == "tiledb":
