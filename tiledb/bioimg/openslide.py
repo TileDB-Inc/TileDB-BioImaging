@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from operator import itemgetter
-from typing import Any, Iterator, Mapping, Sequence, Tuple
+from typing import Any, Iterator, Mapping, Sequence, Tuple, Union
 
 import numpy as np
+
+try:
+    import dask.array as da
+except ImportError:
+    pass
 
 import tiledb
 
@@ -82,6 +87,16 @@ class TileDBOpenSlide:
         """
         return self._read_image(level)
 
+    def read_level_dask(self, level: int) -> da.Array:
+        """
+        Return an image containing the contents of the specified level as Dask array.
+
+        :param level: the level number
+
+        :return: 3D (height, width, channel) Dask array
+        """
+        return self._read_image(level, to_dask=True)
+
     def read_region(
         self, location: Tuple[int, int], level: int, size: Tuple[int, int]
     ) -> np.ndarray:
@@ -114,9 +129,11 @@ class TileDBOpenSlide:
             yield a.shape[dims.index(a.dim("X"))], a.shape[dims.index(a.dim("Y"))]
 
     def _read_image(
-        self, level: int, dim_slice: Mapping[str, slice] = {}
-    ) -> np.ndarray:
+        self, level: int, dim_slice: Mapping[str, slice] = {}, to_dask: bool = False
+    ) -> Union[np.ndarray, da.Array]:
         array = self._level_arrays[level]
         dims = "".join(dim.name for dim in array.domain)
+        if to_dask:
+            array = da.from_tiledb(array)
         image = array[tuple(dim_slice.get(dim, slice(None)) for dim in dims)]
         return AxesMapper(Axes(dims), Axes("YXC")).map_array(image)
