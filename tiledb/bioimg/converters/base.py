@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 import numpy as np
 from tqdm import tqdm
 
+from ..version import version
+
 try:
     from tiledb.cloud import groups
 except ImportError:
@@ -20,6 +22,8 @@ import tiledb
 
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
+
+FMT_VERSION = 1
 
 
 class ImageReader(ABC):
@@ -249,7 +253,12 @@ class ImageConverter:
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
-                group.meta.update(reader.group_metadata, axes=input_axes.dims)
+                group.meta.update(
+                    reader.group_metadata,
+                    axes=input_axes.dims,
+                    pkg_version=version,
+                    fmt_version=FMT_VERSION,
+                )
                 for uri in uris:
                     if urlparse(uri).scheme == "tiledb":
                         group.add(uri, relative=False)
