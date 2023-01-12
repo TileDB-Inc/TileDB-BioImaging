@@ -38,6 +38,11 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
         img = PIL.Image.fromarray(region)
         assert img.size == (300, 400)
 
+        for level in range(t.level_count):
+            region_data = t.read_region((0, 0), level, t.level_dimensions[level])
+            level_data = t.read_level(level)
+            np.testing.assert_array_equal(region_data, level_data)
+
 
 def test_ome_tiff_converter_different_dtypes(tmp_path):
     path = get_path("rand_uint16.ome.tiff")

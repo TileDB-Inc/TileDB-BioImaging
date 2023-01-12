@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from operator import itemgetter
-from typing import Any, Iterator, Sequence, Tuple
+from typing import Any, Iterator, Mapping, Sequence, Tuple
 
 import numpy as np
 
@@ -72,6 +72,16 @@ class TileDBOpenSlide:
         l0_w, l0_h = level_dims[0]
         return tuple((l0_w / w + l0_h / h) / 2.0 for w, h in level_dims)
 
+    def read_level(self, level: int) -> np.ndarray:
+        """
+        Return an image containing the contents of the specified level as NumPy array.
+
+        :param level: the level number
+
+        :return: 3D (height, width, channel) Numpy array
+        """
+        return self._read_image(level)
+
     def read_region(
         self, location: Tuple[int, int], level: int, size: Tuple[int, int]
     ) -> np.ndarray:
@@ -86,11 +96,7 @@ class TileDBOpenSlide:
         """
         x, y = location
         w, h = size
-        dim_to_slice = {"X": slice(x, x + w), "Y": slice(y, y + h)}
-        array = self._level_arrays[level]
-        dims = "".join(dim.name for dim in array.domain)
-        image = array[tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)]
-        return AxesMapper(Axes(dims), Axes("YXC")).map_array(image)
+        return self._read_image(level, {"X": slice(x, x + w), "Y": slice(y, y + h)})
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.
@@ -106,3 +112,11 @@ class TileDBOpenSlide:
         for a in self._level_arrays:
             dims = list(a.domain)
             yield a.shape[dims.index(a.dim("X"))], a.shape[dims.index(a.dim("Y"))]
+
+    def _read_image(
+        self, level: int, dim_slice: Mapping[str, slice] = {}
+    ) -> np.ndarray:
+        array = self._level_arrays[level]
+        dims = "".join(dim.name for dim in array.domain)
+        image = array[tuple(dim_slice.get(dim, slice(None)) for dim in dims)]
+        return AxesMapper(Axes(dims), Axes("YXC")).map_array(image)

@@ -40,6 +40,11 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
             min(t.dimensions[1] - region_location[1], region_size[1]),
         )
 
+        for level in range(t.level_count):
+            region_data = t.read_region((0, 0), level, t.level_dimensions[level])
+            level_data = t.read_level(level)
+            np.testing.assert_array_equal(region_data, level_data)
+
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])

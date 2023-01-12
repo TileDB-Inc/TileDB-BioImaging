@@ -44,3 +44,8 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
         assert region.dtype == np.uint8
         img = PIL.Image.fromarray(region)
         assert img == o.read_region(**region_kwargs).convert("RGB")
+
+        for level in range(t.level_count):
+            region_data = t.read_region((0, 0), level, t.level_dimensions[level])
+            level_data = t.read_level(level)
+            np.testing.assert_array_equal(region_data, level_data)
