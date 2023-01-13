@@ -111,7 +111,8 @@ class ImageWriter(ABC):
 
 
 class ImageConverter:
-    _DEFAULT_TILES = {"T": 1, "C": 3, "Z": 1, "Y": 1024, "X": 1024}
+    # setting a tile to "infinite" effectively makes it equal to the dimension size
+    _DEFAULT_TILES = {"T": 1, "C": np.inf, "Z": 1, "Y": 1024, "X": 1024}
     _ImageReaderType: Optional[Type[ImageReader]] = None
     _ImageWriterType: Optional[Type[ImageWriter]] = None
 

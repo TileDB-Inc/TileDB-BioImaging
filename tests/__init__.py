@@ -13,10 +13,10 @@ if os.name == "posix":
 DATA_DIR = Path(__file__).parent / "data"
 
 
-def get_schema(x_size, y_size):
+def get_schema(x_size, y_size, c_size=3):
     return tiledb.ArraySchema(
         domain=tiledb.Domain(
-            tiledb.Dim("C", (0, 2), tile=3, dtype=np.uint32),
+            tiledb.Dim("C", (0, c_size - 1), tile=c_size, dtype=np.uint32),
             tiledb.Dim("Y", (0, y_size - 1), tile=min(y_size, 1024), dtype=np.uint32),
             tiledb.Dim("X", (0, x_size - 1), tile=min(x_size, 1024), dtype=np.uint32),
         ),
