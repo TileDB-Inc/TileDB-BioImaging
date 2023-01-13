@@ -199,7 +199,7 @@ class EndpointAction(object):
         self.additional_args = kwargs
 
     def __call__(self, **kwargs: Any) -> Response:
-        return self.action(**(kwargs | self.additional_args))
+        return self.action(**({**kwargs, **self.additional_args}))
 
 
 class TileServer(object):
