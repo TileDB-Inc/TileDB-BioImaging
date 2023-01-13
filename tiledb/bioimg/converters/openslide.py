@@ -32,9 +32,10 @@ class OpenSlideReader(ImageReader):
 
     def level_shape(self, level: int) -> Tuple[int, ...]:
         width, height = self._osd.level_dimensions[level]
-        # np.asarray() of a PIL image returns a (height, width, channel) array
+        # OpenSlide.read_region() returns a PIL image in RGBA mode
+        # passing it to np.asarray() returns a (height, width, 4) array
         # https://stackoverflow.com/questions/49084846/why-different-size-when-converting-pil-image-to-numpy-array
-        return height, width, 3
+        return height, width, 4
 
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
@@ -54,7 +55,7 @@ class OpenSlideReader(ImageReader):
                 y.start * round(full_size[1] / level_size[1]),
             )
             size = (x.stop - x.start, y.stop - y.start)
-        return np.asarray(self._osd.read_region(location, level, size).convert("RGB"))
+        return np.asarray(self._osd.read_region(location, level, size))
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         return {}
