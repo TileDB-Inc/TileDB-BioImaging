@@ -254,6 +254,8 @@ class ImageConverter:
                 )
                 tiledb.Array.create(uri, schema)
                 # write image and metadata to TileDB array
+                if image.shape != schema.shape:
+                    image = image.reshape(schema.shape)
                 with tiledb.open(uri, "w") as a:
                     a[:] = image
                     a.meta.update(metadata, level=level)
