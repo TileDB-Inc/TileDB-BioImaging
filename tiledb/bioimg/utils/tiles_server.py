@@ -1,6 +1,6 @@
 import io
+import platform
 
-# import os
 # import glob
 from dataclasses import dataclass
 
@@ -8,11 +8,13 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Tuple
 
 import cv2
+import flask
 import numpy as np
-from flask import Flask, Response, jsonify, make_response  # , send_file
+from flask import Flask, Response, jsonify, make_response
 from flask_cors import CORS
 from multiprocess import Pool
 from PIL import Image
+from werkzeug.serving import run_simple
 
 import tiledb
 
@@ -59,8 +61,7 @@ class TileHelpers:
         sy1 = int(sy0 + ty)
         sy1 = np.min((sy1, maxy)).astype(int)
         if (sx0 < 0 or sy0 < 0) or (sx0 > maxx or sy0 > maxy):
-            raise ValueError("Out of bounds")
-            # flask.abort(404)
+            flask.abort(404)
 
         dim_to_slice = {"X": slice(sx0, sx1), "Y": slice(sy0, sy1)}
         ranges = tuple(dim_to_slice.get(dim, slice(None)) for dim in dims)
@@ -97,29 +98,34 @@ class TileHelpers:
         current_dim = dimensions[0]
         dimensions.pop(0)
         uris.pop(0)
-        currentZoom = 2
-        currentLevel = 1
+        current_zoom = 2
+        current_level = 1
         level = 0
         while len(dimensions) > 0:
             level += 1
             metadata.append(
                 ZoomLevelRecord(
                     zoom_level=level,
-                    image_level=currentLevel,
+                    image_level=current_level,
                     downsample=1,
                     width=dimensions[0][0],
                     height=dimensions[0][1],
                     array_uri=uris[0],
                 )
             )
-            if abs(currentZoom * current_dim[0] - dimensions[0][0]) < currentZoom:
-                currentZoom = 2
-                currentLevel += 1
+
+            if abs(current_zoom * current_dim[0] - dimensions[0][0]) < current_zoom:
+                current_zoom = 2
+                current_level += 1
                 current_dim = dimensions[0]
                 dimensions.pop(0)
                 uris.pop(0)
             else:
-                currentZoom *= 2
+                if current_zoom * current_dim[0] > dimensions[0][0]:
+                    print("Pyramid level dimension are not multiples of 2")
+                    break
+
+                current_zoom *= 2
 
         for i in range(len(metadata) - 2, -1, -1):
             if metadata[i].image_level == metadata[i + 1].image_level:
@@ -138,14 +144,6 @@ class API:
         }
 
         return jsonify(info)
-
-    # @staticmethod
-    # def Layer(layer_name: str) -> Response:
-    #     for file in glob.glob(os.path.join(os.path.dirname(__file__), 'layers/*.js')):
-    #         if Path(file).stem == layer_name:
-    #             return send_file(file)
-    #
-    #     return Response(status=404)
 
     @staticmethod
     def tile(
@@ -172,7 +170,6 @@ class API:
             Axes("".join(dim.name for dim in a.domain)), Axes("YXC")
         )
         data = axes_mapper.map_array(a[ranges])
-        print(ranges, a.shape, data.shape)
         if metadata[z].downsample != 1:
             data = cv2.resize(
                 data,
@@ -188,10 +185,10 @@ class API:
             im = im2
 
         bdata = io.BytesIO()
-        im.save(bdata, "PNG", quality=100, subsampling=0)
+        im.save(bdata, "JPEG", quality=70, subsampling=0)
         response = make_response(bdata.getvalue())
-        response.headers["Content-Type"] = "image/png"
-        response.headers["Content-Disposition"] = "filename=%d.png" % tile_width
+        response.headers["Content-Type"] = "image/jpeg"
+        response.headers["Content-Disposition"] = "filename=%d.jpeg" % tile_width
 
         return response
 
@@ -221,22 +218,48 @@ class TileServer(object):
     def __del__(self) -> None:
         self._pool.terminate()
 
-    def run(self, host: str = "0.0.0.0", port: int = 8000) -> None:
-        self._pool.apply_async(self._app.run, kwds={"host": host, "port": port})
+    def run(
+        self, host: str = "0.0.0.0", port: int = 8000, multiprocess: bool = False
+    ) -> None:
+        print(platform.system())
+        if platform.system() == "Windows":
+            self._pool.apply_async(self._app.run, kwds={"host": host, "port": port})
+        else:
+            if multiprocess:
+                self._pool.apply_async(
+                    run_simple,
+                    kwds={
+                        "hostname": host,
+                        "port": port,
+                        "application": self._app,
+                        "threaded": False,
+                        "processes": 8,
+                    },
+                )
+            else:
+                self._pool.apply_async(
+                    run_simple,
+                    kwds={
+                        "hostname": host,
+                        "port": port,
+                        "application": self._app,
+                        "threaded": True,
+                        "processes": 1,
+                    },
+                )
 
     def terminate(self) -> None:
         self._pool.terminate()
 
     def initialize(self) -> None:
         self.add_endpoint(
-            endpoint="/api/<int:z>/<int:y>/<int:x>/<int:tile_width>/<int:tile_height>.png",
+            endpoint="/api/<int:z>/<int:y>/<int:x>/<int:tile_width>/<int:tile_height>.jpeg",
             endpoint_name="tile",
             handler=API.tile,
             metadata=self._metadata,
             arrays=self._arrays,
         )
 
-        # self.add_endpoint("/api/layer/<layer_name>.js", endpoint_name="layer", handler=API.layer)
         self.add_endpoint(
             "/api/info", endpoint_name="info", handler=API.info, metadata=self._metadata
         )
