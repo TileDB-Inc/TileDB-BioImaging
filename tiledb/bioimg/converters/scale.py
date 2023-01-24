@@ -1,12 +1,9 @@
-import math
 import multiprocessing
 from enum import Enum
 from functools import partial
 from multiprocessing import Pool
 from typing import List, Tuple
 
-import numpy as np
-import psutil
 from skimage.transform import resize
 
 import tiledb
@@ -153,21 +150,7 @@ class Scaler(object):
                 f"Unknown zoom level. Expected 0 to {len(self._resolutions) - 1}, got {level}"
             )
 
-        available_mem = psutil.virtual_memory()[1] / 2**20
-        memory_per_process = (
-            np.prod([dim.tile for dim in base.domain])
-            * ((1 if method.value < 2 else 2) * self._scale_factor[level] * 2 + 1)
-            + 120 * 2**20
-        ) / 2**20
-
-        max_num_of_processes = int(
-            min(
-                math.floor(available_mem / memory_per_process),
-                multiprocessing.cpu_count(),
-            )
-        )
-
-        with Pool(max_num_of_processes) as pool:
+        with Pool(multiprocessing.cpu_count()) as pool:
             pool.map(
                 partial(
                     self._scale,
@@ -196,26 +179,7 @@ class Scaler(object):
                 f"Unknown zoom level. Expected 0 to {len(self._resolutions) - 1}, got {level}"
             )
 
-        available_mem = psutil.virtual_memory()[1] / 2**20
-        memory_per_process = (
-            np.prod([dim.tile for dim in base.domain])
-            * (
-                (1 if method.value < 2 else 2)
-                * self._scale_factor_progressive[level]
-                * 2
-                + 1
-            )
-            + 120 * 2**20
-        ) / 2**20
-
-        max_num_of_processes = int(
-            min(
-                math.floor(available_mem / memory_per_process),
-                multiprocessing.cpu_count(),
-            )
-        )
-
-        with Pool(max_num_of_processes) as pool:
+        with Pool(multiprocessing.cpu_count()) as pool:
             pool.map(
                 partial(
                     self._scale_progressive,
