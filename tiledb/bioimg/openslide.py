@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from operator import itemgetter
 from typing import Any, Iterator, Mapping, Sequence, Tuple, Union
 
 import numpy as np
@@ -18,22 +17,17 @@ from .converters.axes import Axes, AxesMapper
 class TileDBOpenSlide:
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
-        """
-        :param uri: uri of a tiledb.Group containing the image
-        :return: A TileDBOpenSlide object
-        """
-        with tiledb.Group(uri) as G:
-            level_info = []
-            for o in G:
-                array = tiledb.open(o.uri)
-                level = array.meta.get("level", 0)
-                level_info.append((level, array))
-            # sort by level
-            level_info.sort(key=itemgetter(0))
-        return cls(tuple(map(itemgetter(1), level_info)))
+        return cls(uri)
 
-    def __init__(self, level_arrays: Sequence[tiledb.Array]):
-        self._level_arrays = level_arrays
+    def __init__(self, uri: str):
+        """Open this TileDBOpenSlide.
+
+        :param uri: uri of a tiledb.Group containing the image
+        """
+        self._group = tiledb.Group(uri)
+        self._level_arrays = [tiledb.open(o.uri) for o in self._group]
+        # sort by level
+        self._level_arrays.sort(key=lambda a: int(a.meta["level"]))
 
     def __enter__(self) -> TileDBOpenSlide:
         return self
@@ -41,16 +35,22 @@ class TileDBOpenSlide:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         for array in self._level_arrays:
             array.close()
+        self._group.close()
 
     @property
     def level_count(self) -> int:
-        """
-        Levels are numbered from 0 (highest resolution)
-        to level_count - 1 (lowest resolution).
-
-        :return: The number of levels in the slide
-        """
+        """Number of levels in the slide"""
         return len(self._level_arrays)
+
+    @property
+    def levels(self) -> Sequence[int]:
+        """Sequence of level numbers in the slide.
+
+        Levels are numbered from `level_min` (highest resolution) to `level_count - 1`
+        (lowest resolution), where `level_min` is the value of the respective
+        `ImageConverter.to_tiledb` parameter (default=0) when creating the slide.
+        """
+        return tuple(a.meta["level"] for a in self._level_arrays)
 
     @property
     def dimensions(self) -> Tuple[int, int]:
@@ -77,25 +77,39 @@ class TileDBOpenSlide:
         l0_w, l0_h = level_dims[0]
         return tuple((l0_w / w + l0_h / h) / 2.0 for w, h in level_dims)
 
-    def read_level(self, level: int) -> np.ndarray:
+    @property
+    def properties(self) -> Mapping[str, Any]:
+        """Metadata about the slide"""
+        return dict(self._group.meta)
+
+    def level_properties(self, level: int) -> Mapping[str, Any]:
+        """Metadata about the given slide level"""
+        return dict(self._level_arrays[level].meta)
+
+    @property
+    def original_axes(self) -> Axes:
+        """The axes of the original image slide this slide was converted from."""
+        return Axes(self._group.meta["axes"])
+
+    def read_level(self, level: int, to_original_axes: bool = False) -> np.ndarray:
         """
         Return an image containing the contents of the specified level as NumPy array.
 
         :param level: the level number
-
-        :return: 3D (height, width, channel) Numpy array
+        :param to_original_axes: If True return the image in the original axes,
+            otherwise return it in YXC (height, width, channel) axes.
         """
-        return self._read_image(level)
+        return self._read_image(level, to_original_axes=to_original_axes)
 
-    def read_level_dask(self, level: int) -> da.Array:
+    def read_level_dask(self, level: int, to_original_axes: bool = False) -> da.Array:
         """
         Return an image containing the contents of the specified level as Dask array.
 
         :param level: the level number
-
-        :return: 3D (height, width, channel) Dask array
+        :param to_original_axes: If True return the image in the original axes,
+            otherwise return it in YXC (height, width, channel) axes.
         """
-        return self._read_image(level, to_dask=True)
+        return self._read_image(level, to_original_axes=to_original_axes, to_dask=True)
 
     def read_region(
         self, location: Tuple[int, int], level: int, size: Tuple[int, int]
@@ -126,14 +140,21 @@ class TileDBOpenSlide:
     def _iter_level_dimensions(self) -> Iterator[Tuple[int, int]]:
         for a in self._level_arrays:
             dims = list(a.domain)
-            yield a.shape[dims.index(a.dim("X"))], a.shape[dims.index(a.dim("Y"))]
+            width = a.shape[dims.index(a.dim("X"))]
+            height = a.shape[dims.index(a.dim("Y"))]
+            yield width, height
 
     def _read_image(
-        self, level: int, dim_slice: Mapping[str, slice] = {}, to_dask: bool = False
+        self,
+        level: int,
+        dim_slice: Mapping[str, slice] = {},
+        to_original_axes: bool = False,
+        to_dask: bool = False,
     ) -> Union[np.ndarray, da.Array]:
-        array = self._level_arrays[level]
-        dims = "".join(dim.name for dim in array.domain)
-        if to_dask:
-            array = da.from_tiledb(array)
-        image = array[tuple(dim_slice.get(dim, slice(None)) for dim in dims)]
-        return AxesMapper(Axes(dims), Axes("YXC")).map_array(image)
+        tdb = self._level_arrays[level]
+        array = da.from_tiledb(tdb) if to_dask else tdb
+        dims = tuple(dim.name for dim in tdb.domain)
+        selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
+        source_axes = Axes(dims)
+        target_axes = self.original_axes if to_original_axes else Axes("YXC")
+        return AxesMapper(source_axes, target_axes).map_array(array[selector])
