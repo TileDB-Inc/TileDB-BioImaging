@@ -1,3 +1,6 @@
+# import os
+#
+# os.add_dll_directory("C:/openslide/bin")
 import json
 
 import numpy as np
