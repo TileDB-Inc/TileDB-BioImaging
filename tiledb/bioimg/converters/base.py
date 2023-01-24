@@ -130,7 +130,7 @@ class ImageConverter:
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        slide = TileDBOpenSlide.from_group_uri(input_path)
+        slide = TileDBOpenSlide(input_path)
         writer = cls._ImageWriterType(output_path)
         with slide, writer:
             writer.write_group_metadata(slide.properties)

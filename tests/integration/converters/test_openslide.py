@@ -34,7 +34,7 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
     o = openslide.open_slide(input_path)
     tiledb_group = tiledb.Group(str(output_path), mode="r")
 
-    with TileDBOpenSlide.from_group_uri(output_path) as t:
+    with TileDBOpenSlide(output_path) as t:
 
         # Test group metadata
         levels_group_meta = json.loads(tiledb_group.meta["levels"])

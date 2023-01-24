@@ -23,7 +23,7 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
     else:
         OMETiffConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes)
 
-    with TileDBOpenSlide.from_group_uri(output_path) as t:
+    with TileDBOpenSlide(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 2
 
         schemas = (get_schema(2220, 2967), get_schema(574, 768))
@@ -95,7 +95,7 @@ def test_tiledb_to_ome_tiff_group_metadata(
     tiledb_group = tiledb.Group(str(tiledb_path), mode="r")
     levels_group_meta = json.loads(tiledb_group.meta["levels"])
 
-    with TileDBOpenSlide.from_group_uri(str(tiledb_path)) as t:
+    with TileDBOpenSlide(str(tiledb_path)) as t:
         assert t.level_count == len(levels_group_meta)
         assert t.level_downsamples == tuple(
             [level["downsample_factor"] for level in levels_group_meta]
@@ -165,7 +165,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
 
     OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
 
-    with TileDBOpenSlide.from_group_uri(str(tiledb_path)) as t:
+    with TileDBOpenSlide(str(tiledb_path)) as t:
         assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
 
     with tiledb.open(str(tiledb_path / "l_0.tdb")) as A:

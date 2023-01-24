@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any, Iterator, Mapping, Sequence, Tuple, Union
 
 import numpy as np
@@ -17,6 +18,11 @@ from .converters.axes import Axes, AxesMapper
 class TileDBOpenSlide:
     @classmethod
     def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
+        warnings.warn(
+            "This method is deprecated, please use TileDBOpenSlide() instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return cls(uri)
 
     def __init__(self, uri: str):
