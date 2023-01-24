@@ -13,7 +13,6 @@ import numpy as np
 from tqdm import tqdm
 
 from ..version import version
-
 from .scale import ScaleMethod, Scaler, ScalerMode
 
 try:
