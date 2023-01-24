@@ -5,6 +5,7 @@ from functools import partial
 from multiprocessing import Pool
 from typing import List, Tuple
 
+import numpy as np
 import psutil
 from skimage.transform import resize
 
@@ -154,7 +155,7 @@ class Scaler(object):
 
         available_mem = psutil.virtual_memory()[1] / 2**20
         memory_per_process = (
-            math.prod([dim.tile for dim in base.domain])
+            np.prod([dim.tile for dim in base.domain])
             * ((1 if method.value < 2 else 2) * self._scale_factor[level] * 2 + 1)
             + 120 * 2**20
         ) / 2**20
@@ -197,7 +198,7 @@ class Scaler(object):
 
         available_mem = psutil.virtual_memory()[1] / 2**20
         memory_per_process = (
-            math.prod([dim.tile for dim in base.domain])
+            np.prod([dim.tile for dim in base.domain])
             * (
                 (1 if method.value < 2 else 2)
                 * self._scale_factor_progressive[level]
