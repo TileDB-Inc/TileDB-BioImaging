@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
 from collections import ChainMap
@@ -12,6 +13,7 @@ import numpy as np
 from tqdm import tqdm
 
 from ..version import version
+from . import DATASET_TYPE, FMT_VERSION
 
 try:
     from tiledb.cloud import groups
@@ -22,8 +24,6 @@ import tiledb
 
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
-
-FMT_VERSION = 1
 
 
 class ImageReader(ABC):
@@ -198,6 +198,8 @@ class ImageConverter:
             input_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
+            meta_kvstore = {}
+
             for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
                 if tiledb.object_type(uri) == "array":
@@ -217,6 +219,9 @@ class ImageConverter:
                 axes_mapper = AxesMapper(input_axes, level_axes)
                 level_shape = axes_mapper.map_shape(level_shape)
 
+                if level == level_min:
+                    base_shape_array = np.array(level_shape)
+
                 # create TileDB array
                 schema = _get_schema(
                     axes=level_axes,
@@ -226,6 +231,15 @@ class ImageConverter:
                 )
                 tiledb.Array.create(uri, schema)
                 uris.append(uri)
+
+                # Calculate downsample factors
+                level_shape_array = np.array(level_shape)
+                down_factor = base_shape_array / level_shape_array
+
+                # Store layer mapping with shape value
+                meta_kvstore.update(
+                    {uri: json.dumps([level, level_shape, tuple(down_factor)])}
+                )
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
@@ -255,10 +269,11 @@ class ImageConverter:
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
                 group.meta.update(
-                    reader.group_metadata,
+                    {**reader.group_metadata, **meta_kvstore},
                     axes=input_axes.dims,
                     pkg_version=version,
                     fmt_version=FMT_VERSION,
+                    dataset_type=DATASET_TYPE,
                 )
                 for uri in uris:
                     if urlparse(uri).scheme == "tiledb":
