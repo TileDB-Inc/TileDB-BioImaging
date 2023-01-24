@@ -176,6 +176,13 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
+        :param chunked: If true, convert one image tile at a time instead of the whole image.
+        :param generate_pyramid: If true, generate downsampled levels keeping only level 0 of the original image.
+        :param pyramid_mode: The scaling approach used. Options other than the default may require more system memory.
+        :param pyramid_scale: The downsample ratios of the generated levels.
+        :param interpolation_method: The intrepolation method for downsampling the base image.
+        :param register_kwargs: Cloud group registration optional args e.g namespace, parent_uri,
+            storage_uri, credentials_name
         :param chunked: If true, convert one tile at a time instead of the whole image.
             **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
             for levels>0, even though the converted images look visually identical to the

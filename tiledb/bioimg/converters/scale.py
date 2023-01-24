@@ -1,20 +1,15 @@
 import multiprocessing
-import os
 from enum import Enum
 from functools import partial
 from typing import List, Tuple
 import psutil
 import math
 
-import numpy as np
 import tiledb
 from .axes import Axes
 from skimage.transform import resize
 
 from multiprocessing import Pool
-
-import cv2
-import numpy
 
 from .tiles import iter_tiles
 
@@ -48,21 +43,14 @@ class Scaler(object):
         self._tiles = []
         self._x_index = axes.dims.find("X")
         self._y_index = axes.dims.find("Y")
-        self._c_index = axes.dims.find("C")
 
         for level in range(len(scale_factor)):
             ratio = scale_factor[level]
 
             shape = list(self._initial_shape)
-            zoom_factor = np.ones(len(shape), float)
-            zoom_factor_progressive = np.ones(len(shape), float)
 
             shape[self._x_index] = int(round(self._initial_shape[self._x_index] / float(ratio)))
             shape[self._y_index] = int(round(self._initial_shape[self._y_index] / float(ratio)))
-
-            zoom_factor[self._x_index] = zoom_factor[self._y_index] = 1.0 / ratio
-            zoom_factor_progressive[self._x_index] = zoom_factor_progressive[self._y_index] = scale_factor[
-                                                                                                  level - 1] / float(ratio) if level > 0 else 1.0 / ratio
 
             tiles = []
 
@@ -80,8 +68,6 @@ class Scaler(object):
                 tiles.append(tuple(tile))
 
             self._resolutions.append(tuple(shape))
-            self._zoom_levels.append(tuple(zoom_factor))
-            self._zoom_levels_progressive.append(tuple(zoom_factor_progressive))
             self._tiles.append(tiles)
 
     @property
@@ -99,7 +85,7 @@ class Scaler(object):
         if level >= len(self._zoom_levels):
             raise ValueError(f"Unknown zoom level. Expected 0 to {len(self._zoom_levels) - 1}, got {level}")
 
-        out_data[:] = resize(input_data[:], self._resolutions[level], preserve_range=True, order=method.value, anti_aliasing=False)
+        out_data[:] = resize(input_data[:], self._resolutions[level], preserve_range=True, order=method.value, anti_aliasing=True)
 
     def apply_progressive(self, input_data: tiledb.array.DenseArray, out_data: tiledb.array.DenseArray, method: ScaleMethod) -> None:
 
@@ -108,7 +94,7 @@ class Scaler(object):
         if level >= len(self._zoom_levels):
             raise ValueError(f"Unknown zoom level. Expected 0 to {len(self._zoom_levels) - 1}, got {level}")
 
-        out_data[:] = resize(input_data[:], self._resolutions[level], preserve_range=True, order=method.value, anti_aliasing=False)
+        out_data[:] = resize(input_data[:], self._resolutions[level], preserve_range=True, order=method.value, anti_aliasing=True)
 
     def apply_chunked(self, base: tiledb.array.DenseArray, out_data: tiledb.array.DenseArray, level: int,
                       method: ScaleMethod) -> None:
@@ -159,7 +145,7 @@ class Scaler(object):
                                            int(min(tile[self._y_index].stop * self._scale_factor[level],
                                                base.shape[self._y_index])))
 
-        out_data[tile] = resize(base[tuple(scaled_tile)], tuple(slice_shape), preserve_range=True, order=scale_method, anti_aliasing=False)
+        out_data[tile] = resize(base[tuple(scaled_tile)], tuple(slice_shape), preserve_range=True, order=scale_method, anti_aliasing=True)
 
     def _scale_progressive(self, tile: Tuple[slice], base: tiledb.array.DenseArray, out_data: tiledb.array.DenseArray,
                            level: int, scale_method: int) -> None:
@@ -175,4 +161,4 @@ class Scaler(object):
                                            int(min(tile[self._y_index].stop * self._scale_factor_progressive[level],
                                                base.shape[self._y_index])))
 
-        out_data[tile] = resize(base[tuple(scaled_tile)], tuple(slice_shape), preserve_range=True, order=scale_method, anti_aliasing=False)
+        out_data[tile] = resize(base[tuple(scaled_tile)], tuple(slice_shape), preserve_range=True, order=scale_method, anti_aliasing=True)
