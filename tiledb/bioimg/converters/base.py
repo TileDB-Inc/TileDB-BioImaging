@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from ..version import version
 
-from .scale import Scaler, ScaleMethod
+from .scale import Scaler, ScaleMethod, ScalerMode
 
 try:
     from tiledb.cloud import groups
@@ -161,7 +161,9 @@ class ImageConverter:
         reader_kwargs: Mapping[str, Any] = {},
         compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
         generate_pyramid: bool = False,
-        pyramid_scale: float | List[float] = 1.0,
+        pyramid_mode: ScalerMode = ScalerMode.CHUNKED_PROGRESSIVE,
+        pyramid_scale: List[int] = None,
+        interpolation_method: ScaleMethod = ScaleMethod.NEAREST,
         register_kwargs: Optional[Mapping[str, str]] = {},
     ) -> None:
         """
@@ -200,6 +202,12 @@ class ImageConverter:
             source_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
+            level_max = reader.level_count if not generate_pyramid else level_min + 1
+            if reader.level_count > 1 and generate_pyramid:
+                print("Warning: The image contains multiple levels but pyramid generation is enabled. All levels "
+                      "except level zero will be skipped")
+
+            for level in range(level_min, level_max):
             levels_meta = []
             for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
@@ -269,57 +277,44 @@ class ImageConverter:
                     else:
                         image = reader.level_image(level)
                         a[:] = axes_mapper.map_array(image)
+                        a[:] = axes_mapper.map_array(reader.level_image(level))
+                        image = reader.level_image(level)
+                        a[:] = axes_mapper.map_array(image)
 
-                with tiledb.open(uri, "r") as r:
-                    scaler = Scaler(r, Axes("".join(dim.name for dim in r.domain)), scale_factor=[2, 8, 16])
+                    if generate_pyramid:
+                        scaler = Scaler(a, Axes("".join(dim.name for dim in a.domain)), scale_factor=pyramid_scale)
+                uris.append(uri)
 
-                lev = level
+            if generate_pyramid:
+                level = level_min + 1
+
                 for dimension in scaler.resolutions:
-                    lev += 1
-                    uri_out = os.path.join(output_path, f"l_{lev}.tdb")
+                    uri = os.path.join(output_path, f"l_{level}.tdb")
                     schema = _get_schema(
                         axes=level_axes,
                         shape=dimension,
                         attr_dtype=level_dtype,
                         max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
                     )
-                    tiledb.Array.create(uri_out, schema)
-
-                    with tiledb.open(uri, "r") as r:
-                        with tiledb.open(uri_out, "w") as a:
-                            a.meta.update(metadata, level=level)
-                            t1_start = perf_counter()
-                            scaler.apply_chunked_progressive(r, a, ScaleMethod.NEAREST)
-                            t1_stop = perf_counter()
-                            print(f"Level {lev} Done in {t1_stop-t1_start} seconds")
-                    uris.append(uri_out)
-                    uri = uri_out
-
-                # with tiledb.open(uri, "r") as r:
-                #     scaler = Scaler(r, Axes("".join(dim.name for dim in r.domain)), scale_factor=[2, 4, 8, 16])
-                #     lev = level
-                #     for dimension in scaler.resolutions:
-                #         lev += 1
-                #         uri = os.path.join(output_path, f"l_{lev}.tdb")
-                #         schema = _get_schema(
-                #             axes=level_axes,
-                #             shape=dimension,
-                #             attr_dtype=level_dtype,
-                #             max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
-                #         )
-                #         tiledb.Array.create(uri, schema)
-                #
-                #         with tiledb.open(uri, "w") as a:
-                #             a.meta.update(metadata, level=level)
-                #             t1_start = perf_counter()
-                #             scaler.apply_chunked(r, a, lev - 1, ScaleMethod.NEAREST)
-                #             t1_stop = perf_counter()
-                #             print(f"Level {lev} Done in {t1_stop-t1_start} seconds")
-                #         uris.append(uri)
-
-                break
-
-
+                    tiledb.Array.create(uri, schema)
+                    if pyramid_mode == ScalerMode.NON_PROGRESSIVE or pyramid_mode == ScalerMode.CHUNKED_NON_PROGRESSIVE:
+                        with tiledb.open(uris[0], "r") as r:
+                            with tiledb.open(uri, "w") as a:
+                                a.meta.update(metadata, level=level)
+                                if pyramid_mode == ScalerMode.NON_PROGRESSIVE:
+                                    scaler.apply(r, a, level - level_min - 1, interpolation_method)
+                                else:
+                                    scaler.apply_chunked(r, a, level - level_min - 1, interpolation_method)
+                    else:
+                        with tiledb.open(uris[-1], "r") as r:
+                            with tiledb.open(uri, "w") as a:
+                                a.meta.update(metadata, level=level)
+                                if pyramid_mode == ScalerMode.PROGRESSIVE:
+                                    scaler.apply_progressive(r, a, interpolation_method)
+                                else:
+                                    scaler.apply_chunked_progressive(r, a, interpolation_method)
+                    uris.append(uri)
+                    level += 1
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
