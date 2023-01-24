@@ -164,7 +164,6 @@ class ImageConverter:
         pyramid_mode: ScalerMode = ScalerMode.CHUNKED_PROGRESSIVE,
         pyramid_scale: List[int] = [],
         interpolation_method: ScaleMethod = ScaleMethod.NEAREST,
-        register_kwargs: Optional[Mapping[str, str]] = {},
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -177,12 +176,6 @@ class ImageConverter:
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
         :param chunked: If true, convert one image tile at a time instead of the whole image.
-        :param generate_pyramid: If true, generate downsampled levels keeping only level 0 of the original image.
-        :param pyramid_mode: The scaling approach used. Options other than the default may require more system memory.
-        :param pyramid_scale: The downsample ratios of the generated levels.
-        :param interpolation_method: The intrepolation method for downsampling the base image.
-        :param register_kwargs: Cloud group registration optional args e.g namespace, parent_uri,
-            storage_uri, credentials_name
         :param chunked: If true, convert one tile at a time instead of the whole image.
             **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
             for levels>0, even though the converted images look visually identical to the
@@ -192,6 +185,11 @@ class ImageConverter:
         :param register_kwargs: Cloud group registration optional args e.g namespace,
             parent_uri, storage_uri, credentials_name
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
+        :param generate_pyramid: If true, generate downsampled levels keeping only level 0 of the original image.
+        :param pyramid_mode: The scaling approach used. Options other than the default may require more system memory.
+        :param pyramid_scale: The downsample ratios of the generated levels.
+        :param interpolation_method: The intrepolation method for downsampling the base image.
+
         :param compressor: TileDB compression filter
         """
         if cls._ImageReaderType is None:
@@ -287,8 +285,6 @@ class ImageConverter:
                         image = reader.level_image(level)
                         a[:] = axes_mapper.map_array(image)
                         a[:] = axes_mapper.map_array(reader.level_image(level))
-                        image = reader.level_image(level)
-                        a[:] = axes_mapper.map_array(image)
 
                     if generate_pyramid:
                         scaler = Scaler(
