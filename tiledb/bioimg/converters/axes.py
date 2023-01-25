@@ -102,7 +102,14 @@ class Axes:
 
 class AxesMapper:
     def __init__(self, source: Axes, target: Axes):
+        self._source = source
+        self._target = target
         self._transforms = tuple(_iter_transforms(source.dims, target.dims))
+
+    @property
+    def inverted(self) -> AxesMapper:
+        """Return the inverted axes mapper, i.e. one that maps target to source"""
+        return AxesMapper(self._target, self._source)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         """Transform a Numpy array from the source axes `s` to the target axes `t`.

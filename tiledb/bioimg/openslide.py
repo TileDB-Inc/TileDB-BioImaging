@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Iterator, Mapping, Sequence, Tuple, Union
+from typing import Any, Iterator, Mapping, MutableMapping, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -92,11 +92,6 @@ class TileDBOpenSlide:
         """Metadata about the given slide level"""
         return dict(self._level_arrays[level].meta)
 
-    @property
-    def original_axes(self) -> Axes:
-        """The axes of the original image slide this slide was converted from."""
-        return Axes(self._group.meta["axes"])
-
     def read_level(self, level: int, to_original_axes: bool = False) -> np.ndarray:
         """
         Return an image containing the contents of the specified level as NumPy array.
@@ -148,19 +143,36 @@ class TileDBOpenSlide:
             dims = list(a.domain)
             width = a.shape[dims.index(a.dim("X"))]
             height = a.shape[dims.index(a.dim("Y"))]
-            yield width, height
+            yield width // get_pixel_depth(a), height
 
     def _read_image(
         self,
         level: int,
-        dim_slice: Mapping[str, slice] = {},
+        dim_slice: MutableMapping[str, slice] = {},
         to_original_axes: bool = False,
         to_dask: bool = False,
     ) -> Union[np.ndarray, da.Array]:
         tdb = self._level_arrays[level]
-        array = da.from_tiledb(tdb) if to_dask else tdb
         dims = tuple(dim.name for dim in tdb.domain)
+
+        pixel_depth = get_pixel_depth(tdb)
+        target_axes = Axes(self._group.meta["axes"] if to_original_axes else "YXC")
+        if pixel_depth == 1:
+            axes_mapper = AxesMapper(Axes(dims), target_axes)
+        else:
+            x = dim_slice.get("X")
+            if x is not None:
+                dim_slice["X"] = slice(x.start * pixel_depth, x.stop * pixel_depth)
+            raise NotImplementedError
+
+        array = da.from_tiledb(tdb) if to_dask else tdb
         selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
-        source_axes = Axes(dims)
-        target_axes = self.original_axes if to_original_axes else Axes("YXC")
-        return AxesMapper(source_axes, target_axes).map_array(array[selector])
+        return axes_mapper.map_array(array[selector])
+
+
+def get_pixel_depth(obj: Union[tiledb.Array, tiledb.Filter]) -> int:
+    """Return the pixel depth for the given TileDB array or compression filter."""
+    compressor = obj.attr(0).filters[0] if isinstance(obj, tiledb.Array) else obj
+    if isinstance(compressor, tiledb.Filter):
+        return 1
+    raise TypeError(obj)
