@@ -14,6 +14,7 @@ except ImportError:
 import tiledb
 
 from .converters.axes import Axes, AxesMapper
+from .converters.webp import FromWebPAxesMapper
 
 
 class TileDBOpenSlide:
@@ -32,8 +33,10 @@ class TileDBOpenSlide:
         :param uri: uri of a tiledb.Group containing the image
         """
         self._group = tiledb.Group(uri)
+        pixel_depth = self._group.meta.get("pixel_depth", 1)
         self._levels = sorted(
-            (TileDBOpenSlideLevel(o.uri) for o in self._group), key=attrgetter("level")
+            (TileDBOpenSlideLevel(o.uri, pixel_depth) for o in self._group),
+            key=attrgetter("level"),
         )
 
     def __enter__(self) -> TileDBOpenSlide:
@@ -151,8 +154,9 @@ class TileDBOpenSlide:
 
 
 class TileDBOpenSlideLevel:
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, pixel_depth: int):
         self._tdb = tiledb.open(uri)
+        self._pixel_depth = pixel_depth
 
     @property
     def level(self) -> int:
@@ -164,7 +168,7 @@ class TileDBOpenSlideLevel:
         dims = list(a.domain)
         width = a.shape[dims.index(a.dim("X"))]
         height = a.shape[dims.index(a.dim("Y"))]
-        return width // get_pixel_depth(a), height
+        return width // self._pixel_depth, height
 
     @property
     def properties(self) -> Mapping[str, Any]:
@@ -177,14 +181,14 @@ class TileDBOpenSlideLevel:
         to_dask: bool = False,
     ) -> Union[np.ndarray, da.Array]:
         dims = tuple(dim.name for dim in self._tdb.domain)
-        pixel_depth = get_pixel_depth(self._tdb)
+        pixel_depth = self._pixel_depth
         if pixel_depth == 1:
             axes_mapper = AxesMapper(Axes(dims), axes)
         else:
             x = dim_slice.get("X")
             if x is not None:
                 dim_slice["X"] = slice(x.start * pixel_depth, x.stop * pixel_depth)
-            raise NotImplementedError
+            axes_mapper = FromWebPAxesMapper(axes, pixel_depth)
 
         array = da.from_tiledb(self._tdb) if to_dask else self._tdb
         selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
@@ -192,11 +196,3 @@ class TileDBOpenSlideLevel:
 
     def close(self) -> None:
         self._tdb.close()
-
-
-def get_pixel_depth(obj: Union[tiledb.Array, tiledb.Filter]) -> int:
-    """Return the pixel depth for the given TileDB array or compression filter."""
-    compressor = obj.attr(0).filters[0] if isinstance(obj, tiledb.Array) else obj
-    if isinstance(compressor, tiledb.Filter):
-        return 1
-    raise TypeError(obj)

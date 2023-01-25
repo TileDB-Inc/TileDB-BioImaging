@@ -20,12 +20,14 @@ except ImportError:
     register_group = None
 
 import tiledb
+from tiledb.cc import WebpInputFormat
 
-from ..openslide import TileDBOpenSlide, get_pixel_depth
+from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
 from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
+from .webp import ToWebPAxesMapper
 
 
 class ImageReader(ABC):
@@ -204,7 +206,7 @@ class ImageConverter:
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
 
-        pixel_depth = get_pixel_depth(compressor)
+        pixel_depth = _get_pixel_depth(compressor)
         max_tiles = cls._DEFAULT_TILES.copy()
         max_tiles.update(tiles)
         max_tiles["X"] *= pixel_depth
@@ -242,7 +244,8 @@ class ImageConverter:
                     axes_mapper = AxesMapper(source_axes, target_axes)
                     dim_names = tuple(target_axes.dims)
                 else:
-                    raise NotImplementedError
+                    axes_mapper = ToWebPAxesMapper(source_axes, pixel_depth)
+                    dim_names = ("Y", "X")
 
                 # create TileDB schema
                 dim_shape = axes_mapper.map_shape(source_shape)
@@ -271,6 +274,7 @@ class ImageConverter:
             rw_group.w_group.meta.update(
                 reader.group_metadata,
                 axes=source_axes.dims,
+                pixel_depth=pixel_depth,
                 pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
@@ -329,6 +333,18 @@ class _ReadWriteGroup:
             # register the uri with the given name
             self.w_group.add(uri, name)
         return uri, create
+
+
+def _get_pixel_depth(compressor: tiledb.Filter) -> int:
+    if not isinstance(compressor, tiledb.WebpFilter):
+        return 1
+
+    webp_format = compressor.input_format
+    if webp_format in (WebpInputFormat.WEBP_RGB, WebpInputFormat.WEBP_BGR):
+        return 3
+    if webp_format in (WebpInputFormat.WEBP_RGBA, WebpInputFormat.WEBP_BGRA):
+        return 4
+    raise ValueError(f"Invalid WebpInputFormat: {compressor.input_format}")
 
 
 def _get_schema(
