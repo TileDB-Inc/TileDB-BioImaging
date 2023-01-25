@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 from abc import ABC, abstractmethod
-from collections import ChainMap
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
@@ -18,7 +17,7 @@ except ImportError:
 
 import tiledb
 
-from ..openslide import TileDBOpenSlide
+from ..openslide import TileDBOpenSlide, get_pixel_depth
 from ..version import version
 from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
@@ -154,6 +153,7 @@ class ImageConverter:
         max_workers: int = 0,
         register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
+        compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -174,6 +174,7 @@ class ImageConverter:
         :param register_kwargs: Cloud group registration optional args e.g namespace,
             parent_uri, storage_uri, credentials_name
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
+        :param compressor: TileDB compression filter
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -181,8 +182,13 @@ class ImageConverter:
         if tiledb.object_type(output_path) != "group":
             tiledb.group_create(output_path)
 
+        pixel_depth = get_pixel_depth(compressor)
+        max_tiles = cls._DEFAULT_TILES.copy()
+        max_tiles.update(tiles)
+        max_tiles["X"] *= pixel_depth
+
         with cls._ImageReaderType(input_path, **reader_kwargs) as reader:
-            input_axes = reader.axes
+            source_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             levels_meta = []
@@ -192,31 +198,29 @@ class ImageConverter:
                     # level has already been converted
                     continue
 
-                # read metadata and image
-                metadata = reader.level_metadata(level)
-                level_dtype = reader.level_dtype(level)
-                level_shape = reader.level_shape(level)
-
-                # determine level axes and (potentially) transformed level shape
-                if preserve_axes:
-                    level_axes = input_axes
+                # create mapper from source to target axes
+                source_shape = reader.level_shape(level)
+                if pixel_depth == 1:
+                    if preserve_axes:
+                        target_axes = source_axes
+                    else:
+                        target_axes = source_axes.canonical(source_shape)
+                    axes_mapper = AxesMapper(source_axes, target_axes)
+                    dim_names = tuple(target_axes.dims)
                 else:
-                    level_axes = input_axes.canonical(level_shape)
-                axes_mapper = AxesMapper(input_axes, level_axes)
-                level_shape = axes_mapper.map_shape(level_shape)
+                    raise NotImplementedError
 
                 # create TileDB array
+                dim_shape = axes_mapper.map_shape(source_shape)
+                attr_dtype = reader.level_dtype(level)
                 schema = _get_schema(
-                    axes=level_axes,
-                    shape=level_shape,
-                    attr_dtype=level_dtype,
-                    max_tiles=ChainMap(dict(tiles), cls._DEFAULT_TILES),
+                    dim_names, dim_shape, max_tiles, attr_dtype, compressor
                 )
                 tiledb.Array.create(uri, schema)
                 uris.append(uri)
 
                 # Calculate downsample factor
-                dims_map = dict(zip(level_axes.dims, level_shape))
+                dims_map = dict(zip(dim_names, dim_shape))
                 if level == level_min:
                     l0_w, l0_h = dims_map["X"], dims_map["Y"]
                 downsample_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
@@ -225,28 +229,28 @@ class ImageConverter:
                 meta_kvstore = {
                     "uri": uri,
                     "level": level,
-                    "axes": level_axes.dims,
-                    "shape": level_shape,
+                    "axes": "".join(dim_names),
+                    "shape": dim_shape,
                     "downsample_factor": downsample_factor,
                 }
                 levels_meta.append(meta_kvstore)
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
-                    a.meta.update(metadata, level=level)
+                    a.meta.update(reader.level_metadata(level), level=level)
                     if chunked or max_workers:
-                        inv_axes_mapper = AxesMapper(level_axes, input_axes)
+                        inv_axes_mapper = axes_mapper.inverted
 
                         def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
-                            input_tile = inv_axes_mapper.map_tile(level_tile)
-                            image = reader.level_image(level, input_tile)
+                            source_tile = inv_axes_mapper.map_tile(level_tile)
+                            image = reader.level_image(level, source_tile)
                             a[level_tile] = axes_mapper.map_array(image)
 
                         ex = ThreadPoolExecutor(max_workers) if max_workers else None
                         mapper = getattr(ex, "map", map)
                         for _ in tqdm(
                             mapper(tile_to_tiledb, iter_tiles(a.domain)),
-                            desc=f"Ingesting level {level} {level_shape}",
+                            desc=f"Ingesting level {level}",
                             total=num_tiles(a.domain),
                             unit="tiles",
                         ):
@@ -254,13 +258,14 @@ class ImageConverter:
                         if ex:
                             ex.shutdown()
                     else:
-                        a[:] = axes_mapper.map_array(reader.level_image(level))
+                        image = reader.level_image(level)
+                        a[:] = axes_mapper.map_array(image)
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
                 group.meta.update(
                     reader.group_metadata,
-                    axes=input_axes.dims,
+                    axes=source_axes.dims,
                     pkg_version=version,
                     fmt_version=FMT_VERSION,
                     dataset_type=DATASET_TYPE,
@@ -278,31 +283,20 @@ class ImageConverter:
 
 
 def _get_schema(
-    axes: Axes,
-    shape: Tuple[int, ...],
-    attr_dtype: np.dtype,
+    dim_names: Tuple[str, ...],
+    dim_shape: Tuple[int, ...],
     max_tiles: Mapping[str, int],
+    attr_dtype: np.dtype,
+    compressor: tiledb.Filter,
 ) -> tiledb.ArraySchema:
-    # find the smallest dtype that can hold `np.prod(shape)` values
-    dim_dtype = np.min_scalar_type(np.prod(shape))
+    # find the smallest dtype that can hold `np.prod(dim_shape)` values
+    dim_dtype = np.min_scalar_type(np.prod(dim_shape))
+
     dims = []
-    assert len(axes.dims) == len(shape)
-    for dim_name, dim_size in zip(axes.dims, shape):
-        dims.append(
-            tiledb.Dim(
-                dim_name,
-                domain=(0, dim_size - 1),
-                dtype=dim_dtype,
-                tile=min(dim_size, max_tiles[dim_name]),
-            )
-        )
-    return tiledb.ArraySchema(
-        domain=tiledb.Domain(*dims),
-        attrs=[
-            tiledb.Attr(
-                name="",
-                dtype=attr_dtype,
-                filters=[tiledb.ZstdFilter(level=0)],
-            )
-        ],
-    )
+    assert len(dim_names) == len(dim_shape), (dim_names, dim_shape)
+    for dim_name, dim_size in zip(dim_names, dim_shape):
+        dim_tile = min(dim_size, max_tiles[dim_name])
+        dim = tiledb.Dim(dim_name, (0, dim_size - 1), dim_tile, dtype=dim_dtype)
+        dims.append(dim)
+    attr = tiledb.Attr(name="", dtype=attr_dtype, filters=[compressor])
+    return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
