@@ -13,19 +13,21 @@ if os.name == "posix":
 DATA_DIR = Path(__file__).parent / "data"
 
 
-def get_schema(x_size, y_size, c_size=3):
+def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
+    dims = []
+    x_tile = min(x_size, 1024)
+    y_tile = min(y_size, 1024)
+    if isinstance(compressor, tiledb.WebpFilter):
+        x_size *= c_size
+        x_tile *= c_size
+    else:
+        dims.append(tiledb.Dim("C", (0, c_size - 1), tile=c_size, dtype=np.uint32))
+    dims.append(tiledb.Dim("Y", (0, y_size - 1), tile=y_tile, dtype=np.uint32))
+    dims.append(tiledb.Dim("X", (0, x_size - 1), tile=x_tile, dtype=np.uint32))
+
     return tiledb.ArraySchema(
-        domain=tiledb.Domain(
-            tiledb.Dim("C", (0, c_size - 1), tile=c_size, dtype=np.uint32),
-            tiledb.Dim("Y", (0, y_size - 1), tile=min(y_size, 1024), dtype=np.uint32),
-            tiledb.Dim("X", (0, x_size - 1), tile=min(x_size, 1024), dtype=np.uint32),
-        ),
-        attrs=[
-            tiledb.Attr(
-                dtype=np.uint8,
-                filters=tiledb.FilterList([tiledb.ZstdFilter(level=0)]),
-            )
-        ],
+        domain=tiledb.Domain(*dims),
+        attrs=[tiledb.Attr(dtype=np.uint8, filters=tiledb.FilterList([compressor]))],
     )
 
 

@@ -34,8 +34,8 @@ def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
             },
         )
 
-    with TileDBOpenSlide.from_group_uri(ground_path) as ground:
-        with TileDBOpenSlide.from_group_uri(test_path) as test:
+    with TileDBOpenSlide(ground_path) as ground:
+        with TileDBOpenSlide(test_path) as test:
             assert ground.level_count == test.level_count
 
             for level in range(ground.level_count):

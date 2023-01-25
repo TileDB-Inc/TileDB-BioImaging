@@ -10,6 +10,7 @@ from tests import get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
+from tiledb.cc import WebpInputFormat
 
 
 @pytest.mark.parametrize("open_fileobj", [False, True])
@@ -64,7 +65,7 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
 @pytest.mark.parametrize(
     "filename", ["CMU-1-Small-Region.ome.tiff", "CMU-1-Small-Region-rgb.ome.tiff"]
 )
-def test_tiledb_to_ome_tiff_group_metadata(tmp_path, filename):
+def test_ome_tiff_converter_group_metadata(tmp_path, filename):
     input_path = get_path(filename)
     tiledb_path = tmp_path / "to_tiledb"
     OMETiffConverter.to_tiledb(input_path, str(tiledb_path))
@@ -102,18 +103,29 @@ def test_tiledb_to_ome_tiff_group_metadata(tmp_path, filename):
 )
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
-def test_tiledb_to_ome_tiff_roundtrip(
-    tmp_path, filename, num_series, preserve_axes, chunked, max_workers
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+    ],
+)
+def test_ome_tiff_converter_roundtrip(
+    tmp_path, filename, num_series, preserve_axes, chunked, max_workers, compressor
 ):
+    if isinstance(compressor, tiledb.WebpFilter) and filename == "UTM2GTIF.tiff":
+        pytest.skip(f"WebPFilter cannot be applied to {filename}")
+
     input_path = get_path(filename)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
-    to_tiledb_kwargs = dict(
-        input_path=input_path,
-        output_path=str(tiledb_path),
+    OMETiffConverter.to_tiledb(
+        input_path,
+        str(tiledb_path),
         preserve_axes=preserve_axes,
         chunked=chunked,
         max_workers=max_workers,
+        compressor=compressor,
         reader_kwargs=dict(
             extra_tags=(
                 "ModelPixelScaleTag",
@@ -123,9 +135,6 @@ def test_tiledb_to_ome_tiff_roundtrip(
             )
         ),
     )
-
-    # Store it to Tiledb
-    OMETiffConverter.to_tiledb(**to_tiledb_kwargs)
     # Store it back to NGFF Zarr
     OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
 

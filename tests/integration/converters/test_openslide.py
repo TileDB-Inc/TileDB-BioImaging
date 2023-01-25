@@ -10,29 +10,35 @@ from tests import get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
+from tiledb.cc import WebpInputFormat
 
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
-def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=True),
+    ],
+)
+def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, compressor):
     input_path = get_path("CMU-1-Small-Region.svs")
     output_path = str(tmp_path)
-    to_tiledb_kwargs = dict(
-        input_path=input_path,
-        output_path=output_path,
+    OpenSlideConverter.to_tiledb(
+        input_path,
+        output_path,
         preserve_axes=preserve_axes,
         chunked=chunked,
         max_workers=max_workers,
+        compressor=compressor,
     )
-
-    OpenSlideConverter.to_tiledb(**to_tiledb_kwargs)
     assert len(tiledb.Group(output_path)) == 1
     with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
         if not preserve_axes:
-            assert A.schema == get_schema(2220, 2967, 4)
+            assert A.schema == get_schema(2220, 2967, 4, compressor=compressor)
 
     o = openslide.open_slide(input_path)
-
     with TileDBOpenSlide(output_path) as t:
         group_properties = t.properties
         assert group_properties["dataset_type"] == DATASET_TYPE
@@ -59,6 +65,30 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
         img = PIL.Image.fromarray(region)
         assert img == o.read_region(**region_kwargs)
 
+        for level in range(t.level_count):
+            region_data = t.read_region((0, 0), level, t.level_dimensions[level])
+            level_data = t.read_level(level)
+            np.testing.assert_array_equal(region_data, level_data)
+
+
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_openslide_converter_group_metadata(tmp_path, preserve_axes):
+    input_path = get_path("CMU-1-Small-Region.svs")
+    output_path = str(tmp_path)
+    OpenSlideConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes)
+
+    with TileDBOpenSlide(output_path) as t:
+        group_properties = t.properties
+        assert group_properties["dataset_type"] == DATASET_TYPE
+        assert group_properties["fmt_version"] == FMT_VERSION
+        assert isinstance(group_properties.get("pkg_version"), str)
+        assert group_properties["axes"] == "YXC"
+        assert group_properties["channels"] == json.dumps(
+            ["RED", "GREEN", "BLUE", "ALPHA"]
+        )
+
+        levels_group_meta = json.loads(group_properties["levels"])
+        assert t.level_count == len(levels_group_meta)
         for level, level_meta in enumerate(levels_group_meta):
             assert level_meta["level"] == level
             assert level_meta["name"] == f"l_{level}.tdb"
@@ -71,7 +101,3 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
             assert shape[level_axes.index("C")] == 4
             assert shape[level_axes.index("X")] == level_width
             assert shape[level_axes.index("Y")] == level_height
-
-            region_data = t.read_region((0, 0), level, t.level_dimensions[level])
-            level_data = t.read_level(level)
-            np.testing.assert_array_equal(region_data, level_data)

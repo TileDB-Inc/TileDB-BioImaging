@@ -10,6 +10,7 @@ from tests import get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
+from tiledb.cc import WebpInputFormat
 
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
@@ -50,22 +51,27 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
-def test_tiledb_to_ome_zarr_rountrip(
-    tmp_path, series_idx, preserve_axes, chunked, max_workers
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+    ],
+)
+def test_ome_zarr_converter_rountrip(
+    tmp_path, series_idx, preserve_axes, chunked, max_workers, compressor
 ):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
-    to_tiledb_kwargs = dict(
-        input_path=input_path,
-        output_path=str(tiledb_path),
+    OMEZarrConverter.to_tiledb(
+        input_path,
+        str(tiledb_path),
         preserve_axes=preserve_axes,
         chunked=chunked,
         max_workers=max_workers,
+        compressor=compressor,
     )
-
-    # Store it to Tiledb
-    OMEZarrConverter.to_tiledb(**to_tiledb_kwargs)
     # Store it back to NGFF Zarr
     OMEZarrConverter.from_tiledb(str(tiledb_path), output_path)
 
