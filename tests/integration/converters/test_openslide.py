@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import openslide
 import PIL.Image
@@ -5,6 +7,7 @@ import pytest
 
 import tiledb
 from tests import get_path, get_schema
+from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
@@ -29,7 +32,18 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
             assert A.schema == get_schema(2220, 2967, 4)
 
     o = openslide.open_slide(input_path)
+    tiledb_group = tiledb.Group(str(output_path), mode="r")
+
     with TileDBOpenSlide.from_group_uri(output_path) as t:
+
+        # Test group metadata
+        levels_group_meta = json.loads(tiledb_group.meta["levels"])
+        assert t.level_count == len(levels_group_meta)
+        assert t.level_downsamples == tuple(
+            [level["downsample_factor"] for level in levels_group_meta]
+        )
+        assert tiledb_group.meta["fmt_version"] == FMT_VERSION
+        assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
 
         assert t.level_count == o.level_count
         assert t.dimensions == o.dimensions

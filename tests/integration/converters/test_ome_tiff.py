@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import PIL.Image
 import pytest
@@ -5,6 +7,7 @@ import tifffile
 
 import tiledb
 from tests import get_path, get_schema
+from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
@@ -65,7 +68,48 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
 )
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
-def test_tiledb_to_ome_tiff_rountrip(
+def test_tiledb_to_ome_tiff_group_metadata(
+    tmp_path, filename, num_series, preserve_axes, chunked, max_workers
+):
+    input_path = get_path(filename)
+    tiledb_path = tmp_path / "to_tiledb"
+    to_tiledb_kwargs = dict(
+        input_path=input_path,
+        output_path=str(tiledb_path),
+        preserve_axes=preserve_axes,
+        chunked=chunked,
+        max_workers=max_workers,
+        reader_kwargs=dict(
+            extra_tags=(
+                "ModelPixelScaleTag",
+                "ModelTiepointTag",
+                "GeoKeyDirectoryTag",
+                "GeoAsciiParamsTag",
+            )
+        ),
+    )
+
+    # Store it to Tiledb
+    OMETiffConverter.to_tiledb(**to_tiledb_kwargs)
+
+    tiledb_group = tiledb.Group(str(tmp_path), mode="r")
+    levels_group_meta = json.loads(tiledb_group.meta["levels"])
+
+    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+        assert t.level_count == len(levels_group_meta)
+        assert t.level_downsamples == tuple(
+            [level["downsample_factor"] for level in levels_group_meta]
+        )
+        assert tiledb_group.meta["fmt_version"] == FMT_VERSION
+        assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
+
+
+@pytest.mark.parametrize(
+    "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
+)
+@pytest.mark.parametrize("preserve_axes", [False, True])
+@pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
+def test_tiledb_to_ome_tiff_roundtrip(
     tmp_path, filename, num_series, preserve_axes, chunked, max_workers
 ):
     input_path = get_path(filename)
