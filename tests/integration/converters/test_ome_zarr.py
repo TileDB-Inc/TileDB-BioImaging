@@ -7,6 +7,7 @@ import zarr
 
 import tiledb
 from tests import get_path, get_schema
+from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
@@ -115,3 +116,21 @@ def test_ome_zarr_converter_incremental(tmp_path):
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0)
     with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
+
+
+@pytest.mark.parametrize("series_idx", [0, 1, 2])
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
+    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
+
+    tiledb_group = tiledb.Group(str(tmp_path), mode="r")
+    levels_group_meta = json.loads(tiledb_group.meta["levels"])
+
+    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+        assert t.level_count == len(levels_group_meta)
+        assert t.level_downsamples == tuple(
+            [level["downsample_factor"] for level in levels_group_meta]
+        )
+        assert tiledb_group.meta["fmt_version"] == FMT_VERSION
+        assert tiledb_group.meta["dataset_type"] == DATASET_TYPE

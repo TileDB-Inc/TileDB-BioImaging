@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
 from collections import ChainMap
@@ -12,6 +13,7 @@ import numpy as np
 from tqdm import tqdm
 
 from ..version import version
+from . import DATASET_TYPE, FMT_VERSION
 
 try:
     from tiledb.cloud import groups
@@ -22,8 +24,6 @@ import tiledb
 
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
-
-FMT_VERSION = 1
 
 
 class ImageReader(ABC):
@@ -198,6 +198,7 @@ class ImageConverter:
             input_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
+            levels_meta = []
             for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
                 if tiledb.object_type(uri) == "array":
@@ -226,6 +227,22 @@ class ImageConverter:
                 )
                 tiledb.Array.create(uri, schema)
                 uris.append(uri)
+
+                # Calculate downsample factor
+                dims_map = dict(zip(level_axes.dims, level_shape))
+                if level == level_min:
+                    l0_w, l0_h = dims_map["X"], dims_map["Y"]
+                downsample_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
+
+                # Store layer mapping with shape value
+                meta_kvstore = {
+                    "uri": uri,
+                    "level": level,
+                    "axes": level_axes.dims,
+                    "shape": level_shape,
+                    "downsample_factor": downsample_factor,
+                }
+                levels_meta.append(meta_kvstore)
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
@@ -259,6 +276,8 @@ class ImageConverter:
                     axes=input_axes.dims,
                     pkg_version=version,
                     fmt_version=FMT_VERSION,
+                    dataset_type=DATASET_TYPE,
+                    levels=json.dumps(levels_meta),
                 )
                 for uri in uris:
                     if urlparse(uri).scheme == "tiledb":
