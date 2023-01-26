@@ -6,7 +6,7 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 class TestTileDBOpenSlide:
-    def test_from_group_uri(self, tmp_path):
+    def test(self, tmp_path):
         def r():
             return random.randint(64, 4096)
 
@@ -22,6 +22,6 @@ class TestTileDBOpenSlide:
                     A.meta["level"] = level
                 G.add(level_path)
 
-        with TileDBOpenSlide.from_group_uri(group_path) as t:
+        with TileDBOpenSlide(group_path) as t:
             assert t.level_count == len(level_dimensions)
             assert t.level_dimensions == tuple(level_dimensions)

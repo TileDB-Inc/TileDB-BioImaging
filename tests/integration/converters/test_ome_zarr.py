@@ -26,7 +26,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
         if not preserve_axes:
             assert A.schema == schema
 
-    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+    with TileDBOpenSlide(str(tmp_path)) as t:
         assert t.dimensions == t.level_dimensions[0] == schema.shape[:-3:-1]
 
         region_location = (100, 100)
@@ -106,15 +106,15 @@ def test_ome_zarr_converter_incremental(tmp_path):
     input_path = get_path("CMU-1-Small-Region.ome.zarr/0")
 
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=1)
-    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+    with TileDBOpenSlide(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 1
 
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0)
-    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+    with TileDBOpenSlide(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
 
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), level_min=0)
-    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+    with TileDBOpenSlide(str(tmp_path)) as t:
         assert len(tiledb.Group(str(tmp_path))) == t.level_count == 2
 
 
@@ -127,7 +127,7 @@ def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
     tiledb_group = tiledb.Group(str(tmp_path), mode="r")
     levels_group_meta = json.loads(tiledb_group.meta["levels"])
 
-    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+    with TileDBOpenSlide(str(tmp_path)) as t:
         assert t.level_count == len(levels_group_meta)
         assert t.level_downsamples == tuple(
             [level["downsample_factor"] for level in levels_group_meta]

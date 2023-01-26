@@ -5,15 +5,11 @@ import os
 from abc import ABC, abstractmethod
 from collections import ChainMap
 from concurrent.futures import ThreadPoolExecutor
-from operator import itemgetter
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
 from tqdm import tqdm
-
-from ..version import version
-from . import DATASET_TYPE, FMT_VERSION
 
 try:
     from tiledb.cloud import groups
@@ -22,6 +18,9 @@ except ImportError:
 
 import tiledb
 
+from ..openslide import TileDBOpenSlide
+from ..version import version
+from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
 
@@ -131,28 +130,16 @@ class ImageConverter:
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        # open all level arrays, keep those with level >= level_min and sort them by level
-        level_arrays = []
-        group = tiledb.Group(input_path, "r")
-        for member in group:
-            array = tiledb.open(member.uri)
-            level = array.meta.get("level", 0)
-            if level < level_min:
-                array.close()
-                continue
-            level_arrays.append((level, array))
-        level_arrays.sort(key=itemgetter(0))
-
-        with cls._ImageWriterType(output_path) as writer:
-            writer.write_group_metadata(group.meta)
-            original_axes = Axes(group.meta["axes"])
-            for level, array in level_arrays:
-                # read image and transform to the original axes
-                stored_axes = Axes(dim.name for dim in array.domain)
-                image = AxesMapper(stored_axes, original_axes).map_array(array[:])
-                # write image and close the array
-                writer.write_level_image(level, image, array.meta)
-                array.close()
+        slide = TileDBOpenSlide(input_path)
+        writer = cls._ImageWriterType(output_path)
+        with slide, writer:
+            writer.write_group_metadata(slide.properties)
+            for level in slide.levels:
+                if level < level_min:
+                    continue
+                level_image = slide.read_level(level, to_original_axes=True)
+                level_metadata = slide.level_properties(level)
+                writer.write_level_image(level, level_image, level_metadata)
 
     @classmethod
     def to_tiledb(
