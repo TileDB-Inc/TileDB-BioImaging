@@ -198,8 +198,8 @@ class ImageConverter:
             input_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
-            meta_kvstore = {}
-
+            levels_meta = []
+            meta_kvstore: Dict[str, Any] = {}
             for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
                 if tiledb.object_type(uri) == "array":
@@ -219,9 +219,6 @@ class ImageConverter:
                 axes_mapper = AxesMapper(input_axes, level_axes)
                 level_shape = axes_mapper.map_shape(level_shape)
 
-                if level == level_min:
-                    base_shape_array = np.array(level_shape)
-
                 # create TileDB array
                 schema = _get_schema(
                     axes=level_axes,
@@ -232,14 +229,21 @@ class ImageConverter:
                 tiledb.Array.create(uri, schema)
                 uris.append(uri)
 
-                # Calculate downsample factors
-                level_shape_array = np.array(level_shape)
-                down_factor = base_shape_array / level_shape_array
+                # Calculate downsample factor
+                dims_map = dict(zip([*level_axes.dims], level_shape))
+                if level == level_min:
+                    l0_w, l0_h = dims_map["X"], dims_map["Y"]
+                down_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
 
                 # Store layer mapping with shape value
                 meta_kvstore.update(
-                    {uri: json.dumps([level, level_shape, tuple(down_factor)])}
+                    uri=uri,
+                    level=level,
+                    axes=level_axes.dims,
+                    shape=level_shape,
+                    downsample_factor=down_factor,
                 )
+                levels_meta.append(meta_kvstore.copy())
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
@@ -269,11 +273,12 @@ class ImageConverter:
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
                 group.meta.update(
-                    {**reader.group_metadata, **meta_kvstore},
+                    **reader.group_metadata,
                     axes=input_axes.dims,
                     pkg_version=version,
                     fmt_version=FMT_VERSION,
                     dataset_type=DATASET_TYPE,
+                    levels=json.dumps(levels_meta),
                 )
                 for uri in uris:
                     if urlparse(uri).scheme == "tiledb":
