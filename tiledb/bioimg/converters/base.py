@@ -199,7 +199,6 @@ class ImageConverter:
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             levels_meta = []
-            meta_kvstore: Dict[str, Any] = {}
             for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
                 if tiledb.object_type(uri) == "array":
@@ -230,20 +229,20 @@ class ImageConverter:
                 uris.append(uri)
 
                 # Calculate downsample factor
-                dims_map = dict(zip([*level_axes.dims], level_shape))
+                dims_map = dict(zip(level_axes.dims, level_shape))
                 if level == level_min:
                     l0_w, l0_h = dims_map["X"], dims_map["Y"]
-                down_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
+                downsample_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
 
                 # Store layer mapping with shape value
-                meta_kvstore.update(
-                    uri=uri,
-                    level=level,
-                    axes=level_axes.dims,
-                    shape=level_shape,
-                    downsample_factor=down_factor,
-                )
-                levels_meta.append(meta_kvstore.copy())
+                meta_kvstore = {
+                    "uri": uri,
+                    "level": level,
+                    "axes": level_axes.dims,
+                    "shape": level_shape,
+                    "downsample_factor": downsample_factor,
+                }
+                levels_meta.append(meta_kvstore)
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as a:
@@ -273,7 +272,7 @@ class ImageConverter:
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
                 group.meta.update(
-                    **reader.group_metadata,
+                    reader.group_metadata,
                     axes=input_axes.dims,
                     pkg_version=version,
                     fmt_version=FMT_VERSION,

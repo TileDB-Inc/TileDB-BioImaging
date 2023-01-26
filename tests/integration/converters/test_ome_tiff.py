@@ -92,10 +92,10 @@ def test_tiledb_to_ome_tiff_group_metadata(
     # Store it to Tiledb
     OMETiffConverter.to_tiledb(**to_tiledb_kwargs)
 
-    tiledb_group = tiledb.Group(str(tmp_path), mode="r")
+    tiledb_group = tiledb.Group(str(tiledb_path), mode="r")
     levels_group_meta = json.loads(tiledb_group.meta["levels"])
 
-    with TileDBOpenSlide.from_group_uri(str(tmp_path)) as t:
+    with TileDBOpenSlide.from_group_uri(str(tiledb_path)) as t:
         assert t.level_count == len(levels_group_meta)
         assert t.level_downsamples == tuple(
             [level["downsample_factor"] for level in levels_group_meta]
