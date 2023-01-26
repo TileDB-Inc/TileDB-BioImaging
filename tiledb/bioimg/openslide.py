@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Iterator, Mapping, MutableMapping, Sequence, Tuple, Union
+from operator import attrgetter
+from typing import Any, Mapping, MutableMapping, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -31,22 +32,22 @@ class TileDBOpenSlide:
         :param uri: uri of a tiledb.Group containing the image
         """
         self._group = tiledb.Group(uri)
-        self._level_arrays = [tiledb.open(o.uri) for o in self._group]
-        # sort by level
-        self._level_arrays.sort(key=lambda a: int(a.meta["level"]))
+        self._levels = sorted(
+            (TileDBOpenSlideLevel(o.uri) for o in self._group), key=attrgetter("level")
+        )
 
     def __enter__(self) -> TileDBOpenSlide:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        for array in self._level_arrays:
-            array.close()
+        for level in self._levels:
+            level.close()
         self._group.close()
 
     @property
     def level_count(self) -> int:
         """Number of levels in the slide"""
-        return len(self._level_arrays)
+        return len(self._levels)
 
     @property
     def levels(self) -> Sequence[int]:
@@ -56,12 +57,12 @@ class TileDBOpenSlide:
         (lowest resolution), where `level_min` is the value of the respective
         `ImageConverter.to_tiledb` parameter (default=0) when creating the slide.
         """
-        return tuple(a.meta["level"] for a in self._level_arrays)
+        return tuple(map(attrgetter("level"), self._levels))
 
     @property
     def dimensions(self) -> Tuple[int, int]:
         """A (width, height) tuple for level 0 of the slide."""
-        return next(self._iter_level_dimensions())
+        return self._levels[0].dimensions
 
     @property
     def level_dimensions(self) -> Sequence[Tuple[int, int]]:
@@ -71,7 +72,7 @@ class TileDBOpenSlide:
 
         :return: A sequence of dimensions for each level
         """
-        return tuple(self._iter_level_dimensions())
+        return tuple(map(attrgetter("dimensions"), self._levels))
 
     @property
     def level_downsamples(self) -> Sequence[float]:
@@ -90,7 +91,7 @@ class TileDBOpenSlide:
 
     def level_properties(self, level: int) -> Mapping[str, Any]:
         """Metadata about the given slide level"""
-        return dict(self._level_arrays[level].meta)
+        return self._levels[level].properties
 
     def read_level(self, level: int, to_original_axes: bool = False) -> np.ndarray:
         """
@@ -138,13 +139,6 @@ class TileDBOpenSlide:
         lla = np.where(np.array(self.level_downsamples) < factor)[0]
         return int(lla.max() if len(lla) > 0 else 0)
 
-    def _iter_level_dimensions(self) -> Iterator[Tuple[int, int]]:
-        for a in self._level_arrays:
-            dims = list(a.domain)
-            width = a.shape[dims.index(a.dim("X"))]
-            height = a.shape[dims.index(a.dim("Y"))]
-            yield width // get_pixel_depth(a), height
-
     def _read_image(
         self,
         level: int,
@@ -152,22 +146,52 @@ class TileDBOpenSlide:
         to_original_axes: bool = False,
         to_dask: bool = False,
     ) -> Union[np.ndarray, da.Array]:
-        tdb = self._level_arrays[level]
-        dims = tuple(dim.name for dim in tdb.domain)
+        axes = Axes(self._group.meta["axes"] if to_original_axes else "YXC")
+        return self._levels[level].read(axes, dim_slice, to_dask)
 
-        pixel_depth = get_pixel_depth(tdb)
-        target_axes = Axes(self._group.meta["axes"] if to_original_axes else "YXC")
+
+class TileDBOpenSlideLevel:
+    def __init__(self, uri: str):
+        self._tdb = tiledb.open(uri)
+
+    @property
+    def level(self) -> int:
+        return int(self._tdb.meta["level"])
+
+    @property
+    def dimensions(self) -> Tuple[int, int]:
+        a = self._tdb
+        dims = list(a.domain)
+        width = a.shape[dims.index(a.dim("X"))]
+        height = a.shape[dims.index(a.dim("Y"))]
+        return width // get_pixel_depth(a), height
+
+    @property
+    def properties(self) -> Mapping[str, Any]:
+        return dict(self._tdb.meta)
+
+    def read(
+        self,
+        axes: Axes,
+        dim_slice: MutableMapping[str, slice] = {},
+        to_dask: bool = False,
+    ) -> Union[np.ndarray, da.Array]:
+        dims = tuple(dim.name for dim in self._tdb.domain)
+        pixel_depth = get_pixel_depth(self._tdb)
         if pixel_depth == 1:
-            axes_mapper = AxesMapper(Axes(dims), target_axes)
+            axes_mapper = AxesMapper(Axes(dims), axes)
         else:
             x = dim_slice.get("X")
             if x is not None:
                 dim_slice["X"] = slice(x.start * pixel_depth, x.stop * pixel_depth)
             raise NotImplementedError
 
-        array = da.from_tiledb(tdb) if to_dask else tdb
+        array = da.from_tiledb(self._tdb) if to_dask else self._tdb
         selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
         return axes_mapper.map_array(array[selector])
+
+    def close(self) -> None:
+        self._tdb.close()
 
 
 def get_pixel_depth(obj: Union[tiledb.Array, tiledb.Filter]) -> int:
