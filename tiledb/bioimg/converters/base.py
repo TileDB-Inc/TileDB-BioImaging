@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
@@ -13,7 +14,7 @@ import numpy as np
 from tqdm import tqdm
 
 from ..version import version
-from .scale import ScaleMethod, Scaler, ScalerMode
+from .scale import Scaler, ScalerMode
 
 try:
     from tiledb.cloud import groups
@@ -156,6 +157,7 @@ class ImageConverter:
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
+        generate_pyramid: bool = False,
         register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
         compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
@@ -163,6 +165,7 @@ class ImageConverter:
         pyramid_mode: ScalerMode = ScalerMode.CHUNKED_PROGRESSIVE,
         pyramid_scale: List[int] = [],
         interpolation_method: ScaleMethod = ScaleMethod.NEAREST,
+        pyramid_kwargs: Mapping[str, Any] = {},
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -174,7 +177,6 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param preserve_axes: If true, preserve the axes order of the original image.
-        :param chunked: If true, convert one image tile at a time instead of the whole image.
         :param chunked: If true, convert one tile at a time instead of the whole image.
             **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
             for levels>0, even though the converted images look visually identical to the
@@ -207,8 +209,8 @@ class ImageConverter:
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             level_max = reader.level_count if not generate_pyramid else level_min + 1
-            if reader.level_count > 1 and generate_pyramid:
-                print(
+            if reader.level_count > level_min + 1 and generate_pyramid:
+                warnings.warn(
                     "Warning: The image contains multiple levels but pyramid generation is enabled. All levels "
                     "except level zero will be skipped"
                 )
@@ -285,59 +287,18 @@ class ImageConverter:
                         a[:] = axes_mapper.map_array(image)
                         a[:] = axes_mapper.map_array(reader.level_image(level))
 
-                    if generate_pyramid:
-                        scaler = Scaler(
-                            a,
-                            Axes("".join(dim.name for dim in a.domain)),
-                            scale_factor=pyramid_scale,
-                        )
                 uris.append(uri)
 
             if generate_pyramid:
-                level = level_min + 1
-
-                for dimension in scaler.resolutions:
-                    uri = os.path.join(output_path, f"l_{level}.tdb")
-                    schema = _get_schema(
-                        axes=level_axes,
-                        shape=dimension,
-                        attr_dtype=level_dtype,
-                        max_tiles=ChainMap(dict(tiles or {}), cls._DEFAULT_TILES),
-                    )
-                    tiledb.Array.create(uri, schema)
-                    if (
-                        pyramid_mode == ScalerMode.NON_PROGRESSIVE
-                        or pyramid_mode == ScalerMode.CHUNKED_NON_PROGRESSIVE
-                    ):
-                        with tiledb.open(uris[0], "r") as r:
-                            with tiledb.open(uri, "w") as a:
-                                a.meta.update(metadata, level=level)
-                                if pyramid_mode == ScalerMode.NON_PROGRESSIVE:
-                                    scaler.apply(
-                                        r,
-                                        a,
-                                        level - level_min - 1,
-                                        interpolation_method,
-                                    )
-                                else:
-                                    scaler.apply_chunked(
-                                        r,
-                                        a,
-                                        level - level_min - 1,
-                                        interpolation_method,
-                                    )
-                    else:
-                        with tiledb.open(uris[-1], "r") as r:
-                            with tiledb.open(uri, "w") as a:
-                                a.meta.update(metadata, level=level)
-                                if pyramid_mode == ScalerMode.PROGRESSIVE:
-                                    scaler.apply_progressive(r, a, interpolation_method)
-                                else:
-                                    scaler.apply_chunked_progressive(
-                                        r, a, interpolation_method
-                                    )
-                    uris.append(uri)
-                    level += 1
+                uris += _scale(
+                    base_uri=uris[0],
+                    output_path=output_path,
+                    level_min=level_min,
+                    axes=level_axes,
+                    attr_dtype=level_dtype,
+                    tiles=ChainMap(dict(tiles), cls._DEFAULT_TILES),
+                    pyramid_kwargs=pyramid_kwargs,
+                )
 
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
@@ -358,6 +319,53 @@ class ImageConverter:
         # Register group in cloud if package exists
         if output_path.startswith("tiledb://"):
             groups.register(name=os.path.basename(output_path), **register_kwargs)
+
+
+def _scale(
+    base_uri: str,
+    output_path: str,
+    level_min: int,
+    axes: Axes,
+    attr_dtype: np.dtype,
+    tiles: Mapping[str, int],
+    pyramid_kwargs: Mapping[str, Any],
+) -> List[str]:
+    uris = [base_uri]
+    with tiledb.open(base_uri) as a:
+        scaler = Scaler(a, axes, **pyramid_kwargs)
+
+    level = level_min + 1
+
+    for index, dimension in enumerate(scaler.resolutions):
+        uri = os.path.join(output_path, f"l_{level}.tdb")
+        schema = _get_schema(
+            axes=axes,
+            shape=dimension,
+            attr_dtype=attr_dtype,
+            max_tiles=tiles,
+        )
+        tiledb.Array.create(uri, schema)
+
+        mode = pyramid_kwargs["mode"]
+
+        # if a non-progressive method is used the input layer of the scaler is the base image layer else we
+        # use the previously generated layer
+        with tiledb.open(
+            uris[0]
+            if bool(
+                mode & (ScalerMode.NON_PROGRESSIVE | ScalerMode.CHUNKED_NON_PROGRESSIVE)
+            )
+            else uris[-1],
+            "r",
+        ) as base:
+            with tiledb.open(uri, "w") as output:
+                output.meta.update(level=level)
+                scaler.apply(base, output, index)
+
+        uris.append(uri)
+        level += 1
+
+    return uris[1:]
 
 
 def _get_schema(

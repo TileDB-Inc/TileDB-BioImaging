@@ -5,10 +5,6 @@ import openslide as osd
 
 from .base import Axes, ImageConverter, ImageReader
 
-# import os
-#
-# os.add_dll_directory("C:/openslide/bin")
-
 
 class OpenSlideReader(ImageReader):
     def __init__(self, input_path: str):
