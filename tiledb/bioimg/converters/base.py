@@ -5,15 +5,12 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Mapping, Optional, Tuple, Type
-from operator import itemgetter
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
 from tqdm import tqdm
 
-from ..version import version
 from .scale import Scaler
 
 try:
@@ -160,11 +157,6 @@ class ImageConverter:
         register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
         compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
-        generate_pyramid: bool = False,
-        pyramid_mode: ScalerMode = ScalerMode.CHUNKED_PROGRESSIVE,
-        pyramid_scale: List[int] = [],
-        interpolation_method: ScaleMethod = ScaleMethod.NEAREST,
-        pyramid_kwargs: Mapping[str, Any] = {},
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
         """
@@ -191,12 +183,14 @@ class ImageConverter:
             **Note**: Valid keyword arguments are:
             scale_factors (Required): The downsample factor for each level
             scale_axes (Required): The axes which will be downsampled
-            chunked (Optional): Default True. If true the image is split into chunks and each one is independently
-            downsampled. If false the entire image is downsampled at once, but it requires more memory.
-            progressive (Optional): Default True. If true each downsampled image is generated using the previous level.
-            If false for every downsampled image the level_min is used, but it requires more memory.
-            order (Optional): Default 1. The interpolation order for downsampling.
-
+            chunked (Optional): Default False. If true the image is split into chunks and each one is independently
+                downsampled. If false the entire image is downsampled at once, but it requires more memory.
+            progressive (Optional): Default False. If true each downsampled image is generated using the previous level.
+                If false for every downsampled image the level_min is used, but it requires more memory.
+            order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5.
+                See `skimage.transform.warp` for detail.
+            max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it
+                will default to the number of processors on the machine, multiplied by 5.
         :param compressor: TileDB compression filter
         """
         if cls._ImageReaderType is None:
@@ -214,16 +208,14 @@ class ImageConverter:
             source_axes = reader.axes
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
+            levels_meta = []
             level_max = reader.level_count if pyramid_kwargs is None else level_min + 1
             if reader.level_count > level_min + 1 and pyramid_kwargs is not None:
                 warnings.warn(
-                    "The image contains multiple levels but pyramid generation is enabled. All levels "
-                    "except level zero will be skipped"
+                    "The image contains multiple levels but pyramid generation is enabled. All levels except level zero will be skipped"
                 )
 
             for level in range(level_min, level_max):
-            levels_meta = []
-            for level in range(level_min, reader.level_count):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
                 if tiledb.object_type(uri) == "array":
                     # level has already been converted
@@ -291,18 +283,17 @@ class ImageConverter:
                     else:
                         image = reader.level_image(level)
                         a[:] = axes_mapper.map_array(image)
-                        a[:] = axes_mapper.map_array(reader.level_image(level))
-
-                uris.append(uri)
 
             if pyramid_kwargs is not None:
-                uris = _scale(
-                    base_uri=uris[0],
+                uris, levels_meta = _scale(
+                    uris=uris,
+                    levels_meta=levels_meta,
                     output_path=output_path,
                     level_min=level_min,
-                    axes=level_axes,
-                    attr_dtype=level_dtype,
-                    tiles=ChainMap(dict(tiles), cls._DEFAULT_TILES),
+                    dim_names=dim_names,
+                    attr_dtype=attr_dtype,
+                    tiles=max_tiles,
+                    compressor=compressor,
                     pyramid_kwargs=pyramid_kwargs,
                 )
 
@@ -328,35 +319,39 @@ class ImageConverter:
 
 
 def _scale(
-    base_uri: str,
+    uris: List[str],
+    levels_meta: List[Dict[str, Any]],
     output_path: str,
     level_min: int,
-    axes: Axes,
+    dim_names: Tuple[str, ...],
     attr_dtype: np.dtype,
     tiles: Mapping[str, int],
+    compressor: tiledb.Filter,
     pyramid_kwargs: Mapping[str, Any],
-) -> List[str]:
-    uris = [base_uri]
-    with tiledb.open(base_uri) as a:
-        scaler = Scaler(a.shape, axes.dims, **pyramid_kwargs)
+) -> Tuple[List[str], List[Dict[str, Any]]]:
+
+    with tiledb.open(uris[0]) as a:
+        scaler = Scaler(a.shape, "".join(dim_names), **pyramid_kwargs)
 
     level = level_min + 1
 
     for index, level_shape in enumerate(scaler.level_shapes):
         uri = os.path.join(output_path, f"l_{level}.tdb")
-        schema = _get_schema(
-            axes=axes,
-            shape=level_shape,
-            attr_dtype=attr_dtype,
-            max_tiles=tiles,
-        )
+        schema = _get_schema(dim_names, level_shape, tiles, attr_dtype, compressor)
         tiledb.Array.create(uri, schema)
 
-        progressive = pyramid_kwargs.get("progressive", False)
+        meta_kvstore = {
+            "uri": uri,
+            "level": level,
+            "axes": "".join(dim_names),
+            "shape": level_shape,
+            "downsample_factor": scaler.downsample_factors[index],
+        }
+        levels_meta.append(meta_kvstore)
 
         # if a non-progressive method is used the input layer of the scaler is the base image layer else we
         # use the previously generated layer
-        with tiledb.open(uris[0] if progressive else uris[-1], "r") as base:
+        with tiledb.open(uris[-1] if scaler.progressive else uris[0], "r") as base:
             with tiledb.open(uri, "w") as output:
                 output.meta.update(level=level)
                 scaler.apply(base, output, index)
@@ -364,7 +359,7 @@ def _scale(
         uris.append(uri)
         level += 1
 
-    return uris
+    return uris, levels_meta
 
 
 def _get_schema(

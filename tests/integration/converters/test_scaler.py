@@ -1,4 +1,5 @@
 import pytest
+from skimage.metrics import structural_similarity
 
 from tests import get_path
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
@@ -33,6 +34,7 @@ def test_scaler(tmp_path, scale_factor, chunked, progressive):
                 "chunked": chunked,
                 "progressive": progressive,
                 "order": 1,
+                "max_workers": 16,
             },
         )
 
@@ -42,3 +44,15 @@ def test_scaler(tmp_path, scale_factor, chunked, progressive):
 
             for level in range(ground.level_count):
                 assert ground.level_dimensions[level] == test.level_dimensions[level]
+
+                region_kwargs = dict(
+                    level=level, location=(0, 0), size=test.level_dimensions[level]
+                )
+                assert (
+                    structural_similarity(
+                        ground.read_region(**region_kwargs),
+                        test.read_region(**region_kwargs),
+                        win_size=3,
+                    )
+                    > 0.95
+                )
