@@ -2,21 +2,13 @@ import pytest
 
 from tests import get_path
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
-from tiledb.bioimg.converters.scale import ScalerMode
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 @pytest.mark.parametrize("scale_factor", [[2, 4.0, 8, 16], [2, 3, 5, 8], [3.1, 11, 13]])
-@pytest.mark.parametrize(
-    "scale_mode",
-    [
-        ScalerMode.NON_PROGRESSIVE,
-        ScalerMode.CHUNKED_NON_PROGRESSIVE,
-        ScalerMode.PROGRESSIVE,
-        ScalerMode.CHUNKED_PROGRESSIVE,
-    ],
-)
-def test_scaler(tmp_path, scale_factor, scale_mode):
+@pytest.mark.parametrize("chunked", [True, False])
+@pytest.mark.parametrize("progressive", [True, False])
+def test_scaler(tmp_path, scale_factor, chunked, progressive):
     input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
     ground_path = str(tmp_path / "ground")
     test_path = str(tmp_path / "test")
@@ -25,12 +17,9 @@ def test_scaler(tmp_path, scale_factor, scale_mode):
         OMETiffConverter.to_tiledb(
             f,
             ground_path,
-            generate_pyramid=True,
             pyramid_kwargs={
                 "scale_factors": scale_factor,
                 "scale_axes": "XY",
-                "mode": scale_mode,
-                "order": 1,
             },
         )
 
@@ -38,11 +27,11 @@ def test_scaler(tmp_path, scale_factor, scale_mode):
         OMETiffConverter.to_tiledb(
             f,
             test_path,
-            generate_pyramid=True,
             pyramid_kwargs={
                 "scale_factors": scale_factor,
                 "scale_axes": "XY",
-                "mode": scale_mode,
+                "chunked": chunked,
+                "progressive": progressive,
                 "order": 1,
             },
         )
