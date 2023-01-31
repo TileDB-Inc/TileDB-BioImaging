@@ -227,7 +227,7 @@ class ImageConverter:
 
                 # Store layer mapping with shape value
                 meta_kvstore = {
-                    "uri": uri,
+                    "uri": os.path.basename(uri),
                     "level": level,
                     "axes": "".join(dim_names),
                     "shape": dim_shape,
