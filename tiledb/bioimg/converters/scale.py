@@ -1,32 +1,12 @@
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
+from concurrent import futures
 from typing import Any, Optional, Sequence, Tuple
 
 import numpy as np
-from skimage.transform import resize
+import skimage as sk
 
 import tiledb
 
 from .tiles import iter_tiles
-
-
-def _scale_tile(
-    tile: Tuple[slice, ...],
-    base: tiledb.Array,
-    output: tiledb.Array,
-    scale_factors: Sequence[float],
-    **resize_kwargs: Any,
-) -> None:
-    slice_shape = tuple(dimension.stop - dimension.start for dimension in tile)
-
-    scaled_tile = []
-    for index, dimension in enumerate(tile):
-        start = int(dimension.start * scale_factors[index])
-        stop = int(min(dimension.stop * scale_factors[index], base.shape[index]))
-
-        scaled_tile.append(slice(start, stop))
-
-    output[tile] = resize(base[tuple(scaled_tile)], slice_shape, **resize_kwargs)
 
 
 class Scaler(object):
@@ -42,42 +22,46 @@ class Scaler(object):
         max_workers: Optional[int] = None,
     ):
         self._chunked = chunked
-        self._order = order
         self._progressive = progressive
         self._resize_kwargs = dict(order=order, preserve_range=True, anti_aliasing=True)
-        self._max_workers = max_workers
-
-        self._scale_factors = []
+        self._executor = (
+            futures.ProcessPoolExecutor(max_workers) if max_workers != 0 else None
+        )
         self._level_shapes = []
         self._downsample_factors = []
+        self._scale_factors = []
 
         previous_scale_factor = 1.0
-
-        for factor in scale_factors:
-            dim_factors = [factor if axis in scale_axes else 1 for axis in base_axes]
+        for scale_factor in scale_factors:
+            dim_factors = [
+                scale_factor if axis in scale_axes else 1 for axis in base_axes
+            ]
             self._level_shapes.append(
                 tuple(
-                    round(dim / dim_factor)
-                    for dim, dim_factor in zip(base_shape, dim_factors)
+                    round(dim_size / dim_factor)
+                    for dim_size, dim_factor in zip(base_shape, dim_factors)
                 )
             )
             self._downsample_factors.append(
                 np.mean(
                     [
-                        dim / level_dim
-                        for dim, level_dim in zip(base_shape, self._level_shapes[-1])
-                        if dim != level_dim
+                        dim_size / level_dim
+                        for dim_size, level_dim in zip(
+                            base_shape, self._level_shapes[-1]
+                        )
+                        if dim_size != level_dim
                     ]
                 )
             )
             if chunked:
                 if progressive:
                     dim_factors = [
-                        factor / previous_scale_factor if axis in scale_axes else 1
+                        scale_factor / previous_scale_factor
+                        if axis in scale_axes
+                        else 1
                         for axis in base_axes
                     ]
-                    previous_scale_factor = factor
-
+                    previous_scale_factor = scale_factor
                 self._scale_factors.append(dim_factors)
 
     @property
@@ -96,19 +80,48 @@ class Scaler(object):
     def progressive(self) -> bool:
         return self._progressive
 
-    def apply(self, base: tiledb.Array, output: tiledb.Array, level: int) -> None:
+    def apply(
+        self, in_array: tiledb.Array, out_array: tiledb.Array, level: int
+    ) -> None:
+        scale_kwargs = dict(
+            in_array=in_array,
+            out_array=out_array,
+            scale_factors=self._scale_factors[level] if self._scale_factors else None,
+            **self._resize_kwargs,
+        )
+
         if not self._chunked:
-            output[:] = resize(base[:], output.shape, **self._resize_kwargs)
+            _scale(**scale_kwargs)
+        elif self._executor:
+            fs = [
+                self._executor.submit(_scale, tile=tile, **scale_kwargs)
+                for tile in iter_tiles(out_array.domain)
+            ]
+            futures.wait(fs)
         else:
-            with ProcessPoolExecutor(self._max_workers) as executor:
-                executor.map(
-                    partial(
-                        _scale_tile,
-                        base=base,
-                        output=output,
-                        scale_factors=self._scale_factors[level],
-                        **self._resize_kwargs,
-                    ),
-                    iter_tiles(output.domain),
-                    chunksize=4,
-                )
+            for tile in iter_tiles(out_array.domain):
+                _scale(tile=tile, **scale_kwargs)
+
+
+def _scale(
+    in_array: tiledb.Array,
+    out_array: tiledb.Array,
+    tile: Optional[Tuple[slice, ...]] = None,
+    scale_factors: Sequence[float] = (),
+    **resize_kwargs: Any,
+) -> None:
+    if tile is None:
+        tile = tuple(slice(0, size) for size in out_array.shape)
+        image = in_array[:]
+    else:
+        scaled_tile = []
+        in_shape = in_array.shape
+        assert len(tile) == len(scale_factors) == len(in_shape)
+        for tile_slice, scale_factor, dim_size in zip(tile, scale_factors, in_shape):
+            start = int(tile_slice.start * scale_factor)
+            stop = int(min(tile_slice.stop * scale_factor, dim_size))
+            scaled_tile.append(slice(start, stop))
+        image = in_array[tuple(scaled_tile)]
+
+    tile_shape = tuple(s.stop - s.start for s in tile)
+    out_array[tile] = sk.transform.resize(image, tile_shape, **resize_kwargs)

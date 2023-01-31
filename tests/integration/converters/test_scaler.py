@@ -6,10 +6,10 @@ from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
-@pytest.mark.parametrize("scale_factor", [[2, 4.0, 8, 16], [2, 3, 5, 8], [3.1, 11, 13]])
-@pytest.mark.parametrize("chunked", [True, False])
+@pytest.mark.parametrize("scale_factors", [[2, 4.0, 8, 16], [3.1, 11, 13]])
+@pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
 @pytest.mark.parametrize("progressive", [True, False])
-def test_scaler(tmp_path, scale_factor, chunked, progressive):
+def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
     input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
     ground_path = str(tmp_path / "ground")
     test_path = str(tmp_path / "test")
@@ -19,7 +19,7 @@ def test_scaler(tmp_path, scale_factor, chunked, progressive):
             f,
             ground_path,
             pyramid_kwargs={
-                "scale_factors": scale_factor,
+                "scale_factors": scale_factors,
                 "scale_axes": "XY",
             },
         )
@@ -29,12 +29,12 @@ def test_scaler(tmp_path, scale_factor, chunked, progressive):
             f,
             test_path,
             pyramid_kwargs={
-                "scale_factors": scale_factor,
+                "scale_factors": scale_factors,
                 "scale_axes": "XY",
                 "chunked": chunked,
                 "progressive": progressive,
                 "order": 1,
-                "max_workers": 16,
+                "max_workers": max_workers,
             },
         )
 
