@@ -129,8 +129,5 @@ def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
 
     with TileDBOpenSlide(str(tmp_path)) as t:
         assert t.level_count == len(levels_group_meta)
-        assert t.level_downsamples == tuple(
-            [level["downsample_factor"] for level in levels_group_meta]
-        )
         assert tiledb_group.meta["fmt_version"] == FMT_VERSION
         assert tiledb_group.meta["dataset_type"] == DATASET_TYPE

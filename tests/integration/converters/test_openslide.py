@@ -39,9 +39,6 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
         # Test group metadata
         levels_group_meta = json.loads(tiledb_group.meta["levels"])
         assert t.level_count == len(levels_group_meta)
-        assert t.level_downsamples == tuple(
-            [level["downsample_factor"] for level in levels_group_meta]
-        )
         assert tiledb_group.meta["fmt_version"] == FMT_VERSION
         assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
 

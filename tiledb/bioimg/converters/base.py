@@ -245,19 +245,12 @@ class ImageConverter:
                 tiledb.Array.create(uri, schema)
                 uris.append(uri)
 
-                # Calculate downsample factor
-                dims_map = dict(zip(dim_names, dim_shape))
-                if level == level_min:
-                    l0_w, l0_h = dims_map["X"], dims_map["Y"]
-                downsample_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
-
                 # Store layer mapping with shape value
                 meta_kvstore = {
                     "uri": uri,
                     "level": level,
                     "axes": "".join(dim_names),
                     "shape": dim_shape,
-                    "downsample_factor": downsample_factor,
                 }
                 levels_meta.append(meta_kvstore)
 
@@ -348,7 +341,6 @@ def _scale(
             "level": level,
             "axes": "".join(dim_names),
             "shape": level_shape,
-            "downsample_factor": scaler.downsample_factors[index],
         }
         levels_meta.append(meta_kvstore)
 
