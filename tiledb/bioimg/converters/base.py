@@ -276,7 +276,7 @@ class ImageConverter:
                     if urlparse(uri).scheme == "tiledb":
                         group.add(uri, relative=False)
                     else:
-                        group.add(uri_name, relative=True)
+                        group.add(os.path.basename(uri), relative=True)
 
         # Register group in cloud if package exists
         if output_path.startswith("tiledb://"):
