@@ -154,9 +154,9 @@ class ImageConverter:
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
+        compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
         register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
-        compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
         """
@@ -175,23 +175,25 @@ class ImageConverter:
             original ones.
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
+        :param compressor: TileDB compression filter
         :param register_kwargs: Cloud group registration optional args e.g namespace,
             parent_uri, storage_uri, credentials_name
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
-        :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for generating downsampled versions of
-            the base level.
-            **Note**: Valid keyword arguments are:
-            scale_factors (Required): The downsample factor for each level
-            scale_axes (Required): The axes which will be downsampled
-            chunked (Optional): Default False. If true the image is split into chunks and each one is independently
-                downsampled. If false the entire image is downsampled at once, but it requires more memory.
-            progressive (Optional): Default False. If true each downsampled image is generated using the previous level.
-                If false for every downsampled image the level_min is used, but it requires more memory.
-            order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5.
-                See `skimage.transform.warp` for detail.
-            max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it
-                will default to the number of processors on the machine, multiplied by 5.
-        :param compressor: TileDB compression filter
+        :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
+            generating downsampled versions of the base level. Valid keyword arguments are:
+            scale_factors (Required): The downsampling factor for each level
+            scale_axes (Optional): Default "XY". The axes which will be downsampled
+            chunked (Optional): Default False. If true the image is split into chunks and
+                each one is independently downsampled. If false the entire image is
+                downsampled at once, but it requires more memory.
+            progressive (Optional): Default False. If true each downsampled image is
+                generated using the previous level. If false for every downsampled image
+                the level_min is used, but it requires more memory.
+            order (Optional): Default 1. The order of the spline interpolation. The order
+                has to be in the range 0-5. See `skimage.transform.warp` for detail.
+            max_workers (Optional): Default None. The maximum number of workers for
+                chunked downsampling. If None, it will default to the number of processors
+                on the machine, multiplied by 5.
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -212,7 +214,8 @@ class ImageConverter:
             level_max = reader.level_count if pyramid_kwargs is None else level_min + 1
             if reader.level_count > level_min + 1 and pyramid_kwargs is not None:
                 warnings.warn(
-                    "The image contains multiple levels but pyramid generation is enabled. All levels except level zero will be skipped"
+                    "The image contains multiple levels but pyramid generation is enabled. "
+                    "All levels except level zero will be skipped"
                 )
 
             for level in range(level_min, level_max):

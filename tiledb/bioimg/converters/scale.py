@@ -15,7 +15,7 @@ class Scaler(object):
         base_shape: Tuple[int, ...],
         base_axes: str,
         scale_factors: Sequence[float],
-        scale_axes: str,
+        scale_axes: str = "XY",
         chunked: bool = False,
         progressive: bool = False,
         order: int = 1,

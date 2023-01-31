@@ -18,10 +18,7 @@ def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
         OMETiffConverter.to_tiledb(
             f,
             ground_path,
-            pyramid_kwargs={
-                "scale_factors": scale_factors,
-                "scale_axes": "XY",
-            },
+            pyramid_kwargs={"scale_factors": scale_factors},
         )
 
     with open(input_path, "rb") as f:
@@ -30,7 +27,6 @@ def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
             test_path,
             pyramid_kwargs={
                 "scale_factors": scale_factors,
-                "scale_axes": "XY",
                 "chunked": chunked,
                 "progressive": progressive,
                 "order": 1,
