@@ -5,7 +5,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, Iterator, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
@@ -207,21 +207,21 @@ class ImageConverter:
         max_tiles["X"] *= pixel_depth
 
         with cls._ImageReaderType(input_path, **reader_kwargs) as reader:
-            source_axes = reader.axes
-            # Create a TileDB array for each level in range(level_min, reader.level_count)
-            uris = []
-            levels_meta = []
-            level_max = reader.level_count if pyramid_kwargs is None else level_min + 1
-            if reader.level_count > level_min + 1 and pyramid_kwargs is not None:
-                warnings.warn(
-                    "The image contains multiple levels but pyramid generation is enabled. "
-                    "All levels except level zero will be skipped"
-                )
+            if pyramid_kwargs is not None:
+                level_max = level_min + 1
+                if reader.level_count > level_max:
+                    warnings.warn(
+                        f"The image contains multiple levels but only level {level_min} "
+                        "will be considered for generating the image pyramid"
+                    )
+            else:
+                level_max = reader.level_count
 
+            levels_meta = []
+            source_axes = reader.axes
             for level in range(level_min, level_max):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
-                if tiledb.object_type(uri) == "array":
-                    # level has already been converted
+                if tiledb.array_exists(uri):
                     continue
 
                 # create mapper from source to target axes
@@ -243,54 +243,26 @@ class ImageConverter:
                     dim_names, dim_shape, max_tiles, attr_dtype, compressor
                 )
                 tiledb.Array.create(uri, schema)
-                uris.append(uri)
-
-                # Store layer mapping with shape value
-                meta_kvstore = {
-                    "uri": uri,
-                    "level": level,
-                    "axes": "".join(dim_names),
-                    "shape": dim_shape,
-                }
-                levels_meta.append(meta_kvstore)
 
                 # write image and metadata to TileDB array
-                with tiledb.open(uri, "w") as a:
-                    a.meta.update(reader.level_metadata(level), level=level)
-                    if chunked or max_workers:
-                        inv_axes_mapper = axes_mapper.inverted
+                with tiledb.open(uri, "w") as out_array:
+                    _convert_level_to_tiledb(
+                        reader, level, out_array, axes_mapper, chunked, max_workers
+                    )
 
-                        def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
-                            source_tile = inv_axes_mapper.map_tile(level_tile)
-                            image = reader.level_image(level, source_tile)
-                            a[level_tile] = axes_mapper.map_array(image)
-
-                        ex = ThreadPoolExecutor(max_workers) if max_workers else None
-                        mapper = getattr(ex, "map", map)
-                        for _ in tqdm(
-                            mapper(tile_to_tiledb, iter_tiles(a.domain)),
-                            desc=f"Ingesting level {level}",
-                            total=num_tiles(a.domain),
-                            unit="tiles",
-                        ):
-                            pass
-                        if ex:
-                            ex.shutdown()
-                    else:
-                        image = reader.level_image(level)
-                        a[:] = axes_mapper.map_array(image)
+                level_meta: Mapping[str, Any] = dict(
+                    name=os.path.basename(uri),
+                    level=level,
+                    axes="".join(dim_names),
+                    shape=dim_shape,
+                )
+                levels_meta.append(level_meta)
 
             if pyramid_kwargs is not None:
-                uris, levels_meta = _scale(
-                    uris=uris,
-                    levels_meta=levels_meta,
-                    output_path=output_path,
-                    level_min=level_min,
-                    dim_names=dim_names,
-                    attr_dtype=attr_dtype,
-                    tiles=max_tiles,
-                    compressor=compressor,
-                    pyramid_kwargs=pyramid_kwargs,
+                levels_meta.extend(
+                    _create_image_pyramid(
+                        output_path, level_min, max_tiles, compressor, pyramid_kwargs
+                    )
                 )
 
             # Write group metadata
@@ -303,58 +275,16 @@ class ImageConverter:
                     dataset_type=DATASET_TYPE,
                     levels=json.dumps(levels_meta),
                 )
-                for uri in uris:
-                    if urlparse(uri).scheme == "tiledb":
-                        group.add(uri, relative=False)
-                    else:
-                        group.add(os.path.basename(uri), relative=True)
+                if urlparse(output_path).scheme == "tiledb":
+                    for level_meta in levels_meta:
+                        group.add(os.path.join(output_path, level_meta["name"]))
+                else:
+                    for level_meta in levels_meta:
+                        group.add(level_meta["name"], relative=True)
 
         # Register group in cloud if package exists
         if output_path.startswith("tiledb://"):
             groups.register(name=os.path.basename(output_path), **register_kwargs)
-
-
-def _scale(
-    uris: List[str],
-    levels_meta: List[Dict[str, Any]],
-    output_path: str,
-    level_min: int,
-    dim_names: Tuple[str, ...],
-    attr_dtype: np.dtype,
-    tiles: Mapping[str, int],
-    compressor: tiledb.Filter,
-    pyramid_kwargs: Mapping[str, Any],
-) -> Tuple[List[str], List[Dict[str, Any]]]:
-
-    with tiledb.open(uris[0]) as a:
-        scaler = Scaler(a.shape, "".join(dim_names), **pyramid_kwargs)
-
-    level = level_min + 1
-
-    for index, level_shape in enumerate(scaler.level_shapes):
-        uri = os.path.join(output_path, f"l_{level}.tdb")
-        schema = _get_schema(dim_names, level_shape, tiles, attr_dtype, compressor)
-        tiledb.Array.create(uri, schema)
-
-        meta_kvstore = {
-            "uri": uri,
-            "level": level,
-            "axes": "".join(dim_names),
-            "shape": level_shape,
-        }
-        levels_meta.append(meta_kvstore)
-
-        # if a non-progressive method is used the input layer of the scaler is the base image layer else we
-        # use the previously generated layer
-        with tiledb.open(uris[-1] if scaler.progressive else uris[0], "r") as base:
-            with tiledb.open(uri, "w") as output:
-                output.meta.update(level=level)
-                scaler.apply(base, output, index)
-
-        uris.append(uri)
-        level += 1
-
-    return uris, levels_meta
 
 
 def _get_schema(
@@ -375,3 +305,77 @@ def _get_schema(
         dims.append(dim)
     attr = tiledb.Attr(name="", dtype=attr_dtype, filters=[compressor])
     return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
+
+
+def _convert_level_to_tiledb(
+    reader: ImageReader,
+    level: int,
+    out_array: tiledb.Array,
+    axes_mapper: AxesMapper,
+    chunked: bool,
+    max_workers: int,
+) -> None:
+    out_array.meta.update(reader.level_metadata(level), level=level)
+    if chunked or max_workers:
+        inv_axes_mapper = axes_mapper.inverted
+
+        def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
+            source_tile = inv_axes_mapper.map_tile(level_tile)
+            image = reader.level_image(level, source_tile)
+            out_array[level_tile] = axes_mapper.map_array(image)
+
+        ex = ThreadPoolExecutor(max_workers) if max_workers else None
+        mapper = getattr(ex, "map", map)
+        for _ in tqdm(
+            mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
+            desc=f"Ingesting level {level}",
+            total=num_tiles(out_array.domain),
+            unit="tiles",
+        ):
+            pass
+        if ex:
+            ex.shutdown()
+    else:
+        image = reader.level_image(level)
+        out_array[:] = axes_mapper.map_array(image)
+
+
+def _create_image_pyramid(
+    output_path: str,
+    base_level: int,
+    max_tiles: Mapping[str, int],
+    compressor: tiledb.Filter,
+    pyramid_kwargs: Mapping[str, Any],
+) -> Iterator[Mapping[str, Any]]:
+    base_uri = os.path.join(output_path, f"l_{base_level}.tdb")
+    with tiledb.open(base_uri, "r") as a:
+        base_shape = a.shape
+        dim_names = tuple(dim.name for dim in a.domain)
+        base_axes = "".join(dim_names)
+        attr_dtype = a.attr(0).dtype
+
+    scaler = Scaler(base_shape, base_axes, **pyramid_kwargs)
+    for i, level_shape in enumerate(scaler.level_shapes):
+        level = base_level + 1 + i
+        uri = os.path.join(output_path, f"l_{level}.tdb")
+        if tiledb.array_exists(uri):
+            continue
+
+        schema = _get_schema(dim_names, level_shape, max_tiles, attr_dtype, compressor)
+        tiledb.Array.create(uri, schema)
+
+        with tiledb.open(uri, "w") as out_array:
+            out_array.meta.update(level=level)
+            with tiledb.open(base_uri, "r") as in_array:
+                scaler.apply(in_array, out_array, i)
+
+        yield dict(
+            name=os.path.basename(uri),
+            level=level,
+            axes=base_axes,
+            shape=level_shape,
+        )
+        # if a non-progressive method is used, the input layer of the scaler
+        # is the base image layer else we use the previously generated layer
+        if scaler.progressive:
+            base_uri = uri
