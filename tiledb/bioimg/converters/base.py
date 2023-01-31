@@ -226,8 +226,9 @@ class ImageConverter:
                 downsample_factor = (l0_w / dims_map["X"] + l0_h / dims_map["Y"]) / 2.0
 
                 # Store layer mapping with shape value
+                uri_name = os.path.basename(uri)
                 meta_kvstore = {
-                    "uri": os.path.basename(uri),
+                    "name": uri_name,
                     "level": level,
                     "axes": "".join(dim_names),
                     "shape": dim_shape,
@@ -275,7 +276,7 @@ class ImageConverter:
                     if urlparse(uri).scheme == "tiledb":
                         group.add(uri, relative=False)
                     else:
-                        group.add(os.path.basename(uri), relative=True)
+                        group.add(uri_name, relative=True)
 
         # Register group in cloud if package exists
         if output_path.startswith("tiledb://"):
