@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
 from tqdm import tqdm
+
+from .scale import Scaler
 
 try:
     from tiledb.cloud import groups
@@ -151,9 +154,10 @@ class ImageConverter:
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
+        compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
         register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
-        compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
+        pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
@@ -171,10 +175,25 @@ class ImageConverter:
             original ones.
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
+        :param compressor: TileDB compression filter
         :param register_kwargs: Cloud group registration optional args e.g namespace,
             parent_uri, storage_uri, credentials_name
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
-        :param compressor: TileDB compression filter
+        :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
+            generating downsampled versions of the base level. Valid keyword arguments are:
+            scale_factors (Required): The downsampling factor for each level
+            scale_axes (Optional): Default "XY". The axes which will be downsampled
+            chunked (Optional): Default False. If true the image is split into chunks and
+                each one is independently downsampled. If false the entire image is
+                downsampled at once, but it requires more memory.
+            progressive (Optional): Default False. If true each downsampled image is
+                generated using the previous level. If false for every downsampled image
+                the level_min is used, but it requires more memory.
+            order (Optional): Default 1. The order of the spline interpolation. The order
+                has to be in the range 0-5. See `skimage.transform.warp` for detail.
+            max_workers (Optional): Default None. The maximum number of workers for
+                chunked downsampling. If None, it will default to the number of processors
+                on the machine, multiplied by 5.
         """
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
@@ -192,7 +211,14 @@ class ImageConverter:
             # Create a TileDB array for each level in range(level_min, reader.level_count)
             uris = []
             levels_meta = []
-            for level in range(level_min, reader.level_count):
+            level_max = reader.level_count if pyramid_kwargs is None else level_min + 1
+            if reader.level_count > level_min + 1 and pyramid_kwargs is not None:
+                warnings.warn(
+                    "The image contains multiple levels but pyramid generation is enabled. "
+                    "All levels except level zero will be skipped"
+                )
+
+            for level in range(level_min, level_max):
                 uri = os.path.join(output_path, f"l_{level}.tdb")
                 if tiledb.object_type(uri) == "array":
                     # level has already been converted
@@ -261,6 +287,19 @@ class ImageConverter:
                         image = reader.level_image(level)
                         a[:] = axes_mapper.map_array(image)
 
+            if pyramid_kwargs is not None:
+                uris, levels_meta = _scale(
+                    uris=uris,
+                    levels_meta=levels_meta,
+                    output_path=output_path,
+                    level_min=level_min,
+                    dim_names=dim_names,
+                    attr_dtype=attr_dtype,
+                    tiles=max_tiles,
+                    compressor=compressor,
+                    pyramid_kwargs=pyramid_kwargs,
+                )
+
             # Write group metadata
             with tiledb.Group(output_path, "w") as group:
                 group.meta.update(
@@ -280,6 +319,50 @@ class ImageConverter:
         # Register group in cloud if package exists
         if output_path.startswith("tiledb://"):
             groups.register(name=os.path.basename(output_path), **register_kwargs)
+
+
+def _scale(
+    uris: List[str],
+    levels_meta: List[Dict[str, Any]],
+    output_path: str,
+    level_min: int,
+    dim_names: Tuple[str, ...],
+    attr_dtype: np.dtype,
+    tiles: Mapping[str, int],
+    compressor: tiledb.Filter,
+    pyramid_kwargs: Mapping[str, Any],
+) -> Tuple[List[str], List[Dict[str, Any]]]:
+
+    with tiledb.open(uris[0]) as a:
+        scaler = Scaler(a.shape, "".join(dim_names), **pyramid_kwargs)
+
+    level = level_min + 1
+
+    for index, level_shape in enumerate(scaler.level_shapes):
+        uri = os.path.join(output_path, f"l_{level}.tdb")
+        schema = _get_schema(dim_names, level_shape, tiles, attr_dtype, compressor)
+        tiledb.Array.create(uri, schema)
+
+        meta_kvstore = {
+            "uri": uri,
+            "level": level,
+            "axes": "".join(dim_names),
+            "shape": level_shape,
+            "downsample_factor": scaler.downsample_factors[index],
+        }
+        levels_meta.append(meta_kvstore)
+
+        # if a non-progressive method is used the input layer of the scaler is the base image layer else we
+        # use the previously generated layer
+        with tiledb.open(uris[-1] if scaler.progressive else uris[0], "r") as base:
+            with tiledb.open(uri, "w") as output:
+                output.meta.update(level=level)
+                scaler.apply(base, output, index)
+
+        uris.append(uri)
+        level += 1
+
+    return uris, levels_meta
 
 
 def _get_schema(
