@@ -5,7 +5,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Iterator, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
@@ -14,9 +14,9 @@ from tqdm import tqdm
 from .scale import Scaler
 
 try:
-    from tiledb.cloud import groups
+    from tiledb.cloud.groups import register as register_group
 except ImportError:
-    pass
+    register_group = None
 
 import tiledb
 
@@ -198,15 +198,14 @@ class ImageConverter:
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
 
-        if tiledb.object_type(output_path) != "group":
-            tiledb.group_create(output_path)
-
         pixel_depth = get_pixel_depth(compressor)
         max_tiles = cls._DEFAULT_TILES.copy()
         max_tiles.update(tiles)
         max_tiles["X"] *= pixel_depth
 
-        with cls._ImageReaderType(input_path, **reader_kwargs) as reader:
+        rw_group = _ReadWriteGroup(output_path)
+        reader = cls._ImageReaderType(input_path, **reader_kwargs)
+        with rw_group, reader:
             if pyramid_kwargs is not None:
                 level_max = level_min + 1
                 if reader.level_count > level_max:
@@ -217,13 +216,9 @@ class ImageConverter:
             else:
                 level_max = reader.level_count
 
-            levels_meta = []
+            levels_meta: List[Mapping[str, Any]] = []
             source_axes = reader.axes
             for level in range(level_min, level_max):
-                uri = os.path.join(output_path, f"l_{level}.tdb")
-                if tiledb.array_exists(uri):
-                    continue
-
                 # create mapper from source to target axes
                 source_shape = reader.level_shape(level)
                 if pixel_depth == 1:
@@ -236,13 +231,18 @@ class ImageConverter:
                 else:
                     raise NotImplementedError
 
-                # create TileDB array
+                # create TileDB schema
                 dim_shape = axes_mapper.map_shape(source_shape)
                 attr_dtype = reader.level_dtype(level)
                 schema = _get_schema(
                     dim_names, dim_shape, max_tiles, attr_dtype, compressor
                 )
-                tiledb.Array.create(uri, schema)
+
+                # get or create TileDB array uri
+                name = f"l_{level}.tdb"
+                uri, created = rw_group.get_or_create(name, schema)
+                if not created:
+                    continue
 
                 # write image and metadata to TileDB array
                 with tiledb.open(uri, "w") as out_array:
@@ -250,41 +250,55 @@ class ImageConverter:
                         reader, level, out_array, axes_mapper, chunked, max_workers
                     )
 
-                level_meta: Mapping[str, Any] = dict(
-                    name=os.path.basename(uri),
-                    level=level,
-                    axes="".join(dim_names),
-                    shape=dim_shape,
+                dim_axes = "".join(dim_names)
+                levels_meta.append(
+                    dict(level=level, name=name, axes=dim_axes, shape=dim_shape)
                 )
-                levels_meta.append(level_meta)
 
             if pyramid_kwargs is not None:
                 levels_meta.extend(
                     _create_image_pyramid(
-                        output_path, level_min, max_tiles, compressor, pyramid_kwargs
+                        rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
                     )
                 )
 
             # Write group metadata
-            with tiledb.Group(output_path, "w") as group:
-                group.meta.update(
-                    reader.group_metadata,
-                    axes=source_axes.dims,
-                    pkg_version=version,
-                    fmt_version=FMT_VERSION,
-                    dataset_type=DATASET_TYPE,
-                    levels=json.dumps(levels_meta),
-                )
-                if urlparse(output_path).scheme == "tiledb":
-                    for level_meta in levels_meta:
-                        group.add(os.path.join(output_path, level_meta["name"]))
-                else:
-                    for level_meta in levels_meta:
-                        group.add(level_meta["name"], relative=True)
+            rw_group.w_group.meta.update(
+                reader.group_metadata,
+                axes=source_axes.dims,
+                pkg_version=version,
+                fmt_version=FMT_VERSION,
+                dataset_type=DATASET_TYPE,
+                levels=json.dumps(levels_meta),
+            )
 
-        # Register group in cloud if package exists
-        if output_path.startswith("tiledb://"):
-            groups.register(name=os.path.basename(output_path), **register_kwargs)
+        if register_group is not None and urlparse(output_path).scheme == "tiledb":
+            register_group(name=os.path.basename(output_path), **register_kwargs)
+
+
+class _ReadWriteGroup:
+    def __init__(self, uri: str):
+        if tiledb.object_type(uri) != "group":
+            tiledb.group_create(uri)
+        self.r_group = tiledb.Group(uri, "r")
+        self.w_group = tiledb.Group(uri, "w")
+
+    def __enter__(self) -> _ReadWriteGroup:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.r_group.close()
+        self.w_group.close()
+
+    def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
+        uri = os.path.join(self.r_group.uri, name)
+        if name in self.r_group or tiledb.array_exists(uri):
+            create = False
+        else:
+            create = True
+            tiledb.Array.create(uri, schema)
+            self.w_group.add(uri, name)
+        return uri, create
 
 
 def _get_schema(
@@ -341,40 +355,34 @@ def _convert_level_to_tiledb(
 
 
 def _create_image_pyramid(
-    output_path: str,
+    rw_group: _ReadWriteGroup,
+    base_uri: str,
     base_level: int,
     max_tiles: Mapping[str, int],
     compressor: tiledb.Filter,
     pyramid_kwargs: Mapping[str, Any],
 ) -> Iterator[Mapping[str, Any]]:
-    base_uri = os.path.join(output_path, f"l_{base_level}.tdb")
     with tiledb.open(base_uri, "r") as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
-        base_axes = "".join(dim_names)
+        dim_axes = "".join(dim_names)
         attr_dtype = a.attr(0).dtype
 
-    scaler = Scaler(base_shape, base_axes, **pyramid_kwargs)
-    for i, level_shape in enumerate(scaler.level_shapes):
+    scaler = Scaler(base_shape, dim_axes, **pyramid_kwargs)
+    for i, dim_shape in enumerate(scaler.level_shapes):
         level = base_level + 1 + i
-        uri = os.path.join(output_path, f"l_{level}.tdb")
-        if tiledb.array_exists(uri):
+        name = f"l_{level}.tdb"
+        schema = _get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
+        uri, created = rw_group.get_or_create(name, schema)
+        if not created:
             continue
-
-        schema = _get_schema(dim_names, level_shape, max_tiles, attr_dtype, compressor)
-        tiledb.Array.create(uri, schema)
 
         with tiledb.open(uri, "w") as out_array:
             out_array.meta.update(level=level)
             with tiledb.open(base_uri, "r") as in_array:
                 scaler.apply(in_array, out_array, i)
 
-        yield dict(
-            name=os.path.basename(uri),
-            level=level,
-            axes=base_axes,
-            shape=level_shape,
-        )
+        yield dict(level=level, name=name, axes=dim_axes, shape=dim_shape)
         # if a non-progressive method is used, the input layer of the scaler
         # is the base image layer else we use the previously generated layer
         if scaler.progressive:
