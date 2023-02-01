@@ -291,12 +291,31 @@ class _ReadWriteGroup:
         self.w_group.close()
 
     def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
-        uri = os.path.join(self.r_group.uri, name)
-        if name in self.r_group or tiledb.array_exists(uri):
-            create = False
+        create = False
+        if name in self.r_group:
+            uri = self.r_group[name].uri
         else:
-            create = True
-            tiledb.Array.create(uri, schema)
+            uri = os.path.join(self.r_group.uri, name)
+            if not tiledb.array_exists(uri):
+                tiledb.Array.create(uri, schema)
+                create = True
+            else:
+                # The array exists but it's not added as group member with the given name.
+                # It is possible though that it was added as an anonymous member.
+                # In this case we should remove the member, using as key either the uri
+                # (if added with relative=False) or the name (if added with relative=True).
+                for ref in uri, name:
+                    try:
+                        # Attempting to remove and then re-add a member with the same name
+                        # fails with "[TileDB::Group] Error: Cannot add group member,
+                        # member already set for removal.". Therefore the line below is
+                        # commented out for the time being. The end result is that there
+                        # may be duplicate members for the same uri
+                        pass
+                        # self.w_group.remove(ref)
+                    except tiledb.TileDBError:
+                        pass
+            # register the uri with the given name
             self.w_group.add(uri, name)
         return uri, create
 
