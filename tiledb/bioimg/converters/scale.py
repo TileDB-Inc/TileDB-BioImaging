@@ -1,7 +1,6 @@
 from concurrent import futures
 from typing import Any, Optional, Sequence, Tuple
 
-import numpy as np
 import skimage as sk
 
 import tiledb
@@ -28,7 +27,6 @@ class Scaler(object):
             futures.ProcessPoolExecutor(max_workers) if max_workers != 0 else None
         )
         self._level_shapes = []
-        self._downsample_factors = []
         self._scale_factors = []
 
         previous_scale_factor = 1.0
@@ -40,17 +38,6 @@ class Scaler(object):
                 tuple(
                     round(dim_size / dim_factor)
                     for dim_size, dim_factor in zip(base_shape, dim_factors)
-                )
-            )
-            self._downsample_factors.append(
-                np.mean(
-                    [
-                        dim_size / level_dim
-                        for dim_size, level_dim in zip(
-                            base_shape, self._level_shapes[-1]
-                        )
-                        if dim_size != level_dim
-                    ]
                 )
             )
             if chunked:
@@ -67,10 +54,6 @@ class Scaler(object):
     @property
     def level_shapes(self) -> Sequence[Tuple[int, ...]]:
         return self._level_shapes
-
-    @property
-    def downsample_factors(self) -> Sequence[float]:
-        return self._downsample_factors
 
     @property
     def chunked(self) -> bool:

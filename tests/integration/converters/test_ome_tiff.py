@@ -97,9 +97,6 @@ def test_tiledb_to_ome_tiff_group_metadata(
 
     with TileDBOpenSlide(str(tiledb_path)) as t:
         assert t.level_count == len(levels_group_meta)
-        assert t.level_downsamples == tuple(
-            [level["downsample_factor"] for level in levels_group_meta]
-        )
         assert tiledb_group.meta["fmt_version"] == FMT_VERSION
         assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
 
