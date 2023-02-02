@@ -306,15 +306,17 @@ class _ReadWriteGroup:
                 # (if added with relative=False) or the name (if added with relative=True).
                 for ref in uri, name:
                     try:
-                        # Attempting to remove and then re-add a member with the same name
-                        # fails with "[TileDB::Group] Error: Cannot add group member,
-                        # member already set for removal.". Therefore the line below is
-                        # commented out for the time being. The end result is that there
-                        # may be duplicate members for the same uri
-                        pass
-                        # self.w_group.remove(ref)
+                        self.w_group.remove(ref)
                     except tiledb.TileDBError:
                         pass
+                    else:
+                        # Attempting to remove and then re-add a member with the same name
+                        # fails with "[TileDB::Group] Error: Cannot add group member,
+                        # member already set for removal.". To work around this we need to
+                        # close the write group (to flush the removal) and and reopen it
+                        # (to allow the add operation)
+                        self.w_group.close()
+                        self.w_group.open("w")
             # register the uri with the given name
             self.w_group.add(uri, name)
         return uri, create
