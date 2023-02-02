@@ -32,14 +32,18 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
             assert A.schema == get_schema(2220, 2967, 4)
 
     o = openslide.open_slide(input_path)
-    tiledb_group = tiledb.Group(str(output_path), mode="r")
 
     with TileDBOpenSlide(output_path) as t:
-        # Test group metadata
-        levels_group_meta = json.loads(tiledb_group.meta["levels"])
+        group_properties = t.properties
+        assert group_properties["dataset_type"] == DATASET_TYPE
+        assert group_properties["fmt_version"] == FMT_VERSION
+        assert isinstance(group_properties.get("pkg_version"), str)
+        assert group_properties["axes"] == "YXC"
+        assert group_properties["channels"] == json.dumps(
+            ["RED", "GREEN", "BLUE", "ALPHA"]
+        )
+        levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)
-        assert tiledb_group.meta["fmt_version"] == FMT_VERSION
-        assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
 
         assert t.level_count == o.level_count
         assert t.dimensions == o.dimensions
@@ -55,7 +59,19 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
         img = PIL.Image.fromarray(region)
         assert img == o.read_region(**region_kwargs)
 
-        for level in range(t.level_count):
+        for level, level_meta in enumerate(levels_group_meta):
+            assert level_meta["level"] == level
+            assert level_meta["name"] == f"l_{level}.tdb"
+
+            level_axes = level_meta["axes"]
+            shape = level_meta["shape"]
+            level_width, level_height = t.level_dimensions[level]
+            assert level_axes == "YXC" if preserve_axes else "CYX"
+            assert len(shape) == len(level_axes)
+            assert shape[level_axes.index("C")] == 4
+            assert shape[level_axes.index("X")] == level_width
+            assert shape[level_axes.index("Y")] == level_height
+
             region_data = t.read_region((0, 0), level, t.level_dimensions[level])
             level_data = t.read_level(level)
             np.testing.assert_array_equal(region_data, level_data)

@@ -5,7 +5,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Iterator, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, Iterator, Mapping, Optional, Sequence, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
@@ -42,6 +42,11 @@ class ImageReader(ABC):
     @abstractmethod
     def axes(self) -> Axes:
         """The axes of this multi-resolution image."""
+
+    @property
+    @abstractmethod
+    def channels(self) -> Sequence[str]:
+        """Names of the channels (C axis) of this multi-resolution image."""
 
     @property
     @abstractmethod
@@ -268,6 +273,7 @@ class ImageConverter:
                 pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
+                channels=json.dumps(reader.channels),
                 levels=json.dumps(list(_iter_levels_meta(rw_group.r_group))),
             )
 

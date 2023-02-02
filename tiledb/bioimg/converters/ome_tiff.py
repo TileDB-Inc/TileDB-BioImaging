@@ -20,6 +20,8 @@ class OMETiffReader(ImageReader):
         self._tiff = tifffile.TiffFile(input_path)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
+        omexml = self._tiff.ome_metadata
+        self._metadata = tifffile.xml2dict(omexml) if omexml else {}
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
@@ -27,6 +29,16 @@ class OMETiffReader(ImageReader):
     @property
     def axes(self) -> Axes:
         return Axes(self._series.axes.replace("S", "C"))
+
+    @property
+    def channels(self) -> Sequence[str]:
+        try:
+            channels = self._metadata["OME"]["Image"][0]["Pixels"]["Channel"]
+            if not isinstance(channels, Sequence):
+                channels = [channels]
+        except KeyError:
+            return ()
+        return tuple(c.get("Name") or f"Channel {i}" for i, c in enumerate(channels))
 
     @property
     def level_count(self) -> int:
@@ -54,9 +66,7 @@ class OMETiffReader(ImageReader):
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         if level == 0:
-            omexml = self._tiff.ome_metadata
-            metadata = tifffile.xml2dict(omexml) if omexml else {}
-            metadata["axes"] = self._series.axes
+            metadata = dict(self._metadata, axes=self._series.axes)
         else:
             metadata = None
         keyframe = self._series.levels[level].keyframe

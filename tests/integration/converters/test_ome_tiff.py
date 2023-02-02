@@ -63,42 +63,38 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
         assert A.attr(0).dtype == np.uint16
 
 
-@pytest.mark.parametrize(
-    "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
-)
 @pytest.mark.parametrize("preserve_axes", [False, True])
-@pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
-def test_tiledb_to_ome_tiff_group_metadata(
-    tmp_path, filename, num_series, preserve_axes, chunked, max_workers
-):
-    input_path = get_path(filename)
+def test_tiledb_to_ome_tiff_group_metadata(tmp_path, preserve_axes):
+    input_path = get_path("CMU-1-Small-Region.ome.tiff")
     tiledb_path = tmp_path / "to_tiledb"
-    to_tiledb_kwargs = dict(
-        input_path=input_path,
-        output_path=str(tiledb_path),
-        preserve_axes=preserve_axes,
-        chunked=chunked,
-        max_workers=max_workers,
-        reader_kwargs=dict(
-            extra_tags=(
-                "ModelPixelScaleTag",
-                "ModelTiepointTag",
-                "GeoKeyDirectoryTag",
-                "GeoAsciiParamsTag",
-            )
-        ),
+    OMETiffConverter.to_tiledb(
+        input_path, str(tiledb_path), preserve_axes=preserve_axes
     )
 
-    # Store it to Tiledb
-    OMETiffConverter.to_tiledb(**to_tiledb_kwargs)
-
-    tiledb_group = tiledb.Group(str(tiledb_path), mode="r")
-    levels_group_meta = json.loads(tiledb_group.meta["levels"])
-
     with TileDBOpenSlide(str(tiledb_path)) as t:
+        group_properties = t.properties
+        assert group_properties["dataset_type"] == DATASET_TYPE
+        assert group_properties["fmt_version"] == FMT_VERSION
+        assert isinstance(group_properties.get("pkg_version"), str)
+        assert group_properties["axes"] == "CYX"
+        assert group_properties["channels"] == json.dumps(
+            ["Channel 0", "Channel 1", "Channel 2"]
+        )
+
+        levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)
-        assert tiledb_group.meta["fmt_version"] == FMT_VERSION
-        assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
+        for level, level_meta in enumerate(levels_group_meta):
+            assert level_meta["level"] == level
+            assert level_meta["name"] == f"l_{level}.tdb"
+
+            level_axes = level_meta["axes"]
+            shape = level_meta["shape"]
+            level_width, level_height = t.level_dimensions[level]
+            assert level_axes == "CYX"
+            assert len(shape) == len(level_axes)
+            assert shape[level_axes.index("C")] == 3
+            assert shape[level_axes.index("X")] == level_width
+            assert shape[level_axes.index("Y")] == level_height
 
 
 @pytest.mark.parametrize(

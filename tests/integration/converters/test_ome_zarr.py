@@ -124,10 +124,30 @@ def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
 
-    tiledb_group = tiledb.Group(str(tmp_path), mode="r")
-    levels_group_meta = json.loads(tiledb_group.meta["levels"])
-
     with TileDBOpenSlide(str(tmp_path)) as t:
+        group_properties = t.properties
+        assert group_properties["dataset_type"] == DATASET_TYPE
+        assert group_properties["fmt_version"] == FMT_VERSION
+        assert isinstance(group_properties.get("pkg_version"), str)
+        assert group_properties["axes"] == "TCZYX"
+        assert group_properties["channels"] == json.dumps(
+            ["Channel 0", "Channel 1", "Channel 2"]
+        )
+
+        levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)
-        assert tiledb_group.meta["fmt_version"] == FMT_VERSION
-        assert tiledb_group.meta["dataset_type"] == DATASET_TYPE
+        for level, level_meta in enumerate(levels_group_meta):
+            assert level_meta["level"] == level
+            assert level_meta["name"] == f"l_{level}.tdb"
+
+            level_axes = level_meta["axes"]
+            shape = level_meta["shape"]
+            level_width, level_height = t.level_dimensions[level]
+            assert level_axes == "TCZYX" if preserve_axes else "CYX"
+            assert len(shape) == len(level_axes)
+            assert shape[level_axes.index("C")] == 3
+            assert shape[level_axes.index("X")] == level_width
+            assert shape[level_axes.index("Y")] == level_height
+            if preserve_axes:
+                assert shape[level_axes.index("T")] == 1
+                assert shape[level_axes.index("Z")] == 1
