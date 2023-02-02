@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, Dict, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import openslide as osd
@@ -23,6 +23,10 @@ class OpenSlideReader(ImageReader):
     @property
     def axes(self) -> Axes:
         return Axes("YXC")
+
+    @property
+    def channels(self) -> Sequence[str]:
+        return "RED", "GREEN", "BLUE", "ALPHA"
 
     @property
     def level_count(self) -> int:

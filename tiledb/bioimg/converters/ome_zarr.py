@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
-from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
-import dask.array as da
 import numpy as np
 import zarr
 from numcodecs import Blosc
-from ome_zarr.reader import Reader, ZarrLocation
+from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
 from .axes import Axes
@@ -22,40 +20,44 @@ class OMEZarrReader(ImageReader):
 
         :param input_path: The path to the Zarr image
         """
-        self._root_attrs = ZarrLocation(input_path).root_attrs
-        self._nodes = []
-        for dataset in self._multiscale["datasets"]:
-            path = os.path.join(input_path, dataset["path"])
-            self._nodes.extend(Reader(ZarrLocation(path))())
+        root_node = next(Reader(ZarrLocation(input_path))())
+        self._multiscales = cast(Multiscales, root_node.load(Multiscales))
+        self._omero = cast(Optional[OMERO], root_node.load(OMERO))
 
     @property
     def axes(self) -> Axes:
-        return Axes(axis["name"].upper() for axis in self._multiscale["axes"])
+        return Axes(a["name"].upper() for a in self._multiscales.node.metadata["axes"])
+
+    @property
+    def channels(self) -> Sequence[str]:
+        return tuple(self._omero.node.metadata.get("name", ())) if self._omero else ()
 
     @property
     def level_count(self) -> int:
-        return len(self._nodes)
+        return len(self._multiscales.datasets)
 
     def level_dtype(self, level: int) -> np.dtype:
-        return self._level_dask_array(level).dtype
+        return self._multiscales.node.data[level].dtype
 
     def level_shape(self, level: int) -> Tuple[int, ...]:
-        return cast(Tuple[int, ...], self._level_dask_array(level).shape)
+        return cast(Tuple[int, ...], self._multiscales.node.data[level].shape)
 
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
     ) -> np.ndarray:
-        dask_array = self._level_dask_array(level)
+        dask_array = self._multiscales.node.data[level]
         if tile is not None:
             dask_array = dask_array[tile]
         return np.asarray(dask_array)
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        return {"json_zarray": json.dumps(self._nodes[level].zarr.zarray)}
+        dataset = self._multiscales.datasets[level]
+        location = ZarrLocation(self._multiscales.zarr.subpath(dataset))
+        return {"json_zarray": json.dumps(location.zarray)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
-        multiscale = self._multiscale
+        multiscale = self._multiscales.lookup("multiscales", [])[0]
         writer_kwargs = dict(
             axes=multiscale.get("axes"),
             coordinate_transformations=[
@@ -63,20 +65,9 @@ class OMEZarrReader(ImageReader):
             ],
             name=multiscale.get("name"),
             metadata=multiscale.get("metadata"),
-            omero=self._root_attrs.get("omero"),
+            omero=self._omero.image_data if self._omero else None,
         )
         return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
-
-    @property
-    def _multiscale(self) -> Dict[str, Any]:
-        multiscales = self._root_attrs["multiscales"]
-        assert len(multiscales) == 1, multiscales
-        return cast(Dict[str, Any], multiscales[0])
-
-    def _level_dask_array(self, level: int) -> da.Array:
-        data = self._nodes[level].data
-        assert len(data) == 1
-        return data[0]
 
 
 class OMEZarrWriter(ImageWriter):
