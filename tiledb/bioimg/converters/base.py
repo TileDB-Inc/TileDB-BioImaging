@@ -205,7 +205,16 @@ class ImageConverter:
 
         rw_group = _ReadWriteGroup(output_path)
         reader = cls._ImageReaderType(input_path, **reader_kwargs)
+
         with rw_group, reader:
+            if (
+                rw_group.r_group.meta["pkg_version"] != version
+                or rw_group.r_group.meta["fmt_version"] != FMT_VERSION
+            ):
+                raise EnvironmentError(
+                    "Incremental ingestion is supported only between same format and package versions"
+                )
+
             if pyramid_kwargs is not None:
                 level_max = level_min + 1
                 if reader.level_count > level_max:
@@ -216,7 +225,6 @@ class ImageConverter:
             else:
                 level_max = reader.level_count
 
-            # levels_meta: List[Mapping[str, Any]] = []
             source_axes = reader.axes
             for level in range(level_min, level_max):
                 # create mapper from source to target axes
@@ -267,6 +275,7 @@ class ImageConverter:
                 dataset_type=DATASET_TYPE,
                 levels=json.dumps(levels_meta),
             )
+
         if register_group is not None and urlparse(output_path).scheme == "tiledb":
             register_group(name=os.path.basename(output_path), **register_kwargs)
 
