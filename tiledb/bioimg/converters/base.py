@@ -5,7 +5,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Type
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
@@ -216,7 +216,7 @@ class ImageConverter:
             else:
                 level_max = reader.level_count
 
-            levels_meta: List[Mapping[str, Any]] = []
+            # levels_meta: List[Mapping[str, Any]] = []
             source_axes = reader.axes
             for level in range(level_min, level_max):
                 # create mapper from source to target axes
@@ -250,17 +250,13 @@ class ImageConverter:
                         reader, level, out_array, axes_mapper, chunked, max_workers
                     )
 
-                dim_axes = "".join(dim_names)
-                levels_meta.append(
-                    dict(level=level, name=name, axes=dim_axes, shape=dim_shape)
+            if pyramid_kwargs is not None:
+                _create_image_pyramid(
+                    rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
                 )
 
-            if pyramid_kwargs is not None:
-                levels_meta.extend(
-                    _create_image_pyramid(
-                        rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
-                    )
-                )
+        with rw_group:
+            levels_meta = _compute_levels_meta(rw_group)
 
             # Write group metadata
             rw_group.w_group.meta.update(
@@ -271,7 +267,6 @@ class ImageConverter:
                 dataset_type=DATASET_TYPE,
                 levels=json.dumps(levels_meta),
             )
-
         if register_group is not None and urlparse(output_path).scheme == "tiledb":
             register_group(name=os.path.basename(output_path), **register_kwargs)
 
@@ -280,10 +275,11 @@ class _ReadWriteGroup:
     def __init__(self, uri: str):
         if tiledb.object_type(uri) != "group":
             tiledb.group_create(uri)
-        self.r_group = tiledb.Group(uri, "r")
-        self.w_group = tiledb.Group(uri, "w")
+        self.uri = uri
 
     def __enter__(self) -> _ReadWriteGroup:
+        self.r_group = tiledb.Group(self.uri, "r")
+        self.w_group = tiledb.Group(self.uri, "w")
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -382,7 +378,7 @@ def _create_image_pyramid(
     max_tiles: Mapping[str, int],
     compressor: tiledb.Filter,
     pyramid_kwargs: Mapping[str, Any],
-) -> Iterator[Mapping[str, Any]]:
+) -> None:
     with tiledb.open(base_uri, "r") as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
@@ -403,8 +399,31 @@ def _create_image_pyramid(
             with tiledb.open(base_uri, "r") as in_array:
                 scaler.apply(in_array, out_array, i)
 
-        yield dict(level=level, name=name, axes=dim_axes, shape=dim_shape)
         # if a non-progressive method is used, the input layer of the scaler
         # is the base image layer else we use the previously generated layer
         if scaler.progressive:
             base_uri = uri
+
+
+def _compute_levels_meta(rw_group: _ReadWriteGroup) -> Sequence[Mapping[str, Any]]:
+    levels_meta: List[Mapping[str, Any]] = []
+    for group_obj in rw_group.r_group:
+        if group_obj.type == tiledb.Array:
+            with tiledb.open(group_obj.uri) as lvl_array:
+                domain = lvl_array.schema.domain
+                dim_names = tuple(
+                    [domain.dim(dim_idx).name for dim_idx in range(domain.ndim)]
+                )
+                dim_axes = "".join(dim_names)
+                levels_meta.append(
+                    dict(
+                        level=lvl_array.meta["level"],
+                        name=os.path.basename(lvl_array.uri),
+                        axes=dim_axes,
+                        shape=lvl_array.shape,
+                    )
+                )
+        else:
+            # Another group or invalid
+            continue
+    return levels_meta
