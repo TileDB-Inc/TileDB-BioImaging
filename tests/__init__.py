@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 import tiledb
+from tiledb.cc import WebpInputFormat
 
 if os.name == "posix":
     multiprocessing.set_start_method("forkserver")
@@ -20,8 +21,21 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
     if isinstance(compressor, tiledb.WebpFilter):
         x_size *= c_size
         x_tile *= c_size
+        if compressor.input_format == WebpInputFormat.WEBP_NONE:
+            if c_size == 3:
+                input_format = WebpInputFormat.WEBP_RGB
+            elif c_size == 4:
+                input_format = WebpInputFormat.WEBP_RGBA
+            else:
+                assert False, f"No WebpInputFormat with pixel_depth={c_size}"
+            compressor = tiledb.WebpFilter(
+                input_format=input_format,
+                quality=compressor.quality,
+                lossless=compressor.lossless,
+            )
     else:
         dims.append(tiledb.Dim("C", (0, c_size - 1), tile=c_size, dtype=np.uint32))
+
     dims.append(tiledb.Dim("Y", (0, y_size - 1), tile=y_tile, dtype=np.uint32))
     dims.append(tiledb.Dim("X", (0, x_size - 1), tile=x_tile, dtype=np.uint32))
 

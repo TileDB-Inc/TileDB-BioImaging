@@ -52,6 +52,11 @@ class ImageReader(ABC):
         """Names of the channels (C axis) of this multi-resolution image."""
 
     @property
+    def webp_format(self) -> WebpInputFormat:
+        """WebpInputFormat of this multi-resolution image. Defaults to WEBP_NONE."""
+        return WebpInputFormat.WEBP_NONE
+
+    @property
     @abstractmethod
     def level_count(self) -> int:
         """
@@ -206,10 +211,8 @@ class ImageConverter:
         if cls._ImageReaderType is None:
             raise NotImplementedError(f"{cls} does not support importing")
 
-        pixel_depth = _get_pixel_depth(compressor)
         max_tiles = cls._DEFAULT_TILES.copy()
         max_tiles.update(tiles)
-        max_tiles["X"] *= pixel_depth
 
         rw_group = _ReadWriteGroup(output_path)
         reader = cls._ImageReaderType(input_path, **reader_kwargs)
@@ -221,6 +224,17 @@ class ImageConverter:
                     "Incremental ingestion is not supported for different versions: "
                     f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
                 )
+
+            if (
+                isinstance(compressor, tiledb.WebpFilter)
+                and compressor.input_format == WebpInputFormat.WEBP_NONE
+            ):
+                compressor = tiledb.WebpFilter(
+                    input_format=reader.webp_format,
+                    quality=compressor.quality,
+                    lossless=compressor.lossless,
+                )
+            pixel_depth = _get_pixel_depth(compressor)
 
             if pyramid_kwargs is not None:
                 level_max = level_min + 1
@@ -244,6 +258,7 @@ class ImageConverter:
                     axes_mapper = AxesMapper(source_axes, target_axes)
                     dim_names = tuple(target_axes.dims)
                 else:
+                    max_tiles["X"] *= pixel_depth
                     axes_mapper = ToWebPAxesMapper(source_axes, pixel_depth)
                     dim_names = ("Y", "X")
 
