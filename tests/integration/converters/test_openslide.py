@@ -20,6 +20,7 @@ from tiledb.cc import WebpInputFormat
     [
         tiledb.ZstdFilter(level=0),
         tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=True),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, compressor):

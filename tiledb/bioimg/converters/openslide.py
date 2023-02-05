@@ -3,6 +3,8 @@ from typing import Any, Dict, Optional, Sequence, Tuple, cast
 import numpy as np
 import openslide as osd
 
+from tiledb.cc import WebpInputFormat
+
 from .axes import Axes
 from .base import ImageConverter, ImageReader
 
@@ -27,6 +29,10 @@ class OpenSlideReader(ImageReader):
     @property
     def channels(self) -> Sequence[str]:
         return "RED", "GREEN", "BLUE", "ALPHA"
+
+    @property
+    def webp_format(self) -> WebpInputFormat:
+        return WebpInputFormat.WEBP_RGBA
 
     @property
     def level_count(self) -> int:
