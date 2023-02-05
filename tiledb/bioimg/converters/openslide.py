@@ -3,7 +3,8 @@ from typing import Any, Dict, Optional, Tuple, cast
 import numpy as np
 import openslide as osd
 
-from .base import Axes, ImageConverter, ImageReader
+from .axes import Axes
+from .base import ImageConverter, ImageReader
 
 
 class OpenSlideReader(ImageReader):

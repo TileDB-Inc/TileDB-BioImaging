@@ -1,0 +1,14 @@
+[tool.mypy]
+show_error_codes = true
+warn_unreachable = true
+namespace_packages = false
+strict = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.ruff]
+ignore = ["E501"]
+extend-select = ["I001"]
+fix = true

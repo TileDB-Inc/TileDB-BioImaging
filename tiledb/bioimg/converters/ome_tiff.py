@@ -4,7 +4,8 @@ import jsonpickle as json
 import numpy as np
 import tifffile
 
-from .base import Axes, ImageConverter, ImageReader, ImageWriter
+from .axes import Axes
+from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
