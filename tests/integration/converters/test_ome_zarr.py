@@ -56,6 +56,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
     [
         tiledb.ZstdFilter(level=0),
         tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_ome_zarr_converter_rountrip(

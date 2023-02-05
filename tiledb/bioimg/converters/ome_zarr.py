@@ -9,6 +9,8 @@ from numcodecs import Blosc
 from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
+from tiledb.cc import WebpInputFormat
+
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -31,6 +33,14 @@ class OMEZarrReader(ImageReader):
     @property
     def channels(self) -> Sequence[str]:
         return tuple(self._omero.node.metadata.get("name", ())) if self._omero else ()
+
+    @property
+    def webp_format(self) -> WebpInputFormat:
+        channels = self._omero.image_data.get("channels", ()) if self._omero else ()
+        colors = tuple(channel.get("color") for channel in channels)
+        if colors == ("FF0000", "00FF00", "0000FF"):
+            return WebpInputFormat.WEBP_RGB
+        return WebpInputFormat.WEBP_NONE
 
     @property
     def level_count(self) -> int:
