@@ -4,6 +4,8 @@ import jsonpickle as json
 import numpy as np
 import tifffile
 
+from tiledb.cc import WebpInputFormat
+
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -44,6 +46,17 @@ class OMETiffReader(ImageReader):
         except KeyError:
             return ()
         return tuple(c.get("Name") or f"Channel {i}" for i, c in enumerate(channels))
+
+    @property
+    def webp_format(self) -> WebpInputFormat:
+        if self._series.keyframe.photometric == tifffile.PHOTOMETRIC.RGB:
+            return WebpInputFormat.WEBP_RGB
+        # XXX: it is possible that instead of a single RGB channel (samplesperpixel==3)
+        # there are 3 MINISBLACK channels (samplesperpixel=1). In this case look for the
+        # photometric interpretation in the original metadata
+        if self._original_metadata("PhotometricInterpretation") == "RGB":
+            return WebpInputFormat.WEBP_RGB
+        return WebpInputFormat.WEBP_NONE
 
     @property
     def level_count(self) -> int:
@@ -114,6 +127,17 @@ class OMETiffReader(ImageReader):
             ome=self._tiff.is_ome,
         )
         return {"json_tiffwriter_kwargs": json.dumps(writer_kwargs)}
+
+    def _original_metadata(self, key: str, default: Any = None) -> Any:
+        try:
+            xmlanns = self._metadata["OME"]["StructuredAnnotations"]["XMLAnnotation"]
+            for xmlann in xmlanns:
+                entry = xmlann["Value"]["OriginalMetadata"]
+                if entry["Key"] == key:
+                    return entry["Value"]
+        except KeyError:
+            pass
+        return default
 
 
 class OMETiffWriter(ImageWriter):
