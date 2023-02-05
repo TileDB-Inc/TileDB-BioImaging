@@ -108,6 +108,7 @@ def test_ome_tiff_converter_group_metadata(tmp_path, filename):
     [
         tiledb.ZstdFilter(level=0),
         tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_ome_tiff_converter_roundtrip(
