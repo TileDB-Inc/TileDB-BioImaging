@@ -6,7 +6,7 @@ import pytest
 import tifffile
 
 import tiledb
-from tests import get_path, get_schema
+from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
@@ -107,6 +107,7 @@ def test_ome_tiff_converter_group_metadata(tmp_path, filename):
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
         tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
         tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
     ],
@@ -144,7 +145,9 @@ def test_ome_tiff_converter_roundtrip(
         # only the first series is copied
         assert len(t1.series) == num_series
         assert len(t2.series) == 1
-        compare_tiff_page_series(t1.series[0], t2.series[0])
+
+        lossless = not isinstance(compressor, tiledb.WebpFilter) or compressor.lossless
+        compare_tiff_page_series(t1.series[0], t2.series[0], lossless)
 
 
 @pytest.mark.parametrize(
@@ -196,13 +199,17 @@ def compare_tifffiles(t1, t2):
     assert t1.is_ome == t2.is_ome
 
 
-def compare_tiff_page_series(s1, s2):
+def compare_tiff_page_series(s1, s2, lossless=True):
     assert isinstance(s1, tifffile.TiffPageSeries)
     assert isinstance(s2, tifffile.TiffPageSeries)
 
     assert s1.shape == s2.shape
     assert s1.dtype == s2.dtype
-    np.testing.assert_array_equal(s1.asarray(), s2.asarray())
+
+    if lossless:
+        np.testing.assert_array_equal(s1.asarray(), s2.asarray())
+    else:
+        assert_image_similarity(s1.asarray(), s2.asarray(), channel_axis=0)
 
     assert s1.keyframe.hash == s2.keyframe.hash
     compare_tiff_page_tags(
@@ -225,7 +232,7 @@ def compare_tiff_page_series(s1, s2):
     assert s1.levels[0] is s1
     assert s2.levels[0] is s2
     for l1, l2 in zip(s1.levels[1:], s2.levels[1:]):
-        compare_tiff_page_series(l1, l2)
+        compare_tiff_page_series(l1, l2, lossless)
 
 
 def compare_tiff_page_tags(p1, p2, skip=(), ignore_value=()):

@@ -1,7 +1,6 @@
 import pytest
-from skimage.metrics import structural_similarity
 
-from tests import get_path
+from tests import assert_image_similarity, get_path
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
@@ -34,21 +33,14 @@ def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
             },
         )
 
-    with TileDBOpenSlide(ground_path) as ground:
-        with TileDBOpenSlide(test_path) as test:
-            assert ground.level_count == test.level_count
+    with TileDBOpenSlide(ground_path) as ground, TileDBOpenSlide(test_path) as test:
+        assert ground.level_count == test.level_count
+        for level in range(ground.level_count):
+            assert ground.level_dimensions[level] == test.level_dimensions[level]
 
-            for level in range(ground.level_count):
-                assert ground.level_dimensions[level] == test.level_dimensions[level]
-
-                region_kwargs = dict(
-                    level=level, location=(0, 0), size=test.level_dimensions[level]
-                )
-                assert (
-                    structural_similarity(
-                        ground.read_region(**region_kwargs),
-                        test.read_region(**region_kwargs),
-                        win_size=3,
-                    )
-                    > 0.95
-                )
+            region_kwargs = dict(
+                level=level, location=(0, 0), size=test.level_dimensions[level]
+            )
+            ground_img = ground.read_region(**region_kwargs)
+            test_img = test.read_region(**region_kwargs)
+            assert_image_similarity(ground_img, test_img)

@@ -6,7 +6,7 @@ import PIL.Image
 import pytest
 
 import tiledb
-from tests import get_path, get_schema
+from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
@@ -19,6 +19,7 @@ from tiledb.cc import WebpInputFormat
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=False),
         tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=True),
         tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
     ],
@@ -63,8 +64,12 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, comp
         assert isinstance(region, np.ndarray)
         assert region.ndim == 3
         assert region.dtype == np.uint8
-        img = PIL.Image.fromarray(region)
-        assert img == o.read_region(**region_kwargs)
+        t_img = PIL.Image.fromarray(region)
+        o_img = o.read_region(**region_kwargs)
+        if isinstance(compressor, tiledb.WebpFilter) and not compressor.lossless:
+            assert_image_similarity(np.asarray(t_img), np.asarray(o_img))
+        else:
+            assert t_img == o_img
 
         for level in range(t.level_count):
             region_data = t.read_region((0, 0), level, t.level_dimensions[level])

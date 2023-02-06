@@ -6,7 +6,7 @@ import pytest
 import zarr
 
 import tiledb
-from tests import get_path, get_schema
+from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
@@ -55,6 +55,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
         tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
         tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
     ],
@@ -104,9 +105,17 @@ def test_ome_zarr_converter_rountrip(
         assert input_zarray == output_zarray
 
         # Compare the actual data
-        input_zarray = zarr.open(input_path / str(i))
-        output_zarray = zarr.open(output_path / str(i))
-        np.testing.assert_array_equal(input_zarray[:], output_zarray[:])
+        input_array = zarr.open(input_path / str(i))[:]
+        output_array = zarr.open(output_path / str(i))[:]
+        if isinstance(compressor, tiledb.WebpFilter) and not compressor.lossless:
+            assert_image_similarity(
+                input_array.squeeze(),
+                output_array.squeeze(),
+                channel_axis=0,
+                min_threshold=0.87,
+            )
+        else:
+            np.testing.assert_array_equal(input_array, output_array)
 
 
 def test_ome_zarr_converter_incremental(tmp_path):
