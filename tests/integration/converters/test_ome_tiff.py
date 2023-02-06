@@ -13,15 +13,14 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 @pytest.mark.parametrize("open_fileobj", [False, True])
-@pytest.mark.parametrize("preserve_axes", [False, True])
-def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
+def test_ome_tiff_converter(tmp_path, open_fileobj):
     input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
     output_path = str(tmp_path)
     if open_fileobj:
         with open(input_path, "rb") as f:
-            OMETiffConverter.to_tiledb(f, output_path, preserve_axes=preserve_axes)
+            OMETiffConverter.to_tiledb(f, output_path)
     else:
-        OMETiffConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes)
+        OMETiffConverter.to_tiledb(input_path, output_path)
 
     with TileDBOpenSlide(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 2
@@ -31,8 +30,7 @@ def test_ome_tiff_converter(tmp_path, open_fileobj, preserve_axes):
         for i in range(t.level_count):
             assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
             with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
-                if not preserve_axes:
-                    assert A.schema == schemas[i]
+                assert A.schema == schemas[i]
 
         region = t.read_region(level=0, location=(100, 100), size=(300, 400))
         assert isinstance(region, np.ndarray)
@@ -63,13 +61,13 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
         assert A.attr(0).dtype == np.uint16
 
 
-@pytest.mark.parametrize("preserve_axes", [False, True])
-def test_tiledb_to_ome_tiff_group_metadata(tmp_path, preserve_axes):
-    input_path = get_path("CMU-1-Small-Region.ome.tiff")
+@pytest.mark.parametrize(
+    "filename", ["CMU-1-Small-Region.ome.tiff", "CMU-1-Small-Region-rgb.ome.tiff"]
+)
+def test_tiledb_to_ome_tiff_group_metadata(tmp_path, filename):
+    input_path = get_path(filename)
     tiledb_path = tmp_path / "to_tiledb"
-    OMETiffConverter.to_tiledb(
-        input_path, str(tiledb_path), preserve_axes=preserve_axes
-    )
+    OMETiffConverter.to_tiledb(input_path, str(tiledb_path))
 
     with TileDBOpenSlide(str(tiledb_path)) as t:
         group_properties = t.properties
@@ -78,7 +76,9 @@ def test_tiledb_to_ome_tiff_group_metadata(tmp_path, preserve_axes):
         assert isinstance(group_properties.get("pkg_version"), str)
         assert group_properties["axes"] == "CYX"
         assert group_properties["channels"] == json.dumps(
-            ["Channel 0", "Channel 1", "Channel 2"]
+            ["RED", "GREEN", "BLUE"]
+            if "rgb" in filename
+            else ["Channel 0", "Channel 1", "Channel 2"]
         )
 
         levels_group_meta = json.loads(group_properties["levels"])
