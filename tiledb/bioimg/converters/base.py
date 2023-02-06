@@ -5,7 +5,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, Dict, Iterator, Mapping, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import numpy as np
@@ -21,7 +21,7 @@ except ImportError:
 import tiledb
 
 from ..openslide import TileDBOpenSlide, get_pixel_depth
-from ..version import version
+from ..version import version as PKG_VERSION
 from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
@@ -207,12 +207,11 @@ class ImageConverter:
         reader = cls._ImageReaderType(input_path, **reader_kwargs)
 
         with rw_group, reader:
-            if (
-                rw_group.r_group.meta["pkg_version"] != version
-                or rw_group.r_group.meta["fmt_version"] != FMT_VERSION
-            ):
-                raise EnvironmentError(
-                    "Incremental ingestion is supported only between same format and package versions"
+            stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
+            if stored_pkg_version not in (None, PKG_VERSION):
+                raise RuntimeError(
+                    "Incremental ingestion is not supported for different versions: "
+                    f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
                 )
 
             if pyramid_kwargs is not None:
@@ -247,8 +246,7 @@ class ImageConverter:
                 )
 
                 # get or create TileDB array uri
-                name = f"l_{level}.tdb"
-                uri, created = rw_group.get_or_create(name, schema)
+                uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
                 if not created:
                     continue
 
@@ -264,16 +262,13 @@ class ImageConverter:
                 )
 
         with rw_group:
-            levels_meta = _compute_levels_meta(rw_group)
-
-            # Write group metadata
             rw_group.w_group.meta.update(
                 reader.group_metadata,
                 axes=source_axes.dims,
-                pkg_version=version,
+                pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
-                levels=json.dumps(levels_meta),
+                levels=json.dumps(list(_iter_levels_meta(rw_group.r_group))),
             )
 
         if register_group is not None and urlparse(output_path).scheme == "tiledb":
@@ -397,9 +392,8 @@ def _create_image_pyramid(
     scaler = Scaler(base_shape, dim_axes, **pyramid_kwargs)
     for i, dim_shape in enumerate(scaler.level_shapes):
         level = base_level + 1 + i
-        name = f"l_{level}.tdb"
         schema = _get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
-        uri, created = rw_group.get_or_create(name, schema)
+        uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
         if not created:
             continue
 
@@ -414,25 +408,10 @@ def _create_image_pyramid(
             base_uri = uri
 
 
-def _compute_levels_meta(rw_group: _ReadWriteGroup) -> Sequence[Mapping[str, Any]]:
-    levels_meta: List[Mapping[str, Any]] = []
-    for group_obj in rw_group.r_group:
-        if group_obj.type == tiledb.Array:
-            with tiledb.open(group_obj.uri) as lvl_array:
-                domain = lvl_array.schema.domain
-                dim_names = tuple(
-                    [domain.dim(dim_idx).name for dim_idx in range(domain.ndim)]
-                )
-                dim_axes = "".join(dim_names)
-                levels_meta.append(
-                    dict(
-                        level=lvl_array.meta["level"],
-                        name=os.path.basename(lvl_array.uri),
-                        axes=dim_axes,
-                        shape=lvl_array.shape,
-                    )
-                )
-        else:
-            # Another group or invalid
-            continue
-    return levels_meta
+def _iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
+    for o in group:
+        with tiledb.open(o.uri) as array:
+            level = array.meta["level"]
+            domain = array.schema.domain
+            axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
+            yield dict(level=level, name=f"l_{level}.tdb", axes=axes, shape=array.shape)
