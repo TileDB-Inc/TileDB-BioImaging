@@ -5,6 +5,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
+from operator import itemgetter
 from typing import Any, Dict, Iterator, Mapping, Optional, Sequence, Tuple, Type
 from urllib.parse import urlparse
 
@@ -274,7 +275,9 @@ class ImageConverter:
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
                 channels=json.dumps(reader.channels),
-                levels=json.dumps(list(_iter_levels_meta(rw_group.r_group))),
+                levels=json.dumps(
+                    sorted(_iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
+                ),
             )
 
         if register_group is not None and urlparse(output_path).scheme == "tiledb":
