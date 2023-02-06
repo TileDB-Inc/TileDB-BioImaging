@@ -11,7 +11,8 @@ from numcodecs import Blosc
 from ome_zarr.reader import Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
-from .base import Axes, ImageConverter, ImageReader, ImageWriter
+from .axes import Axes
+from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrReader(ImageReader):

@@ -35,7 +35,6 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers):
     tiledb_group = tiledb.Group(str(output_path), mode="r")
 
     with TileDBOpenSlide(output_path) as t:
-
         # Test group metadata
         levels_group_meta = json.loads(tiledb_group.meta["levels"])
         assert t.level_count == len(levels_group_meta)
