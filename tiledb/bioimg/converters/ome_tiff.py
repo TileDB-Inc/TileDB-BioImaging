@@ -32,6 +32,11 @@ class OMETiffReader(ImageReader):
 
     @property
     def channels(self) -> Sequence[str]:
+        # channel names are fixed if photometric interpretation is RGB
+        if self._series.keyframe.photometric is tifffile.PHOTOMETRIC.RGB:
+            return "RED", "GREEN", "BLUE"
+
+        # otherwise try to infer them from the OME-XML metadata
         try:
             channels = self._metadata["OME"]["Image"][0]["Pixels"]["Channel"]
             if not isinstance(channels, Sequence):
