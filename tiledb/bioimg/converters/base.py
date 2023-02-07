@@ -27,7 +27,6 @@ from ..version import version as PKG_VERSION
 from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
-from .webp import ToWebPAxesMapper
 
 
 class ImageReader(ABC):
@@ -259,7 +258,7 @@ class ImageConverter:
                     dim_names = tuple(target_axes.dims)
                 else:
                     max_tiles["X"] *= pixel_depth
-                    axes_mapper = ToWebPAxesMapper(source_axes, pixel_depth)
+                    axes_mapper = source_axes.webp_mapper(pixel_depth)
                     dim_names = ("Y", "X")
 
                 # create TileDB schema

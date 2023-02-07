@@ -189,7 +189,17 @@ class Axes:
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
     def mapper(self, other: Axes) -> AxesMapper:
+        """Return an AxesMapper from this axes to other"""
         return AxesMapper(_iter_transforms(self.dims, other.dims))
+
+    def webp_mapper(self, num_channels: int) -> AxesMapper:
+        """Return an AxesMapper from this 3D axes (YXC or a permutation) to 2D (YX)"""
+
+        def gen_transforms() -> Iterator[Transform]:
+            yield from _iter_transforms(self.dims, "YXC")
+            yield YXC_TO_YX(num_channels)
+
+        return AxesMapper(gen_transforms())
 
 
 class AxesMapper:

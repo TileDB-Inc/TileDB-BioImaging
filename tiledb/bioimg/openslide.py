@@ -14,7 +14,6 @@ except ImportError:
 import tiledb
 
 from .converters.axes import Axes
-from .converters.webp import ToWebPAxesMapper
 
 
 class TileDBOpenSlide:
@@ -188,7 +187,7 @@ class TileDBOpenSlideLevel:
             x = dim_slice.get("X")
             if x is not None:
                 dim_slice["X"] = slice(x.start * pixel_depth, x.stop * pixel_depth)
-            axes_mapper = ToWebPAxesMapper(axes, pixel_depth)
+            axes_mapper = axes.webp_mapper(pixel_depth)
 
         array = da.from_tiledb(self._tdb) if to_dask else self._tdb
         selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
