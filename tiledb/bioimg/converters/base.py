@@ -436,7 +436,7 @@ def _create_image_pyramid(
         if not created:
             continue
 
-        with tiledb.open(uri, attr="intensity", mode="w") as out_array:
+        with tiledb.open(uri, mode="w") as out_array:
             out_array.meta.update(level=level)
             with tiledb.open(base_uri, attr="intensity") as in_array:
                 scaler.apply(in_array, out_array, i)
