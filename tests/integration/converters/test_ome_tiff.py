@@ -76,11 +76,7 @@ def test_ome_tiff_converter_group_metadata(tmp_path, filename):
         assert group_properties["fmt_version"] == FMT_VERSION
         assert isinstance(group_properties.get("pkg_version"), str)
         assert group_properties["axes"] == "CYX"
-        assert group_properties["channels"] == json.dumps(
-            ["RED", "GREEN", "BLUE"]
-            if "rgb" in filename
-            else ["Channel 0", "Channel 1", "Channel 2"]
-        )
+        assert group_properties["channels"] == json.dumps(["RED", "GREEN", "BLUE"])
 
         levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)

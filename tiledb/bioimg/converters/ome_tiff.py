@@ -34,8 +34,8 @@ class OMETiffReader(ImageReader):
 
     @property
     def channels(self) -> Sequence[str]:
-        # channel names are fixed if photometric interpretation is RGB
-        if self._series.keyframe.photometric is tifffile.PHOTOMETRIC.RGB:
+        # channel names are fixed if this is an RGB image
+        if self.webp_format is WebpInputFormat.WEBP_RGB:
             return "RED", "GREEN", "BLUE"
 
         # otherwise try to infer them from the OME-XML metadata
