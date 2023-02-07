@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Tuple
+from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
 
 
-class Transform(ABC):
+class AxesMapper(ABC):
     @property
     @abstractmethod
-    def inverse(self) -> Transform:
-        """The transformation that inverts the effect of this one"""
+    def inverse(self) -> AxesMapper:
+        """The axes mapper that inverts the effect of this one"""
 
     @abstractmethod
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -46,12 +46,12 @@ class Transform(ABC):
 
 
 @dataclass(frozen=True)
-class Swap(Transform):
+class Swap(AxesMapper):
     i: int
     j: int
 
     @property
-    def inverse(self) -> Transform:
+    def inverse(self) -> AxesMapper:
         return self
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -63,12 +63,12 @@ class Swap(Transform):
 
 
 @dataclass(frozen=True)
-class Move(Transform):
+class Move(AxesMapper):
     i: int
     j: int
 
     @property
-    def inverse(self) -> Transform:
+    def inverse(self) -> AxesMapper:
         return Move(self.j, self.i)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -79,11 +79,11 @@ class Move(Transform):
 
 
 @dataclass(frozen=True)
-class Squeeze(Transform):
+class Squeeze(AxesMapper):
     idxs: Tuple[int, ...]
 
     @property
-    def inverse(self) -> Transform:
+    def inverse(self) -> AxesMapper:
         return Unsqueeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -95,11 +95,11 @@ class Squeeze(Transform):
 
 
 @dataclass(frozen=True)
-class Unsqueeze(Transform):
+class Unsqueeze(AxesMapper):
     idxs: Tuple[int, ...]
 
     @property
-    def inverse(self) -> Transform:
+    def inverse(self) -> AxesMapper:
         return Squeeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -119,11 +119,11 @@ class Unsqueeze(Transform):
 
 
 @dataclass(frozen=True)
-class YXC_TO_YX(Transform):
+class YXC_TO_YX(AxesMapper):
     c_size: int
 
     @property
-    def inverse(self) -> Transform:
+    def inverse(self) -> AxesMapper:
         return YX_TO_YXC(self.c_size)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -145,11 +145,11 @@ class YXC_TO_YX(Transform):
 
 
 @dataclass(frozen=True)
-class YX_TO_YXC(Transform):
+class YX_TO_YXC(AxesMapper):
     c_size: int
 
     @property
-    def inverse(self) -> Transform:
+    def inverse(self) -> AxesMapper:
         return YXC_TO_YX(self.c_size)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -164,6 +164,32 @@ class YX_TO_YXC(Transform):
         c = self.c_size
         tile[1] = slice(tile[1].start // c, tile[1].stop // c)
         tile.append(slice(None))
+
+
+@dataclass(frozen=True)
+class CompositeAxesMapper(AxesMapper):
+    mappers: Sequence[AxesMapper]
+
+    @property
+    def inverse(self) -> AxesMapper:
+        return CompositeAxesMapper([t.inverse for t in reversed(self.mappers)])
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        for mapper in self.mappers:
+            a = mapper.map_array(a)
+        return a
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        for mapper in self.mappers:
+            mapper.transform_shape(shape)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        for mapper in self.mappers:
+            mapper.transform_tile(tile)
+
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        for mapper in self.mappers:
+            mapper.transform_sequence(s)
 
 
 @dataclass(frozen=True)
@@ -197,52 +223,16 @@ class Axes:
 
     def mapper(self, other: Axes) -> AxesMapper:
         """Return an AxesMapper from this axes to other"""
-        return AxesMapper(_iter_transforms(self.dims, other.dims))
+        return CompositeAxesMapper(list(_iter_axes_mappers(self.dims, other.dims)))
 
     def webp_mapper(self, num_channels: int) -> AxesMapper:
         """Return an AxesMapper from this 3D axes (YXC or a permutation) to 2D (YX)"""
-
-        def gen_transforms() -> Iterator[Transform]:
-            yield from _iter_transforms(self.dims, "YXC")
-            yield YXC_TO_YX(num_channels)
-
-        return AxesMapper(gen_transforms())
+        mappers = list(_iter_axes_mappers(self.dims, "YXC"))
+        mappers.append(YXC_TO_YX(num_channels))
+        return CompositeAxesMapper(mappers)
 
 
-class AxesMapper(Transform):
-    def __init__(self, transforms: Iterable[Transform]):
-        self._transforms = tuple(transforms)
-
-    @property
-    def inverse(self) -> AxesMapper:
-        """Return the inverse axes mapper, i.e. one that maps target to source"""
-        return AxesMapper(t.inverse for t in reversed(self._transforms))
-
-    def map_array(self, a: np.ndarray) -> np.ndarray:
-        """Transform a Numpy array from the source axes `s` to the target axes `t`.
-
-        If `s` is a superset of `t`, squeeze the extra axes.
-        If `s` is a subset of `t`, insert the missing axes at the front with length one.
-        Finally, find the minimum number of transforms from `s` to `t` and apply them to `a`.
-        """
-        for transform in self._transforms:
-            a = transform.map_array(a)
-        return a
-
-    def transform_shape(self, shape: MutableSequence[int]) -> None:
-        for transform in self._transforms:
-            transform.transform_shape(shape)
-
-    def transform_tile(self, tile: MutableSequence[slice]) -> None:
-        for transform in self._transforms:
-            transform.transform_tile(tile)
-
-    def transform_sequence(self, s: MutableSequence[Any]) -> None:
-        for transform in self._transforms:
-            transform.transform_sequence(s)
-
-
-def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
+def _iter_axes_mappers(s: str, t: str) -> Iterator[AxesMapper]:
     s_set = frozenset(s)
     assert len(s_set) == len(s), f"{s!r} contains duplicates"
     t_set = frozenset(t)
@@ -285,7 +275,7 @@ def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
         best_transpose.transform_sequence(sbuf)
 
 
-def _iter_transpositions(n: int) -> Iterator[Transform]:
+def _iter_transpositions(n: int) -> Iterator[AxesMapper]:
     for i in range(n):
         for j in range(i + 1, n):
             yield Swap(i, j)
