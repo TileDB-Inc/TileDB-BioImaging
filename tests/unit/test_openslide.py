@@ -18,7 +18,7 @@ class TestTileDBOpenSlide:
             for level, schema in enumerate(schemas):
                 level_path = str(tmp_path / f"l_{level}.tdb")
                 tiledb.Array.create(level_path, schema)
-                with tiledb.open(level_path, "w") as A:
+                with tiledb.bioimg.open(level_path, "w") as A:
                     A.meta["level"] = level
                 G.add(level_path)
 

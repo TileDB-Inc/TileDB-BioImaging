@@ -36,7 +36,7 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, comp
         compressor=compressor,
     )
     assert len(tiledb.Group(output_path)) == 1
-    with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
+    with tiledb.bioimg.open(str(tmp_path / "l_0.tdb")) as A:
         if not preserve_axes:
             assert A.schema == get_schema(2220, 2967, 4, compressor=compressor)
 

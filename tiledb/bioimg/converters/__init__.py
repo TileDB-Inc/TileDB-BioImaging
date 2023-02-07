@@ -1,3 +1,2 @@
 FMT_VERSION = 1
 DATASET_TYPE = "BIOIMG"
-ATTR_NAME = "intensity"

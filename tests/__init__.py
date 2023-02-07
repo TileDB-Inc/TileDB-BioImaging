@@ -6,7 +6,10 @@ import numpy as np
 from skimage.metrics import structural_similarity
 
 import tiledb
+<<<<<<< HEAD
 from tiledb.cc import WebpInputFormat
+=======
+>>>>>>> 4ab66ab (Wrapping tiledb.open with default arg ATTR_NAME in read ops)
 from tiledb.bioimg import ATTR_NAME
 
 if os.name == "posix":
@@ -16,6 +19,7 @@ if os.name == "posix":
 DATA_DIR = Path(__file__).parent / "data"
 
 
+<<<<<<< HEAD
 def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
     dims = []
     x_tile = min(x_size, 1024)
@@ -34,6 +38,20 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
                 input_format=input_format,
                 quality=compressor.quality,
                 lossless=compressor.lossless,
+=======
+def get_schema(x_size, y_size, c_size=3):
+    return tiledb.ArraySchema(
+        domain=tiledb.Domain(
+            tiledb.Dim("C", (0, c_size - 1), tile=c_size, dtype=np.uint32),
+            tiledb.Dim("Y", (0, y_size - 1), tile=min(y_size, 1024), dtype=np.uint32),
+            tiledb.Dim("X", (0, x_size - 1), tile=min(x_size, 1024), dtype=np.uint32),
+        ),
+        attrs=[
+            tiledb.Attr(
+                name=ATTR_NAME,
+                dtype=np.uint8,
+                filters=tiledb.FilterList([tiledb.ZstdFilter(level=0)]),
+>>>>>>> 4ab66ab (Wrapping tiledb.open with default arg ATTR_NAME in read ops)
             )
     else:
         dims.append(tiledb.Dim("C", (0, c_size - 1), tile=c_size, dtype=np.uint32))

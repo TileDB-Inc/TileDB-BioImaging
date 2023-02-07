@@ -23,7 +23,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
 
     # check the first (highest) resolution layer only
     schema = schemas[series_idx]
-    with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
+    with tiledb.bioimg.open(str(tmp_path / "l_0.tdb")) as A:
         if not preserve_axes:
             assert A.schema == schema
 
