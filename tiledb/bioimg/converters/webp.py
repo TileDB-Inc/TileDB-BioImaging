@@ -10,10 +10,11 @@ class ToWebPAxesMapper(AxesMapper):
 
     def __init__(self, source: Axes, c_size: int):
         super().__init__(source, target=Axes("YXC"))
+        self._source = source
         self._c_size = c_size
 
     @property
-    def inverted(self) -> AxesMapper:
+    def inverse(self) -> AxesMapper:
         return FromWebPAxesMapper(self._source, self._c_size)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
@@ -44,10 +45,11 @@ class FromWebPAxesMapper(AxesMapper):
 
     def __init__(self, target: Axes, c_size: int):
         super().__init__(Axes("YXC"), target)
+        self._target = target
         self._c_size = c_size
 
     @property
-    def inverted(self) -> AxesMapper:
+    def inverse(self) -> AxesMapper:
         return ToWebPAxesMapper(self._target, self._c_size)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:

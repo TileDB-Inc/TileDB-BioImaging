@@ -392,7 +392,7 @@ def _convert_level_to_tiledb(
 ) -> None:
     out_array.meta.update(reader.level_metadata(level), level=level)
     if chunked or max_workers:
-        inv_axes_mapper = axes_mapper.inverted
+        inv_axes_mapper = axes_mapper.inverse
 
         def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
             source_tile = inv_axes_mapper.map_tile(level_tile)

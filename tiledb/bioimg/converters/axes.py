@@ -19,6 +19,11 @@ class Transform(ABC):
     def map_array(self, a: np.ndarray) -> np.ndarray:
         """Return the transformed numpy array"""
 
+    @property
+    @abstractmethod
+    def inverse(self) -> Transform:
+        """Return the transformation that inverts the effect of this one"""
+
 
 @dataclass(frozen=True)
 class Swap(Transform):
@@ -32,6 +37,10 @@ class Swap(Transform):
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.swapaxes(a, self.i, self.j)
 
+    @property
+    def inverse(self) -> Transform:
+        return self
+
 
 @dataclass(frozen=True)
 class Move(Transform):
@@ -43,6 +52,10 @@ class Move(Transform):
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.moveaxis(a, self.i, self.j)
+
+    @property
+    def inverse(self) -> Transform:
+        return Move(self.j, self.i)
 
 
 @dataclass(frozen=True)
@@ -56,6 +69,10 @@ class Squeeze(Transform):
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.squeeze(a, self.idxs)
 
+    @property
+    def inverse(self) -> Transform:
+        return Unsqueeze(self.idxs)
+
 
 @dataclass(frozen=True)
 class Unsqueeze(Transform):
@@ -68,6 +85,10 @@ class Unsqueeze(Transform):
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.expand_dims(a, self.idxs)
+
+    @property
+    def inverse(self) -> Transform:
+        return Squeeze(self.idxs)
 
 
 @dataclass(frozen=True)
@@ -102,14 +123,14 @@ class Axes:
 
 class AxesMapper:
     def __init__(self, source: Axes, target: Axes):
-        self._source = source
-        self._target = target
-        self._transforms = tuple(_iter_transforms(source.dims, target.dims))
+        self._transforms = list(_iter_transforms(source.dims, target.dims))
 
     @property
-    def inverted(self) -> AxesMapper:
-        """Return the inverted axes mapper, i.e. one that maps target to source"""
-        return AxesMapper(self._target, self._source)
+    def inverse(self) -> AxesMapper:
+        """Return the inverse axes mapper, i.e. one that maps target to source"""
+        inverse = self.__new__(AxesMapper)
+        inverse._transforms = list(t.inverse for t in reversed(self._transforms))
+        return inverse
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         """Transform a Numpy array from the source axes `s` to the target axes `t`.
