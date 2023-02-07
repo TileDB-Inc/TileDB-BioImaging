@@ -188,17 +188,18 @@ class Axes:
         dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
+    def mapper(self, other: Axes) -> AxesMapper:
+        return AxesMapper(_iter_transforms(self.dims, other.dims))
+
 
 class AxesMapper:
-    def __init__(self, source: Axes, target: Axes):
-        self._transforms = list(_iter_transforms(source.dims, target.dims))
+    def __init__(self, transforms: Iterable[Transform]):
+        self._transforms = tuple(transforms)
 
     @property
     def inverse(self) -> AxesMapper:
         """Return the inverse axes mapper, i.e. one that maps target to source"""
-        inverse = self.__new__(AxesMapper)
-        inverse._transforms = list(t.inverse for t in reversed(self._transforms))
-        return inverse
+        return AxesMapper(t.inverse for t in reversed(self._transforms))
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         """Transform a Numpy array from the source axes `s` to the target axes `t`.

@@ -1,9 +1,8 @@
 from .axes import YXC_TO_YX, Axes, AxesMapper
 
 
-class ToWebPAxesMapper(AxesMapper):
+def ToWebPAxesMapper(source: Axes, c_size: int) -> AxesMapper:
     """Mapper from 3D axes (YXC or permutations thereof) to 2D (YX)"""
-
-    def __init__(self, source: Axes, c_size: int):
-        super().__init__(source, target=Axes("YXC"))
-        self._transforms.append(YXC_TO_YX(c_size))
+    mapper = source.mapper(Axes("YXC"))
+    mapper._transforms += (YXC_TO_YX(c_size),)
+    return mapper

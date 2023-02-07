@@ -255,7 +255,7 @@ class ImageConverter:
                         target_axes = source_axes
                     else:
                         target_axes = source_axes.canonical(source_shape)
-                    axes_mapper = AxesMapper(source_axes, target_axes)
+                    axes_mapper = source_axes.mapper(target_axes)
                     dim_names = tuple(target_axes.dims)
                 else:
                     max_tiles["X"] *= pixel_depth

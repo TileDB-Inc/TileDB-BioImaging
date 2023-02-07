@@ -3,14 +3,7 @@ import itertools as it
 import numpy as np
 import pytest
 
-from tiledb.bioimg.converters.axes import (
-    Axes,
-    AxesMapper,
-    Move,
-    Squeeze,
-    Swap,
-    Unsqueeze,
-)
+from tiledb.bioimg.converters.axes import Axes, Move, Squeeze, Swap, Unsqueeze
 
 
 class TestTransforms:
@@ -292,7 +285,7 @@ class TestAxesMapper:
 
 
 def assert_transform(source, target, a, expected):
-    axes_mapper = AxesMapper(Axes(source), Axes(target))
+    axes_mapper = Axes(source).mapper(Axes(target))
     assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
 
@@ -300,6 +293,6 @@ def assert_transform(source, target, a, expected):
 def assert_canonical_transform(source, a, expected):
     source = Axes(source)
     target = source.canonical(a.shape)
-    axes_mapper = AxesMapper(source, target)
+    axes_mapper = source.mapper(target)
     assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
