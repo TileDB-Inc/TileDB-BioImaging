@@ -7,6 +7,7 @@ from skimage.metrics import structural_similarity
 
 import tiledb
 from tiledb.cc import WebpInputFormat
+from tiledb.bioimg import ATTR_NAME
 
 if os.name == "posix":
     multiprocessing.set_start_method("forkserver")
@@ -42,7 +43,7 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
 
     return tiledb.ArraySchema(
         domain=tiledb.Domain(*dims),
-        attrs=[tiledb.Attr(dtype=np.uint8, filters=tiledb.FilterList([compressor]))],
+        attrs=[tiledb.Attr(name=ATTR_NAME, dtype=np.uint8, filters=tiledb.FilterList([compressor]))],
     )
 
 
