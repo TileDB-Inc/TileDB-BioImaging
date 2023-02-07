@@ -13,7 +13,7 @@ class TestTransforms:
     def test_swap(self, s, i, j):
         transform = Swap(i, j)
         b = bytearray(s)
-        assert transform(b) is None
+        assert transform.transform_sequence(b) is None
         assert b == b"ABCDE"
 
     def test_swap_array(self):
@@ -35,7 +35,7 @@ class TestTransforms:
     def test_move(self, s, i, j):
         transform = Move(i, j)
         b = bytearray(s)
-        assert transform(b) is None
+        assert transform.transform_sequence(b) is None
         assert b == b"ABCDE"
 
     def test_move_array(self):
@@ -55,7 +55,7 @@ class TestTransforms:
     def test_squeeze(self, s, idxs):
         transform = Squeeze(idxs)
         b = bytearray(s)
-        assert transform(b) is None
+        assert transform.transform_sequence(b) is None
         assert b == b"ABC"
 
     def test_squeeze_array(self):
@@ -76,7 +76,7 @@ class TestTransforms:
     def test_unsqueeze(self, s, idxs, t):
         transform = Unsqueeze(idxs)
         b = bytearray(s)
-        assert transform(b, fill_value=ord("_")) is None
+        assert transform.transform_sequence(b, fill_value=ord("_")) is None
         assert b == t
 
     def test_unsqueeze_array(self):

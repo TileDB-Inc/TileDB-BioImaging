@@ -2,27 +2,47 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Tuple, TypeVar, cast
+from typing import Any, Iterable, Iterator, MutableSequence, Tuple
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
 
-T = TypeVar("T")
-
 
 class Transform(ABC):
-    @abstractmethod
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        """Transform the given mutable sequence in place"""
-
-    @abstractmethod
-    def map_array(self, a: np.ndarray) -> np.ndarray:
-        """Return the transformed numpy array"""
-
     @property
     @abstractmethod
     def inverse(self) -> Transform:
-        """Return the transformation that inverts the effect of this one"""
+        """The transformation that inverts the effect of this one"""
+
+    @abstractmethod
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        """Return the transformed Numpy array"""
+
+    def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
+        """Return the shape of the transformed Numpy array."""
+        mapped_shape = list(shape)
+        self.transform_shape(mapped_shape)
+        return tuple(mapped_shape)
+
+    def map_tile(self, tile: Tuple[slice, ...]) -> Tuple[slice, ...]:
+        """Return the tile for slicing the transformed Numpy array"""
+        mapped_tile = list(tile)
+        self.transform_tile(mapped_tile)
+        return tuple(mapped_tile)
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        """Transform the given shape in place"""
+        self.transform_sequence(shape)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        """Transform the given tile in place"""
+        self.transform_sequence(tile)
+
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        """Transform the given mutable sequence in place"""
+        # intentionally not decorated as @abstractmethod: subclasses may override
+        # transform_shape and transform_tile instead
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -30,16 +50,16 @@ class Swap(Transform):
     i: int
     j: int
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        i, j = self.i, self.j
-        s[i], s[j] = s[j], s[i]
+    @property
+    def inverse(self) -> Transform:
+        return self
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.swapaxes(a, self.i, self.j)
 
-    @property
-    def inverse(self) -> Transform:
-        return self
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        i, j = self.i, self.j
+        s[i], s[j] = s[j], s[i]
 
 
 @dataclass(frozen=True)
@@ -47,79 +67,76 @@ class Move(Transform):
     i: int
     j: int
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        s.insert(self.j, s.pop(self.i))
+    @property
+    def inverse(self) -> Transform:
+        return Move(self.j, self.i)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.moveaxis(a, self.i, self.j)
 
-    @property
-    def inverse(self) -> Transform:
-        return Move(self.j, self.i)
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        s.insert(self.j, s.pop(self.i))
 
 
 @dataclass(frozen=True)
 class Squeeze(Transform):
     idxs: Tuple[int, ...]
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        for i in sorted(self.idxs, reverse=True):
-            del s[i]
+    @property
+    def inverse(self) -> Transform:
+        return Unsqueeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.squeeze(a, self.idxs)
 
-    @property
-    def inverse(self) -> Transform:
-        return Unsqueeze(self.idxs)
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        for i in sorted(self.idxs, reverse=True):
+            del s[i]
 
 
 @dataclass(frozen=True)
 class Unsqueeze(Transform):
     idxs: Tuple[int, ...]
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        fill_value = kwargs["fill_value"]
-        for i in sorted(self.idxs):
-            s.insert(i, fill_value)
+    @property
+    def inverse(self) -> Transform:
+        return Squeeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.expand_dims(a, self.idxs)
 
-    @property
-    def inverse(self) -> Transform:
-        return Squeeze(self.idxs)
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        self.transform_sequence(shape, fill_value=1)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        self.transform_sequence(tile, fill_value=slice(None))
+
+    def transform_sequence(
+        self, sequence: MutableSequence[Any], fill_value: Any = None
+    ) -> None:
+        for i in sorted(self.idxs):
+            sequence.insert(i, fill_value)
 
 
 @dataclass(frozen=True)
 class YXC_TO_YX(Transform):
     c_size: int
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        if all(isinstance(i, int) for i in s):
-            self._transform_shape(cast(MutableSequence[int], s))
-        elif all(isinstance(i, slice) for i in s):
-            self._transform_tile(cast(MutableSequence[slice], s))
-        else:
-            raise TypeError(s.__class__)
-
-    def map_array(self, a: np.ndarray) -> np.ndarray:
-        shape = list(a.shape)
-        self._transform_shape(shape)
-        return a.reshape(shape)
-
     @property
     def inverse(self) -> Transform:
         return YX_TO_YXC(self.c_size)
 
-    def _transform_shape(self, shape: MutableSequence[int]) -> None:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        return a.reshape(self.map_shape(a.shape))
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
         y, x, c = shape
         if c != self.c_size:
             raise ValueError(f"C dimension must have size {self.c_size}: {c} given")
         shape[1] *= c
         del shape[2]
 
-    def _transform_tile(self, tile: MutableSequence[slice]) -> None:
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
         y, x, c = tile
         if c != slice(None):
             raise ValueError(f"C dimension can cannot be sliced: {c} given")
@@ -131,29 +148,19 @@ class YXC_TO_YX(Transform):
 class YX_TO_YXC(Transform):
     c_size: int
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        if all(isinstance(i, int) for i in s):
-            self._transform_shape(cast(MutableSequence[int], s))
-        elif all(isinstance(i, slice) for i in s):
-            self._transform_tile(cast(MutableSequence[slice], s))
-        else:
-            raise TypeError(s.__class__)
-
-    def map_array(self, a: np.ndarray) -> np.ndarray:
-        shape = list(a.shape)
-        self._transform_shape(shape)
-        return a.reshape(shape)
-
     @property
     def inverse(self) -> Transform:
         return YXC_TO_YX(self.c_size)
 
-    def _transform_shape(self, shape: MutableSequence[int]) -> None:
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        return a.reshape(self.map_shape(a.shape))
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
         c = self.c_size
         shape[1] //= c
         shape.append(c)
 
-    def _transform_tile(self, tile: MutableSequence[slice]) -> None:
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
         c = self.c_size
         tile[1] = slice(tile[1].start // c, tile[1].stop // c)
         tile.append(slice(None))
@@ -202,7 +209,7 @@ class Axes:
         return AxesMapper(gen_transforms())
 
 
-class AxesMapper:
+class AxesMapper(Transform):
     def __init__(self, transforms: Iterable[Transform]):
         self._transforms = tuple(transforms)
 
@@ -222,19 +229,17 @@ class AxesMapper:
             a = transform.map_array(a)
         return a
 
-    def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
-        """Transform the shape of a Numpy array from the source to the target axes."""
-        return self._map_tuple(shape, fill_value=1)
-
-    def map_tile(self, tile: Tuple[slice, ...]) -> Tuple[slice, ...]:
-        """Transform a tile of a Numpy array from the source to the target axes."""
-        return self._map_tuple(tile, fill_value=slice(None))
-
-    def _map_tuple(self, t: Tuple[T, ...], **kwargs: Any) -> Tuple[T, ...]:
-        mapped_t = list(t)
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
         for transform in self._transforms:
-            transform(mapped_t, **kwargs)
-        return tuple(mapped_t)
+            transform.transform_shape(shape)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        for transform in self._transforms:
+            transform.transform_tile(tile)
+
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        for transform in self._transforms:
+            transform.transform_sequence(s)
 
 
 def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
@@ -271,13 +276,13 @@ def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
         min_distance = np.inf
         for candidate_transpose in _iter_transpositions(n):
             buf = bytearray(sbuf)
-            candidate_transpose(buf)
+            candidate_transpose.transform_sequence(buf)
             distance = levenshtein(buf.decode(), t)
             if distance < min_distance:
                 best_transpose = candidate_transpose
                 min_distance = distance
         yield best_transpose
-        best_transpose(sbuf)
+        best_transpose.transform_sequence(sbuf)
 
 
 def _iter_transpositions(n: int) -> Iterator[Transform]:
