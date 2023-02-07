@@ -24,7 +24,7 @@ from tiledb.cc import WebpInputFormat
 
 from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
-from . import DATASET_TYPE, FMT_VERSION
+from . import ATTR_NAME, DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
 
@@ -422,7 +422,7 @@ def _create_image_pyramid(
     compressor: tiledb.Filter,
     pyramid_kwargs: Mapping[str, Any],
 ) -> None:
-    with tiledb.open(base_uri, attr="intensity") as a:
+    with tiledb.open(base_uri, attr=ATTR_NAME) as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
         dim_axes = "".join(dim_names)
@@ -438,7 +438,7 @@ def _create_image_pyramid(
 
         with tiledb.open(uri, mode="w") as out_array:
             out_array.meta.update(level=level)
-            with tiledb.open(base_uri, attr="intensity") as in_array:
+            with tiledb.open(base_uri, attr=ATTR_NAME) as in_array:
                 scaler.apply(in_array, out_array, i)
 
         # if a non-progressive method is used, the input layer of the scaler
@@ -449,7 +449,7 @@ def _create_image_pyramid(
 
 def _iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
     for o in group:
-        with tiledb.open(o.uri, attr="intensity") as array:
+        with tiledb.open(o.uri, attr=ATTR_NAME) as array:
             level = array.meta["level"]
             domain = array.schema.domain
             axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
