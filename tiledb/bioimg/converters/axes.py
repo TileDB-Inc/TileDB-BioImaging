@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, MutableSequence, Tuple, TypeVar, cast
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
@@ -89,6 +89,74 @@ class Unsqueeze(Transform):
     @property
     def inverse(self) -> Transform:
         return Squeeze(self.idxs)
+
+
+@dataclass(frozen=True)
+class YXC_TO_YX(Transform):
+    c_size: int
+
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
+        if all(isinstance(i, int) for i in s):
+            self._transform_shape(cast(MutableSequence[int], s))
+        elif all(isinstance(i, slice) for i in s):
+            self._transform_tile(cast(MutableSequence[slice], s))
+        else:
+            raise TypeError(s.__class__)
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        shape = list(a.shape)
+        self._transform_shape(shape)
+        return a.reshape(shape)
+
+    @property
+    def inverse(self) -> Transform:
+        return YX_TO_YXC(self.c_size)
+
+    def _transform_shape(self, shape: MutableSequence[int]) -> None:
+        y, x, c = shape
+        if c != self.c_size:
+            raise ValueError(f"C dimension must have size {self.c_size}: {c} given")
+        shape[1] *= c
+        del shape[2]
+
+    def _transform_tile(self, tile: MutableSequence[slice]) -> None:
+        y, x, c = tile
+        if c != slice(None):
+            raise ValueError(f"C dimension can cannot be sliced: {c} given")
+        tile[1] = slice(x.start * self.c_size, x.stop * self.c_size)
+        del tile[2]
+
+
+@dataclass(frozen=True)
+class YX_TO_YXC(Transform):
+    c_size: int
+
+    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
+        if all(isinstance(i, int) for i in s):
+            self._transform_shape(cast(MutableSequence[int], s))
+        elif all(isinstance(i, slice) for i in s):
+            self._transform_tile(cast(MutableSequence[slice], s))
+        else:
+            raise TypeError(s.__class__)
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        shape = list(a.shape)
+        self._transform_shape(shape)
+        return a.reshape(shape)
+
+    @property
+    def inverse(self) -> Transform:
+        return YXC_TO_YX(self.c_size)
+
+    def _transform_shape(self, shape: MutableSequence[int]) -> None:
+        c = self.c_size
+        shape[1] //= c
+        shape.append(c)
+
+    def _transform_tile(self, tile: MutableSequence[slice]) -> None:
+        c = self.c_size
+        tile[1] = slice(tile[1].start // c, tile[1].stop // c)
+        tile.append(slice(None))
 
 
 @dataclass(frozen=True)
