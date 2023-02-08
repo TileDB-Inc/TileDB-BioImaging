@@ -12,13 +12,13 @@ from . import ATTR_NAME
 from .converters.scale import Scaler
 
 
-class _ReadWriteGroup:
+class ReadWriteGroup:
     def __init__(self, uri: str):
         if tiledb.object_type(uri) != "group":
             tiledb.group_create(uri)
         self.uri = uri
 
-    def __enter__(self) -> _ReadWriteGroup:
+    def __enter__(self) -> ReadWriteGroup:
         self.r_group = tiledb.Group(self.uri, "r")
         self.w_group = tiledb.Group(self.uri, "w")
         return self
@@ -59,12 +59,14 @@ class _ReadWriteGroup:
         return uri, create
 
 
-def _open(uri: str, *args: Optional[Any], **kwargs: Optional[Any]) -> tiledb.Array:
+def open_bioimg(
+    uri: str, *args: Optional[Any], **kwargs: Optional[Any]
+) -> tiledb.Array:
     attr = None if "w" in args or kwargs.get("mode") == "w" else ATTR_NAME
     return tiledb.open(uri, attr=attr, *args, **kwargs)
 
 
-def _get_schema(
+def get_schema(
     dim_names: Tuple[str, ...],
     dim_shape: Tuple[int, ...],
     max_tiles: Mapping[str, int],
@@ -84,15 +86,15 @@ def _get_schema(
     return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
 
 
-def _create_image_pyramid(
-    rw_group: _ReadWriteGroup,
+def create_image_pyramid(
+    rw_group: ReadWriteGroup,
     base_uri: str,
     base_level: int,
     max_tiles: Mapping[str, int],
     compressor: tiledb.Filter,
     pyramid_kwargs: Mapping[str, Any],
 ) -> None:
-    with _open(base_uri) as a:
+    with open_bioimg(base_uri) as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
         dim_axes = "".join(dim_names)
@@ -101,14 +103,14 @@ def _create_image_pyramid(
     scaler = Scaler(base_shape, dim_axes, **pyramid_kwargs)
     for i, dim_shape in enumerate(scaler.level_shapes):
         level = base_level + 1 + i
-        schema = _get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
+        schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
         uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
         if not created:
             continue
 
-        with _open(uri, mode="w") as out_array:
+        with open_bioimg(uri, mode="w") as out_array:
             out_array.meta.update(level=level)
-            with _open(base_uri) as in_array:
+            with open_bioimg(base_uri) as in_array:
                 scaler.apply(in_array, out_array, i)
 
         # if a non-progressive method is used, the input layer of the scaler
@@ -117,16 +119,16 @@ def _create_image_pyramid(
             base_uri = uri
 
 
-def _iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
+def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
     for o in group:
-        with _open(o.uri) as array:
+        with open_bioimg(o.uri) as array:
             level = array.meta["level"]
             domain = array.schema.domain
             axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
             yield dict(level=level, name=f"l_{level}.tdb", axes=axes, shape=array.shape)
 
 
-def _get_pixel_depth(compressor: tiledb.Filter) -> int:
+def get_pixel_depth(compressor: tiledb.Filter) -> int:
     if not isinstance(compressor, tiledb.WebpFilter):
         return 1
     webp_format = compressor.input_format

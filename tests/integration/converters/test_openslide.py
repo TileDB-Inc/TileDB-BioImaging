@@ -9,7 +9,7 @@ import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
-from tiledb.bioimg.helpers import _open
+from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
@@ -37,7 +37,7 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, comp
         compressor=compressor,
     )
     assert len(tiledb.Group(output_path)) == 1
-    with _open(str(tmp_path / "l_0.tdb")) as A:
+    with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
         if not preserve_axes:
             assert A.schema == get_schema(2220, 2967, 4, compressor=compressor)
 

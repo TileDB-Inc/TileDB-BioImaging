@@ -21,12 +21,12 @@ import tiledb
 from tiledb.cc import WebpInputFormat
 
 from ..helpers import (
-    _create_image_pyramid,
-    _get_pixel_depth,
-    _get_schema,
-    _iter_levels_meta,
-    _open,
-    _ReadWriteGroup,
+    ReadWriteGroup,
+    create_image_pyramid,
+    get_pixel_depth,
+    get_schema,
+    iter_levels_meta,
+    open_bioimg,
 )
 from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
@@ -219,7 +219,7 @@ class ImageConverter:
         max_tiles = cls._DEFAULT_TILES.copy()
         max_tiles.update(tiles)
 
-        rw_group = _ReadWriteGroup(output_path)
+        rw_group = ReadWriteGroup(output_path)
         reader = cls._ImageReaderType(input_path, **reader_kwargs)
 
         with rw_group, reader:
@@ -239,7 +239,7 @@ class ImageConverter:
                     quality=compressor.quality,
                     lossless=compressor.lossless,
                 )
-            pixel_depth = _get_pixel_depth(compressor)
+            pixel_depth = get_pixel_depth(compressor)
 
             if pyramid_kwargs is not None:
                 level_max = level_min + 1
@@ -270,7 +270,7 @@ class ImageConverter:
                 # create TileDB schema
                 dim_shape = axes_mapper.map_shape(source_shape)
                 attr_dtype = reader.level_dtype(level)
-                schema = _get_schema(
+                schema = get_schema(
                     dim_names, dim_shape, max_tiles, attr_dtype, compressor
                 )
 
@@ -280,13 +280,13 @@ class ImageConverter:
                     continue
 
                 # write image and metadata to TileDB array
-                with _open(uri, "w") as out_array:
+                with open_bioimg(uri, "w") as out_array:
                     _convert_level_to_tiledb(
                         reader, level, out_array, axes_mapper, chunked, max_workers
                     )
 
             if pyramid_kwargs is not None:
-                _create_image_pyramid(
+                create_image_pyramid(
                     rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
                 )
 
@@ -300,7 +300,7 @@ class ImageConverter:
                 dataset_type=DATASET_TYPE,
                 channels=json.dumps(reader.channels),
                 levels=json.dumps(
-                    sorted(_iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
+                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
                 ),
             )
 
