@@ -9,6 +9,7 @@ import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
+from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
@@ -23,7 +24,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
 
     # check the first (highest) resolution layer only
     schema = schemas[series_idx]
-    with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
+    with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
         if not preserve_axes:
             assert A.schema == schema
 

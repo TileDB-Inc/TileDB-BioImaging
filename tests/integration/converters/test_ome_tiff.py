@@ -9,6 +9,7 @@ import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
+from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
@@ -30,7 +31,7 @@ def test_ome_tiff_converter(tmp_path, open_fileobj):
         assert t.dimensions == schemas[0].shape[:-3:-1]
         for i in range(t.level_count):
             assert t.level_dimensions[i] == schemas[i].shape[:-3:-1]
-            with tiledb.open(str(tmp_path / f"l_{i}.tdb")) as A:
+            with open_bioimg(str(tmp_path / f"l_{i}.tdb")) as A:
                 assert A.schema == schemas[i]
 
         region = t.read_region(level=0, location=(100, 100), size=(300, 400))
@@ -51,13 +52,13 @@ def test_ome_tiff_converter_different_dtypes(tmp_path):
     OMETiffConverter.to_tiledb(path, str(tmp_path))
 
     assert len(tiledb.Group(str(tmp_path))) == 3
-    with tiledb.open(str(tmp_path / "l_0.tdb")) as A:
+    with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
         assert A.schema.domain.dtype == np.uint32
         assert A.attr(0).dtype == np.uint16
-    with tiledb.open(str(tmp_path / "l_1.tdb")) as A:
+    with open_bioimg(str(tmp_path / "l_1.tdb")) as A:
         assert A.schema.domain.dtype == np.uint16
         assert A.attr(0).dtype == np.uint16
-    with tiledb.open(str(tmp_path / "l_2.tdb")) as A:
+    with open_bioimg(str(tmp_path / "l_2.tdb")) as A:
         assert A.schema.domain.dtype == np.uint16
         assert A.attr(0).dtype == np.uint16
 
@@ -170,7 +171,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
     with TileDBOpenSlide(str(tiledb_path)) as t:
         assert len(tiledb.Group(str(tiledb_path))) == t.level_count == 1
 
-    with tiledb.open(str(tiledb_path / "l_0.tdb")) as A:
+    with open_bioimg(str(tiledb_path / "l_0.tdb")) as A:
         assert "".join(dim.name for dim in A.domain) == dims
         assert A.dtype == np.int8
         assert A.dim("X").tile == tiles.get("X", 439)
