@@ -20,9 +20,9 @@ except ImportError:
 import tiledb
 from tiledb.cc import WebpInputFormat
 
-
 from ..helpers import (
     _create_image_pyramid,
+    _get_pixel_depth,
     _get_schema,
     _iter_levels_meta,
     _open,
