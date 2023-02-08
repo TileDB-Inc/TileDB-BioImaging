@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
@@ -29,24 +30,16 @@ def calculate_metadata(
     :param config: the configuration for constructing the tileDB context
     """
     metadata: List[ZoomLevelRecord] = []
-    shapes = []
-    uris = []
 
     context = None if config is None else tiledb.Ctx(config)
-
     group = tiledb.Group(group_uri, "r", ctx=context)
-    for member in group:
-        with tiledb.open(member.uri, ctx=context) as array:
-            axes = Axes("".join(dim.name for dim in array.domain))
-            axes_mapper = axes.mapper(Axes("XYC"))
-            shapes.append(axes_mapper.map_shape(array.shape))
-            uris.append(member.uri)
-
-    shapes, uris = (list(t) for t in zip(*sorted(zip(shapes, uris))))
-
     level = 0
 
-    for index, (shape, uri) in enumerate(zip(shapes, uris)):
+    for index, meta in enumerate(json.loads(group.meta["levels"])[::-1]):
+        axes = Axes(meta["axes"])
+        axes_mapper = axes.mapper(Axes("XYC"))
+        shape = axes_mapper.map_shape(meta["shape"])
+
         zoom_factor = round(shape[0] / metadata[-1].width) if len(metadata) > 0 else 2
 
         if not ((zoom_factor & (zoom_factor - 1) == 0) and zoom_factor != 0):
@@ -61,10 +54,12 @@ def calculate_metadata(
                     width=shape[0],
                     height=shape[1],
                     namespace=namespace,
-                    array_uri=uri,
-                    axes=axes.dims,
+                    array_uri=group[meta["name"]].uri,
+                    axes=meta["axes"],
                 )
             )
             level += 1
+
+    group.close()
 
     return metadata
