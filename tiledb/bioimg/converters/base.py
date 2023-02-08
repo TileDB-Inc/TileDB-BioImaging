@@ -27,7 +27,6 @@ from ..version import version as PKG_VERSION
 from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes, AxesMapper
 from .tiles import iter_tiles, num_tiles
-from .webp import ToWebPAxesMapper
 
 
 class ImageReader(ABC):
@@ -255,11 +254,11 @@ class ImageConverter:
                         target_axes = source_axes
                     else:
                         target_axes = source_axes.canonical(source_shape)
-                    axes_mapper = AxesMapper(source_axes, target_axes)
+                    axes_mapper = source_axes.mapper(target_axes)
                     dim_names = tuple(target_axes.dims)
                 else:
                     max_tiles["X"] *= pixel_depth
-                    axes_mapper = ToWebPAxesMapper(source_axes, pixel_depth)
+                    axes_mapper = source_axes.webp_mapper(pixel_depth)
                     dim_names = ("Y", "X")
 
                 # create TileDB schema
@@ -392,7 +391,7 @@ def _convert_level_to_tiledb(
 ) -> None:
     out_array.meta.update(reader.level_metadata(level), level=level)
     if chunked or max_workers:
-        inv_axes_mapper = axes_mapper.inverted
+        inv_axes_mapper = axes_mapper.inverse
 
         def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
             source_tile = inv_axes_mapper.map_tile(level_tile)

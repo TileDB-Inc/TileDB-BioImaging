@@ -2,72 +2,194 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Tuple, TypeVar
+from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
 
-T = TypeVar("T")
 
-
-class Transform(ABC):
+class AxesMapper(ABC):
+    @property
     @abstractmethod
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        """Transform the given mutable sequence in place"""
+    def inverse(self) -> AxesMapper:
+        """The axes mapper that inverts the effect of this one"""
 
     @abstractmethod
     def map_array(self, a: np.ndarray) -> np.ndarray:
-        """Return the transformed numpy array"""
+        """Return the transformed Numpy array"""
+
+    def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
+        """Return the shape of the transformed Numpy array."""
+        mapped_shape = list(shape)
+        self.transform_shape(mapped_shape)
+        return tuple(mapped_shape)
+
+    def map_tile(self, tile: Tuple[slice, ...]) -> Tuple[slice, ...]:
+        """Return the tile for slicing the transformed Numpy array"""
+        mapped_tile = list(tile)
+        self.transform_tile(mapped_tile)
+        return tuple(mapped_tile)
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        """Transform the given shape in place"""
+        self.transform_sequence(shape)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        """Transform the given tile in place"""
+        self.transform_sequence(tile)
+
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        """Transform the given mutable sequence in place"""
+        # intentionally not decorated as @abstractmethod: subclasses may override
+        # transform_shape and transform_tile instead
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
-class Swap(Transform):
+class Swap(AxesMapper):
     i: int
     j: int
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        i, j = self.i, self.j
-        s[i], s[j] = s[j], s[i]
+    @property
+    def inverse(self) -> AxesMapper:
+        return self
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.swapaxes(a, self.i, self.j)
 
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        i, j = self.i, self.j
+        s[i], s[j] = s[j], s[i]
+
 
 @dataclass(frozen=True)
-class Move(Transform):
+class Move(AxesMapper):
     i: int
     j: int
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        s.insert(self.j, s.pop(self.i))
+    @property
+    def inverse(self) -> AxesMapper:
+        return Move(self.j, self.i)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.moveaxis(a, self.i, self.j)
 
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        s.insert(self.j, s.pop(self.i))
+
 
 @dataclass(frozen=True)
-class Squeeze(Transform):
+class Squeeze(AxesMapper):
     idxs: Tuple[int, ...]
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        for i in sorted(self.idxs, reverse=True):
-            del s[i]
+    @property
+    def inverse(self) -> AxesMapper:
+        return Unsqueeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.squeeze(a, self.idxs)
 
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        for i in sorted(self.idxs, reverse=True):
+            del s[i]
+
 
 @dataclass(frozen=True)
-class Unsqueeze(Transform):
+class Unsqueeze(AxesMapper):
     idxs: Tuple[int, ...]
 
-    def __call__(self, s: MutableSequence[T], **kwargs: Any) -> None:
-        fill_value = kwargs["fill_value"]
-        for i in sorted(self.idxs):
-            s.insert(i, fill_value)
+    @property
+    def inverse(self) -> AxesMapper:
+        return Squeeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
         return np.expand_dims(a, self.idxs)
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        self.transform_sequence(shape, fill_value=1)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        self.transform_sequence(tile, fill_value=slice(None))
+
+    def transform_sequence(
+        self, sequence: MutableSequence[Any], fill_value: Any = None
+    ) -> None:
+        for i in sorted(self.idxs):
+            sequence.insert(i, fill_value)
+
+
+@dataclass(frozen=True)
+class YXC_TO_YX(AxesMapper):
+    c_size: int
+
+    @property
+    def inverse(self) -> AxesMapper:
+        return YX_TO_YXC(self.c_size)
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        return a.reshape(self.map_shape(a.shape))
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        y, x, c = shape
+        if c != self.c_size:
+            raise ValueError(f"C dimension must have size {self.c_size}: {c} given")
+        shape[1] *= c
+        del shape[2]
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        y, x, c = tile
+        if c != slice(None):
+            raise ValueError(f"C dimension can cannot be sliced: {c} given")
+        tile[1] = slice(x.start * self.c_size, x.stop * self.c_size)
+        del tile[2]
+
+
+@dataclass(frozen=True)
+class YX_TO_YXC(AxesMapper):
+    c_size: int
+
+    @property
+    def inverse(self) -> AxesMapper:
+        return YXC_TO_YX(self.c_size)
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        return a.reshape(self.map_shape(a.shape))
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        c = self.c_size
+        shape[1] //= c
+        shape.append(c)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        c = self.c_size
+        tile[1] = slice(tile[1].start // c, tile[1].stop // c)
+        tile.append(slice(None))
+
+
+@dataclass(frozen=True)
+class CompositeAxesMapper(AxesMapper):
+    mappers: Sequence[AxesMapper]
+
+    @property
+    def inverse(self) -> AxesMapper:
+        return CompositeAxesMapper([t.inverse for t in reversed(self.mappers)])
+
+    def map_array(self, a: np.ndarray) -> np.ndarray:
+        for mapper in self.mappers:
+            a = mapper.map_array(a)
+        return a
+
+    def transform_shape(self, shape: MutableSequence[int]) -> None:
+        for mapper in self.mappers:
+            mapper.transform_shape(shape)
+
+    def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        for mapper in self.mappers:
+            mapper.transform_tile(tile)
+
+    def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        for mapper in self.mappers:
+            mapper.transform_sequence(s)
 
 
 @dataclass(frozen=True)
@@ -99,45 +221,18 @@ class Axes:
         dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
+    def mapper(self, other: Axes) -> AxesMapper:
+        """Return an AxesMapper from this axes to other"""
+        return CompositeAxesMapper(list(_iter_axes_mappers(self.dims, other.dims)))
 
-class AxesMapper:
-    def __init__(self, source: Axes, target: Axes):
-        self._source = source
-        self._target = target
-        self._transforms = tuple(_iter_transforms(source.dims, target.dims))
-
-    @property
-    def inverted(self) -> AxesMapper:
-        """Return the inverted axes mapper, i.e. one that maps target to source"""
-        return AxesMapper(self._target, self._source)
-
-    def map_array(self, a: np.ndarray) -> np.ndarray:
-        """Transform a Numpy array from the source axes `s` to the target axes `t`.
-
-        If `s` is a superset of `t`, squeeze the extra axes.
-        If `s` is a subset of `t`, insert the missing axes at the front with length one.
-        Finally, find the minimum number of transforms from `s` to `t` and apply them to `a`.
-        """
-        for transform in self._transforms:
-            a = transform.map_array(a)
-        return a
-
-    def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
-        """Transform the shape of a Numpy array from the source to the target axes."""
-        return self._map_tuple(shape, fill_value=1)
-
-    def map_tile(self, tile: Tuple[slice, ...]) -> Tuple[slice, ...]:
-        """Transform a tile of a Numpy array from the source to the target axes."""
-        return self._map_tuple(tile, fill_value=slice(None))
-
-    def _map_tuple(self, t: Tuple[T, ...], **kwargs: Any) -> Tuple[T, ...]:
-        mapped_t = list(t)
-        for transform in self._transforms:
-            transform(mapped_t, **kwargs)
-        return tuple(mapped_t)
+    def webp_mapper(self, num_channels: int) -> AxesMapper:
+        """Return an AxesMapper from this 3D axes (YXC or a permutation) to 2D (YX)"""
+        mappers = list(_iter_axes_mappers(self.dims, "YXC"))
+        mappers.append(YXC_TO_YX(num_channels))
+        return CompositeAxesMapper(mappers)
 
 
-def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
+def _iter_axes_mappers(s: str, t: str) -> Iterator[AxesMapper]:
     s_set = frozenset(s)
     assert len(s_set) == len(s), f"{s!r} contains duplicates"
     t_set = frozenset(t)
@@ -171,16 +266,16 @@ def _iter_transforms(s: str, t: str) -> Iterator[Transform]:
         min_distance = np.inf
         for candidate_transpose in _iter_transpositions(n):
             buf = bytearray(sbuf)
-            candidate_transpose(buf)
+            candidate_transpose.transform_sequence(buf)
             distance = levenshtein(buf.decode(), t)
             if distance < min_distance:
                 best_transpose = candidate_transpose
                 min_distance = distance
         yield best_transpose
-        best_transpose(sbuf)
+        best_transpose.transform_sequence(sbuf)
 
 
-def _iter_transpositions(n: int) -> Iterator[Transform]:
+def _iter_transpositions(n: int) -> Iterator[AxesMapper]:
     for i in range(n):
         for j in range(i + 1, n):
             yield Swap(i, j)

@@ -3,30 +3,23 @@ import itertools as it
 import numpy as np
 import pytest
 
-from tiledb.bioimg.converters.axes import (
-    Axes,
-    AxesMapper,
-    Move,
-    Squeeze,
-    Swap,
-    Unsqueeze,
-)
+from tiledb.bioimg.converters.axes import Axes, Move, Squeeze, Swap, Unsqueeze
 
 
-class TestTransforms:
+class TestAxesMappers:
     @pytest.mark.parametrize(
         "s,i,j", [(b"ADCBE", 1, 3), (b"DBCAE", 3, 0), (b"ACBDE", 2, 1)]
     )
     def test_swap(self, s, i, j):
-        transform = Swap(i, j)
+        axes_mapper = Swap(i, j)
         b = bytearray(s)
-        assert transform(b) is None
+        assert axes_mapper.transform_sequence(b) is None
         assert b == b"ABCDE"
 
     def test_swap_array(self):
-        transform = Swap(1, 3)
+        axes_mapper = Swap(1, 3)
         a = np.empty((5, 4, 8, 3, 6))
-        np.testing.assert_array_equal(transform.map_array(a), np.swapaxes(a, 1, 3))
+        np.testing.assert_array_equal(axes_mapper.map_array(a), np.swapaxes(a, 1, 3))
 
     @pytest.mark.parametrize(
         "s,i,j",
@@ -40,15 +33,15 @@ class TestTransforms:
         ],
     )
     def test_move(self, s, i, j):
-        transform = Move(i, j)
+        axes_mapper = Move(i, j)
         b = bytearray(s)
-        assert transform(b) is None
+        assert axes_mapper.transform_sequence(b) is None
         assert b == b"ABCDE"
 
     def test_move_array(self):
-        transform = Move(1, 3)
+        axes_mapper = Move(1, 3)
         a = np.empty((5, 4, 8, 3, 6))
-        np.testing.assert_array_equal(transform.map_array(a), np.moveaxis(a, 1, 3))
+        np.testing.assert_array_equal(axes_mapper.map_array(a), np.moveaxis(a, 1, 3))
 
     @pytest.mark.parametrize(
         "s,idxs",
@@ -60,15 +53,15 @@ class TestTransforms:
         ],
     )
     def test_squeeze(self, s, idxs):
-        transform = Squeeze(idxs)
+        axes_mapper = Squeeze(idxs)
         b = bytearray(s)
-        assert transform(b) is None
+        assert axes_mapper.transform_sequence(b) is None
         assert b == b"ABC"
 
     def test_squeeze_array(self):
-        transform = Squeeze((1, 3))
+        axes_mapper = Squeeze((1, 3))
         a = np.empty((5, 1, 8, 1, 6))
-        np.testing.assert_array_equal(transform.map_array(a), np.squeeze(a, (1, 3)))
+        np.testing.assert_array_equal(axes_mapper.map_array(a), np.squeeze(a, (1, 3)))
 
     @pytest.mark.parametrize(
         "s,idxs,t",
@@ -81,15 +74,17 @@ class TestTransforms:
         ],
     )
     def test_unsqueeze(self, s, idxs, t):
-        transform = Unsqueeze(idxs)
+        axes_mapper = Unsqueeze(idxs)
         b = bytearray(s)
-        assert transform(b, fill_value=ord("_")) is None
+        assert axes_mapper.transform_sequence(b, fill_value=ord("_")) is None
         assert b == t
 
     def test_unsqueeze_array(self):
-        transform = Unsqueeze((1, 3))
+        axes_mapper = Unsqueeze((1, 3))
         a = np.empty((5, 8, 6))
-        np.testing.assert_array_equal(transform.map_array(a), np.expand_dims(a, (1, 3)))
+        np.testing.assert_array_equal(
+            axes_mapper.map_array(a), np.expand_dims(a, (1, 3))
+        )
 
 
 class TestAxes:
@@ -150,7 +145,7 @@ class TestAxes:
         assert Axes("ZCTXY").canonical(shape) == Axes("CZYX")
 
 
-class TestAxesMapper:
+class TestCompositeAxesMapper:
     def test_canonical_transform_2d(self):
         a = np.random.rand(60, 40)
         assert_canonical_transform("YX", a, a)
@@ -292,7 +287,7 @@ class TestAxesMapper:
 
 
 def assert_transform(source, target, a, expected):
-    axes_mapper = AxesMapper(Axes(source), Axes(target))
+    axes_mapper = Axes(source).mapper(Axes(target))
     assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
 
@@ -300,6 +295,6 @@ def assert_transform(source, target, a, expected):
 def assert_canonical_transform(source, a, expected):
     source = Axes(source)
     target = source.canonical(a.shape)
-    axes_mapper = AxesMapper(source, target)
+    axes_mapper = source.mapper(target)
     assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)

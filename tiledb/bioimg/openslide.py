@@ -13,8 +13,7 @@ except ImportError:
 
 import tiledb
 
-from .converters.axes import Axes, AxesMapper
-from .converters.webp import FromWebPAxesMapper
+from .converters.axes import Axes
 
 
 class TileDBOpenSlide:
@@ -183,16 +182,16 @@ class TileDBOpenSlideLevel:
         dims = tuple(dim.name for dim in self._tdb.domain)
         pixel_depth = self._pixel_depth
         if pixel_depth == 1:
-            axes_mapper = AxesMapper(Axes(dims), axes)
+            axes_mapper = axes.mapper(Axes(dims))
         else:
             x = dim_slice.get("X")
             if x is not None:
                 dim_slice["X"] = slice(x.start * pixel_depth, x.stop * pixel_depth)
-            axes_mapper = FromWebPAxesMapper(axes, pixel_depth)
+            axes_mapper = axes.webp_mapper(pixel_depth)
 
         array = da.from_tiledb(self._tdb) if to_dask else self._tdb
         selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
-        return axes_mapper.map_array(array[selector])
+        return axes_mapper.inverse.map_array(array[selector])
 
     def close(self) -> None:
         self._tdb.close()
