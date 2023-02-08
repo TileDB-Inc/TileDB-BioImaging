@@ -14,6 +14,7 @@ except ImportError:
 import tiledb
 
 from .converters.axes import Axes
+from .helpers import _open
 
 
 class TileDBOpenSlide:
@@ -154,7 +155,7 @@ class TileDBOpenSlide:
 
 class TileDBOpenSlideLevel:
     def __init__(self, uri: str, pixel_depth: int):
-        self._tdb = tiledb.open(uri)
+        self._tdb = _open(uri)
         self._pixel_depth = pixel_depth
 
     @property

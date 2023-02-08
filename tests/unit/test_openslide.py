@@ -2,6 +2,7 @@ import random
 
 import tiledb
 from tests import get_schema
+from tiledb.bioimg.helpers import _open
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
@@ -18,7 +19,7 @@ class TestTileDBOpenSlide:
             for level, schema in enumerate(schemas):
                 level_path = str(tmp_path / f"l_{level}.tdb")
                 tiledb.Array.create(level_path, schema)
-                with tiledb.bioimg.open(level_path, "w") as A:
+                with _open(level_path, "w") as A:
                     A.meta["level"] = level
                 G.add(level_path)
 
