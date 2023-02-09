@@ -7,7 +7,7 @@ import tiledb
 from ..converters.axes import Axes
 
 
-@dataclass
+@dataclass(frozen=True)
 class ZoomLevelRecord:
     zoom_level: int
     image_level: int
