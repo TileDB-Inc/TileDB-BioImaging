@@ -6,7 +6,7 @@ import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -164,7 +164,7 @@ class ImageConverter:
     @classmethod
     def to_tiledb(
         cls,
-        input_path: str,
+        input_path: Union[str, ImageReader],
         output_path: str,
         *,
         level_min: int = 0,
@@ -213,15 +213,17 @@ class ImageConverter:
                 chunked downsampling. If None, it will default to the number of processors
                 on the machine, multiplied by 5.
         """
-        if cls._ImageReaderType is None:
+        if isinstance(input_path, ImageReader):
+            reader = input_path
+        elif cls._ImageReaderType is not None:
+            reader = cls._ImageReaderType(input_path, **reader_kwargs)
+        else:
             raise NotImplementedError(f"{cls} does not support importing")
 
         max_tiles = cls._DEFAULT_TILES.copy()
         max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
-        reader = cls._ImageReaderType(input_path, **reader_kwargs)
-
         with rw_group, reader:
             stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
             if stored_pkg_version not in (None, PKG_VERSION):
