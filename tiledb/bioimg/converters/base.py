@@ -31,7 +31,7 @@ from ..helpers import (
 from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
 from . import DATASET_TYPE, FMT_VERSION
-from .axes import Axes, AxesMapper
+from .axes import Axes
 from .tiles import iter_tiles, num_tiles
 
 
@@ -239,62 +239,35 @@ class ImageConverter:
                     quality=compressor.quality,
                     lossless=compressor.lossless,
                 )
-            pixel_depth = get_pixel_depth(compressor)
 
+            convert_kwargs = dict(
+                reader=reader,
+                rw_group=rw_group,
+                max_tiles=max_tiles,
+                preserve_axes=preserve_axes,
+                chunked=chunked,
+                max_workers=max_workers,
+                compressor=compressor,
+            )
             if pyramid_kwargs is not None:
-                level_max = level_min + 1
-                if reader.level_count > level_max:
+                if level_min < reader.level_count - 1:
                     warnings.warn(
                         f"The image contains multiple levels but only level {level_min} "
                         "will be considered for generating the image pyramid"
                     )
-            else:
-                level_max = reader.level_count
-
-            source_axes = reader.axes
-            for level in range(level_min, level_max):
-                # create mapper from source to target axes
-                source_shape = reader.level_shape(level)
-                if pixel_depth == 1:
-                    if preserve_axes:
-                        target_axes = source_axes
-                    else:
-                        target_axes = source_axes.canonical(source_shape)
-                    axes_mapper = source_axes.mapper(target_axes)
-                    dim_names = tuple(target_axes.dims)
-                else:
-                    max_tiles["X"] *= pixel_depth
-                    axes_mapper = source_axes.webp_mapper(pixel_depth)
-                    dim_names = ("Y", "X")
-
-                # create TileDB schema
-                dim_shape = axes_mapper.map_shape(source_shape)
-                attr_dtype = reader.level_dtype(level)
-                schema = get_schema(
-                    dim_names, dim_shape, max_tiles, attr_dtype, compressor
-                )
-
-                # get or create TileDB array uri
-                uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
-                if not created:
-                    continue
-
-                # write image and metadata to TileDB array
-                with open_bioimg(uri, "w") as out_array:
-                    _convert_level_to_tiledb(
-                        reader, level, out_array, axes_mapper, chunked, max_workers
-                    )
-
-            if pyramid_kwargs is not None:
+                uri = _convert_level_to_tiledb(level_min, **convert_kwargs)
                 create_image_pyramid(
                     rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
                 )
+            else:
+                for level in range(level_min, reader.level_count):
+                    _convert_level_to_tiledb(level, **convert_kwargs)
 
         with rw_group:
             rw_group.w_group.meta.update(
                 reader.group_metadata,
-                axes=source_axes.dims,
-                pixel_depth=pixel_depth,
+                axes=reader.axes.dims,
+                pixel_depth=get_pixel_depth(compressor),
                 pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
@@ -309,33 +282,63 @@ class ImageConverter:
 
 
 def _convert_level_to_tiledb(
-    reader: ImageReader,
     level: int,
-    out_array: tiledb.Array,
-    axes_mapper: AxesMapper,
+    *,
+    reader: ImageReader,
+    rw_group: ReadWriteGroup,
+    max_tiles: Dict[str, int],
+    preserve_axes: bool,
     chunked: bool,
     max_workers: int,
-) -> None:
-    out_array.meta.update(reader.level_metadata(level), level=level)
-    if chunked or max_workers:
-        inv_axes_mapper = axes_mapper.inverse
-
-        def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
-            source_tile = inv_axes_mapper.map_tile(level_tile)
-            image = reader.level_image(level, source_tile)
-            out_array[level_tile] = axes_mapper.map_array(image)
-
-        ex = ThreadPoolExecutor(max_workers) if max_workers else None
-        mapper = getattr(ex, "map", map)
-        for _ in tqdm(
-            mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
-            desc=f"Ingesting level {level}",
-            total=num_tiles(out_array.domain),
-            unit="tiles",
-        ):
-            pass
-        if ex:
-            ex.shutdown()
+    compressor: tiledb.Filter,
+) -> str:
+    # create mapper from source to target axes
+    source_axes = reader.axes
+    source_shape = reader.level_shape(level)
+    pixel_depth = get_pixel_depth(compressor)
+    if pixel_depth == 1:
+        if preserve_axes:
+            target_axes = source_axes
+        else:
+            target_axes = source_axes.canonical(source_shape)
+        axes_mapper = source_axes.mapper(target_axes)
+        dim_names = tuple(target_axes.dims)
     else:
-        image = reader.level_image(level)
-        out_array[:] = axes_mapper.map_array(image)
+        max_tiles["X"] *= pixel_depth
+        axes_mapper = source_axes.webp_mapper(pixel_depth)
+        dim_names = ("Y", "X")
+
+    # create TileDB schema
+    dim_shape = axes_mapper.map_shape(source_shape)
+    attr_dtype = reader.level_dtype(level)
+    schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
+
+    # get or create TileDB array uri
+    uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
+    if created:
+        # write image and metadata to TileDB array
+        with open_bioimg(uri, "w") as out_array:
+            out_array.meta.update(reader.level_metadata(level), level=level)
+            if chunked or max_workers:
+                inv_axes_mapper = axes_mapper.inverse
+
+                def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
+                    source_tile = inv_axes_mapper.map_tile(level_tile)
+                    image = reader.level_image(level, source_tile)
+                    out_array[level_tile] = axes_mapper.map_array(image)
+
+                ex = ThreadPoolExecutor(max_workers) if max_workers else None
+                mapper = getattr(ex, "map", map)
+                for _ in tqdm(
+                    mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
+                    desc=f"Ingesting level {level}",
+                    total=num_tiles(out_array.domain),
+                    unit="tiles",
+                ):
+                    pass
+                if ex:
+                    ex.shutdown()
+            else:
+                image = reader.level_image(level)
+                out_array[:] = axes_mapper.map_array(image)
+    return uri
