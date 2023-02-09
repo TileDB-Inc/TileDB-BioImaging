@@ -93,7 +93,7 @@ def get_schema(
         dim_tile = min(dim_size, max_tiles[dim_name])
         dim = tiledb.Dim(dim_name, (0, dim_size - 1), dim_tile, dtype=dim_dtype)
         dims.append(dim)
-    attr = tiledb.Attr(name="intensity", dtype=attr_dtype, filters=[compressor])
+    attr = tiledb.Attr(name=ATTR_NAME, dtype=attr_dtype, filters=[compressor])
     return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
 
 
