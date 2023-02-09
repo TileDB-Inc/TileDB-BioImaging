@@ -33,9 +33,9 @@ def calculate_metadata(
 
     context = None if config is None else tiledb.Ctx(config)
     group = tiledb.Group(group_uri, "r", ctx=context)
-    level = 0
+    zoom_level = 0
 
-    for index, meta in enumerate(json.loads(group.meta["levels"])[::-1]):
+    for meta in json.loads(group.meta["levels"])[::-1]:
         axes = Axes(meta["axes"])
         axes_mapper = axes.mapper(Axes("XYC"))
         shape = axes_mapper.map_shape(meta["shape"])
@@ -48,8 +48,8 @@ def calculate_metadata(
         for i in range(bin(zoom_factor - 1).count("1")):
             metadata.append(
                 ZoomLevelRecord(
-                    zoom_level=level,
-                    image_level=index,
+                    zoom_level=zoom_level,
+                    image_level=meta["level"],
                     downsample=2 ** (bin(zoom_factor - 1).count("1") - i - 1),
                     width=shape[0],
                     height=shape[1],
@@ -58,7 +58,7 @@ def calculate_metadata(
                     axes=meta["axes"],
                 )
             )
-            level += 1
+            zoom_level += 1
 
     group.close()
 
