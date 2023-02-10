@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Any, Iterator, Mapping, Optional, Tuple
+from urllib.parse import urlparse
 
 import numpy as np
 
@@ -16,11 +17,12 @@ class ReadWriteGroup:
     def __init__(self, uri: str):
         if tiledb.object_type(uri) != "group":
             tiledb.group_create(uri)
-        self.uri = uri
+        self._uri = uri
+        self._is_cloud = urlparse(uri).scheme == "tiledb"
 
     def __enter__(self) -> ReadWriteGroup:
-        self.r_group = tiledb.Group(self.uri, "r")
-        self.w_group = tiledb.Group(self.uri, "w")
+        self.r_group = tiledb.Group(self._uri, "r")
+        self.w_group = tiledb.Group(self._uri, "w")
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -32,7 +34,7 @@ class ReadWriteGroup:
         if name in self.r_group:
             uri = self.r_group[name].uri
         else:
-            uri = os.path.join(self.r_group.uri, name)
+            uri = os.path.join(self._uri, name)
             if not tiledb.array_exists(uri):
                 tiledb.Array.create(uri, schema)
                 create = True
@@ -55,7 +57,10 @@ class ReadWriteGroup:
                         self.w_group.close()
                         self.w_group.open("w")
             # register the uri with the given name
-            self.w_group.add(uri, name)
+            if self._is_cloud:
+                self.w_group.add(uri, name, relative=False)
+            else:
+                self.w_group.add(name, name, relative=True)
         return uri, create
 
 
