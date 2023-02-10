@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import Any, Iterator, Mapping, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import numpy as np
 
@@ -15,10 +15,14 @@ from .converters.scale import Scaler
 
 class ReadWriteGroup:
     def __init__(self, uri: str):
+        parsed_uri = urlparse(uri)
+        # normalize uri if it's a local path (e.g. ../..foo/bar)
+        if parsed_uri.scheme in ("", "file"):
+            uri = str(Path(parsed_uri.path).resolve())
         if tiledb.object_type(uri) != "group":
             tiledb.group_create(uri)
-        self._uri = uri
-        self._is_cloud = urlparse(uri).scheme == "tiledb"
+        self._uri = uri if uri.endswith("/") else uri + "/"
+        self._is_cloud = parsed_uri.scheme == "tiledb"
 
     def __enter__(self) -> ReadWriteGroup:
         self.r_group = tiledb.Group(self._uri, "r")
@@ -34,7 +38,7 @@ class ReadWriteGroup:
         if name in self.r_group:
             uri = self.r_group[name].uri
         else:
-            uri = os.path.join(self._uri, name)
+            uri = urljoin(self._uri, name)
             if not tiledb.array_exists(uri):
                 tiledb.Array.create(uri, schema)
                 create = True
