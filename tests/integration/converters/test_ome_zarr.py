@@ -8,6 +8,7 @@ import zarr
 import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
+from tiledb.bioimg.converters.ome_tiff import OMETiffReader
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter, OMEZarrReader
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
@@ -18,8 +19,26 @@ schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
-def test_ome_zarr_converter_reader_arg(tmp_path, series_idx, preserve_axes):
+def test_ome_zarr_converter_source_reader_exception(
+    tmp_path, series_idx, preserve_axes
+):
+    tiff_path = get_path("CMU-1-Small-Region.ome.tiff")
+    output_reader = tmp_path / "to_tiledb_reader"
+
+    with pytest.raises(ValueError) as excinfo:
+        OMEZarrConverter.to_tiledb(
+            OMETiffReader(tiff_path), str(output_reader), preserve_axes=preserve_axes
+        )
+    assert "reader should match converter" in str(excinfo)
+
+
+@pytest.mark.parametrize("series_idx", [0, 1, 2])
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_ome_zarr_converter_reader_source_consistent_output(
+    tmp_path, series_idx, preserve_axes
+):
     input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+
     output_path = tmp_path / "to_tiledb_path"
     output_reader = tmp_path / "to_tiledb_reader"
 

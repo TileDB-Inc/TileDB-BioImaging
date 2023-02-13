@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Optional, Tuple
+from typing import Any, Iterator, Mapping, Tuple
 from urllib.parse import urljoin, urlparse
 
 import numpy as np
