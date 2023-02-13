@@ -8,12 +8,36 @@ import zarr
 import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
-from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
+from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter, OMEZarrReader
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
+
+
+@pytest.mark.parametrize("series_idx", [0, 1, 2])
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_ome_zarr_converter_reader_arg(tmp_path, series_idx, preserve_axes):
+    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    output_path = tmp_path / "to_tiledb_path"
+    output_reader = tmp_path / "to_tiledb_reader"
+
+    OMEZarrConverter.to_tiledb(
+        input_path, str(output_path), preserve_axes=preserve_axes
+    )
+    OMEZarrConverter.to_tiledb(
+        OMEZarrReader(input_path), str(output_reader), preserve_axes=preserve_axes
+    )
+
+    # check the first (highest) resolution layer only
+    schema = schemas[series_idx]
+    with open_bioimg(str(output_path / "l_0.tdb")) as A:
+        with open_bioimg(str(output_reader / "l_0.tdb")) as B:
+            if not preserve_axes:
+                assert schema == A.schema == B.schema
+            else:
+                assert A.schema == B.schema
 
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])

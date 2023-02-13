@@ -164,7 +164,7 @@ class ImageConverter:
     @classmethod
     def to_tiledb(
         cls,
-        input_path: Union[str, ImageReader],
+        source: Union[str, ImageReader],
         output_path: str,
         *,
         level_min: int = 0,
@@ -180,7 +180,7 @@ class ImageConverter:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
 
-        :param input_path: path to the input image
+        :param source: path to the input image or ImageReader object
         :param output_path: path to the TileDB group of arrays
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
@@ -213,10 +213,12 @@ class ImageConverter:
                 chunked downsampling. If None, it will default to the number of processors
                 on the machine, multiplied by 5.
         """
-        if isinstance(input_path, ImageReader):
-            reader = input_path
+        if isinstance(source, ImageReader):
+            if cls._ImageReaderType != source.__class__:
+                raise ValueError("Image reader should match converter on source format")
+            reader = source
         elif cls._ImageReaderType is not None:
-            reader = cls._ImageReaderType(input_path, **reader_kwargs)
+            reader = cls._ImageReaderType(source, **reader_kwargs)
         else:
             raise NotImplementedError(f"{cls} does not support importing")
 
