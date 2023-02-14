@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Optional, Tuple
+from typing import Any, Iterator, Mapping, Tuple
 from urllib.parse import urljoin, urlparse
 
 import numpy as np
@@ -68,11 +68,8 @@ class ReadWriteGroup:
         return uri, create
 
 
-def open_bioimg(
-    uri: str, *args: Optional[Any], **kwargs: Optional[Any]
-) -> tiledb.Array:
-    attr = None if "w" in args or kwargs.get("mode") == "w" else ATTR_NAME
-    return tiledb.open(uri, attr=attr, *args, **kwargs)
+def open_bioimg(uri: str, mode: str = "r") -> tiledb.Array:
+    return tiledb.open(uri, mode=mode, attr=ATTR_NAME if mode == "r" else None)
 
 
 def get_schema(
