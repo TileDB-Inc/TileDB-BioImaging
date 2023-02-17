@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Tuple
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import numpy as np
 
@@ -17,8 +18,11 @@ class ReadWriteGroup:
     def __init__(self, uri: str):
         parsed_uri = urlparse(uri)
         # normalize uri if it's a local path (e.g. ../..foo/bar)
-        if parsed_uri.scheme in ("", "file"):
-            uri = str(Path(parsed_uri.path).resolve())
+
+        # Windows paths produce single letter scheme matching the drive letter
+        # Unix absolute path produce an empty scheme
+        if len(parsed_uri.scheme) < 2 or parsed_uri.scheme == "file":
+            uri = str(Path(parsed_uri.path).resolve()).replace("\\", "/")
         if tiledb.object_type(uri) != "group":
             tiledb.group_create(uri)
         self._uri = uri if uri.endswith("/") else uri + "/"
@@ -38,7 +42,8 @@ class ReadWriteGroup:
         if name in self.r_group:
             uri = self.r_group[name].uri
         else:
-            uri = urljoin(self._uri, name)
+            uri = os.path.join(self._uri, name).replace("\\", "/")
+
             if not tiledb.array_exists(uri):
                 tiledb.Array.create(uri, schema)
                 create = True
