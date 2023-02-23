@@ -36,7 +36,7 @@ from .tiles import iter_tiles, num_tiles
 
 class ImageReader(ABC):
     @abstractmethod
-    def __init__(self, input_path: str, **kwargs: Any):
+    def __init__(self, input_path: str, ctx: tiledb.Ctx, **kwargs: Any):
         """Initialize this ImageReader"""
 
     def __enter__(self) -> ImageReader:
@@ -142,6 +142,7 @@ class ImageConverter:
         *,
         level_min: int = 0,
         attr: str = ATTR_NAME,
+        ctx: Optional[tiledb.Ctx] = None,
     ) -> None:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level.
@@ -151,11 +152,12 @@ class ImageConverter:
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
         :param attr: attribute name for backwards compatiblity support
+        :param ctx: tiledb.Ctx
         """
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        slide = TileDBOpenSlide(input_path, attr=attr)
+        slide = TileDBOpenSlide(input_path, attr=attr, ctx=ctx)
         writer = cls._ImageWriterType(output_path)
         with slide, writer:
             writer.write_group_metadata(slide.properties)
@@ -178,6 +180,8 @@ class ImageConverter:
         chunked: bool = False,
         max_workers: int = 0,
         compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
+        ctx: tiledb.Ctx = None,
+        register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
@@ -197,6 +201,7 @@ class ImageConverter:
             original ones.
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
+        :param ctx: TileDB Ctx
         :param compressor: TileDB compression filter
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
         :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
@@ -220,14 +225,14 @@ class ImageConverter:
                 raise ValueError("Image reader should match converter on source format")
             reader = source
         elif cls._ImageReaderType is not None:
-            reader = cls._ImageReaderType(source, **reader_kwargs)
+            reader = cls._ImageReaderType(source, ctx, **reader_kwargs)
         else:
             raise NotImplementedError(f"{cls} does not support importing")
 
         max_tiles = cls._DEFAULT_TILES.copy()
         max_tiles.update(tiles)
 
-        rw_group = ReadWriteGroup(output_path)
+        rw_group = ReadWriteGroup(output_path, ctx)
         with rw_group, reader:
             stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
             if stored_pkg_version not in (None, PKG_VERSION):
@@ -254,6 +259,7 @@ class ImageConverter:
                 chunked=chunked,
                 max_workers=max_workers,
                 compressor=compressor,
+                ctx=ctx,
             )
             if pyramid_kwargs is not None:
                 if level_min < reader.level_count - 1:
@@ -263,7 +269,7 @@ class ImageConverter:
                     )
                 uri = _convert_level_to_tiledb(level_min, **convert_kwargs)
                 create_image_pyramid(
-                    rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
+                    rw_group, uri, level_min, max_tiles, compressor, ctx, pyramid_kwargs
                 )
             else:
                 for level in range(level_min, reader.level_count):
@@ -279,7 +285,9 @@ class ImageConverter:
                 dataset_type=DATASET_TYPE,
                 channels=json.dumps(reader.channels),
                 levels=json.dumps(
-                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
+                    sorted(
+                        iter_levels_meta(rw_group.r_group, ctx), key=itemgetter("level")
+                    )
                 ),
             )
 
@@ -294,6 +302,7 @@ def _convert_level_to_tiledb(
     chunked: bool,
     max_workers: int,
     compressor: tiledb.Filter,
+    ctx: tiledb.Ctx,
 ) -> str:
     # create mapper from source to target axes
     source_axes = reader.axes
@@ -320,7 +329,7 @@ def _convert_level_to_tiledb(
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
     if created:
         # write image and metadata to TileDB array
-        with open_bioimg(uri, "w") as out_array:
+        with open_bioimg(uri, "w", ctx) as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
             if chunked or max_workers:
                 inv_axes_mapper = axes_mapper.inverse

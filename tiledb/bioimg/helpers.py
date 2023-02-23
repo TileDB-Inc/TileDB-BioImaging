@@ -15,22 +15,24 @@ from .converters.scale import Scaler
 
 
 class ReadWriteGroup:
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, ctx: tiledb.Ctx = None):
+        self._ctx = ctx
         parsed_uri = urlparse(uri)
         # normalize uri if it's a local path (e.g. ../..foo/bar)
-
         # Windows paths produce single letter scheme matching the drive letter
         # Unix absolute path produce an empty scheme
         if len(parsed_uri.scheme) < 2 or parsed_uri.scheme == "file":
             uri = str(Path(parsed_uri.path).resolve()).replace("\\", "/")
-        if tiledb.object_type(uri) != "group":
-            tiledb.group_create(uri)
+
+        if tiledb.object_type(uri, ctx=self._ctx) != "group":
+            tiledb.group_create(uri, ctx=self._ctx)
+
         self._uri = uri if uri.endswith("/") else uri + "/"
         self._is_cloud = parsed_uri.scheme == "tiledb"
 
     def __enter__(self) -> ReadWriteGroup:
-        self.r_group = tiledb.Group(self._uri, "r")
-        self.w_group = tiledb.Group(self._uri, "w")
+        self.r_group = tiledb.Group(self._uri, "r", ctx=self._ctx)
+        self.w_group = tiledb.Group(self._uri, "w", ctx=self._ctx)
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -44,8 +46,8 @@ class ReadWriteGroup:
         else:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
-            if not tiledb.array_exists(uri):
-                tiledb.Array.create(uri, schema)
+            if not array_exists(uri, self._ctx):
+                tiledb.Array.create(uri, schema, ctx=self._ctx)
                 create = True
             else:
                 # The array exists but it's not added as group member with the given name.
@@ -73,8 +75,10 @@ class ReadWriteGroup:
         return uri, create
 
 
-def open_bioimg(uri: str, mode: str = "r", attr: str = ATTR_NAME) -> tiledb.Array:
-    return tiledb.open(uri, mode=mode, attr=attr if mode == "r" else None)
+def open_bioimg(
+    uri: str, mode: str = "r", attr: str = ATTR_NAME, ctx: tiledb.Ctx = None
+) -> tiledb.Array:
+    return tiledb.open(uri, mode=mode, attr=attr if mode == "r" else None, ctx=ctx)
 
 
 def get_schema(
@@ -97,15 +101,27 @@ def get_schema(
     return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
 
 
+def array_exists(uri: str, ctx: tiledb.Ctx) -> bool:
+    """
+    Check if arrays exists and is open-able at the given URI
+    """
+    try:
+        with tiledb.open(uri, ctx=ctx) as _:
+            return True
+    except tiledb.TileDBError:
+        return False
+
+
 def create_image_pyramid(
     rw_group: ReadWriteGroup,
     base_uri: str,
     base_level: int,
     max_tiles: Mapping[str, int],
     compressor: tiledb.Filter,
+    ctx: tiledb.Ctx,
     pyramid_kwargs: Mapping[str, Any],
 ) -> None:
-    with open_bioimg(base_uri) as a:
+    with open_bioimg(base_uri, ctx) as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
         dim_axes = "".join(dim_names)
@@ -119,9 +135,9 @@ def create_image_pyramid(
         if not created:
             continue
 
-        with open_bioimg(uri, mode="w") as out_array:
+        with open_bioimg(uri, mode="w", ctx=ctx) as out_array:
             out_array.meta.update(level=level)
-            with open_bioimg(base_uri) as in_array:
+            with open_bioimg(base_uri, ctx=ctx) as in_array:
                 scaler.apply(in_array, out_array, i)
 
         # if a non-progressive method is used, the input layer of the scaler
@@ -130,9 +146,11 @@ def create_image_pyramid(
             base_uri = uri
 
 
-def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
+def iter_levels_meta(
+    group: tiledb.Group, ctx: tiledb.Ctx
+) -> Iterator[Mapping[str, Any]]:
     for o in group:
-        with open_bioimg(o.uri) as array:
+        with open_bioimg(o.uri, ctx=ctx) as array:
             level = array.meta["level"]
             domain = array.schema.domain
             axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))

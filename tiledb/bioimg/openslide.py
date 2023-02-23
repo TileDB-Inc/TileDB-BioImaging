@@ -20,23 +20,29 @@ from .helpers import open_bioimg
 
 class TileDBOpenSlide:
     @classmethod
-    def from_group_uri(cls, uri: str, attr: str = ATTR_NAME) -> TileDBOpenSlide:
+    def from_group_uri(
+        cls, uri: str, attr: str = ATTR_NAME, ctx: tiledb.Ctx = None
+    ) -> TileDBOpenSlide:
         warnings.warn(
             "This method is deprecated, please use TileDBOpenSlide() instead",
             DeprecationWarning,
             stacklevel=2,
         )
-        return cls(uri, attr=attr)
+        return cls(uri, attr=attr, ctx=ctx)
 
-    def __init__(self, uri: str, *, attr: str = ATTR_NAME):
+    def __init__(self, uri: str, *, attr: str = ATTR_NAME, ctx: tiledb.Ctx):
         """Open this TileDBOpenSlide.
 
         :param uri: uri of a tiledb.Group containing the image
         """
-        self._group = tiledb.Group(uri)
+        self._ctx = ctx
+        self._group = tiledb.Group(uri, ctx=ctx)
         pixel_depth = self._group.meta.get("pixel_depth", 1)
         self._levels = sorted(
-            (TileDBOpenSlideLevel(o.uri, pixel_depth, attr=attr) for o in self._group),
+            (
+                TileDBOpenSlideLevel(o.uri, pixel_depth, attr=attr, ctx=ctx)
+                for o in self._group
+            ),
             key=attrgetter("level"),
         )
 
@@ -155,8 +161,9 @@ class TileDBOpenSlide:
 
 
 class TileDBOpenSlideLevel:
-    def __init__(self, uri: str, pixel_depth: int, *, attr: str):
-        self._tdb = open_bioimg(uri, attr=attr)
+    def __init__(self, uri: str, pixel_depth: int, *, attr: str, ctx: tiledb.Ctx):
+        self._ctx = ctx
+        self._tdb = open_bioimg(uri, attr=attr, ctx=ctx)
         self._pixel_depth = pixel_depth
 
     @property
@@ -191,7 +198,11 @@ class TileDBOpenSlideLevel:
                 dim_slice["X"] = slice(x.start * pixel_depth, x.stop * pixel_depth)
             axes_mapper = axes.webp_mapper(pixel_depth)
 
-        array = da.from_tiledb(self._tdb) if to_dask else self._tdb
+        array = (
+            da.from_tiledb(self._tdb, storage_options=self._ctx.config())
+            if to_dask
+            else self._tdb
+        )
         selector = tuple(dim_slice.get(dim, slice(None)) for dim in dims)
         return axes_mapper.inverse.map_array(array[selector])
 

@@ -4,14 +4,21 @@ import jsonpickle as json
 import numpy as np
 import tifffile
 
+import tiledb
 from tiledb.cc import WebpInputFormat
+from tiledb.vfs import VFS
 
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMETiffReader(ImageReader):
-    def __init__(self, input_path: str, extra_tags: Sequence[Union[str, int]] = ()):
+    def __init__(
+        self,
+        input_path: str,
+        ctx: tiledb.Ctx = None,
+        extra_tags: Sequence[Union[str, int]] = (),
+    ):
         """
         OME-TIFF image reader
 
@@ -19,7 +26,9 @@ class OMETiffReader(ImageReader):
         :param extra_tags: Extra tags to read, specified either by name or by int code.
         """
         self._extra_tags = extra_tags
-        self._tiff = tifffile.TiffFile(input_path)
+        self._vfs = VFS(ctx=ctx)
+        self._input_io = self._vfs.open(input_path)
+        self._tiff = tifffile.TiffFile(self._input_io)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
         omexml = self._tiff.ome_metadata
@@ -27,6 +36,7 @@ class OMETiffReader(ImageReader):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
+        self._vfs.close(self._input_io)
 
     @property
     def axes(self) -> Axes:
