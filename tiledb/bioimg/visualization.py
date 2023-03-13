@@ -54,7 +54,7 @@ def iter_zoom_level_records(
                 yield ZoomLevelRecord(
                     zoom_level=zoom_level,
                     image_level=meta["level"],
-                    downsample=downsample,
+                    downsample=int(downsample),
                     width=width,
                     height=height,
                     namespace=namespace,
