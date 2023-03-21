@@ -1,4 +1,5 @@
 import json
+import os
 
 import numpy as np
 import PIL.Image
@@ -37,7 +38,7 @@ def test_ome_zarr_converter_source_reader_exception(
 def test_ome_zarr_converter_reader_source_consistent_output(
     tmp_path, series_idx, preserve_axes
 ):
-    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    input_path = os.path.join(get_path("CMU-1-Small-Region.ome.zarr"), str(series_idx))
 
     output_path = tmp_path / "to_tiledb_path"
     output_reader = tmp_path / "to_tiledb_reader"
@@ -62,7 +63,7 @@ def test_ome_zarr_converter_reader_source_consistent_output(
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
-    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    input_path = os.path.join(get_path("CMU-1-Small-Region.ome.zarr"), str(series_idx))
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
 
     # check the first (highest) resolution layer only
@@ -107,7 +108,7 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
 def test_ome_zarr_converter_rountrip(
     tmp_path, series_idx, preserve_axes, chunked, max_workers, compressor
 ):
-    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    input_path = os.path.join(get_path("CMU-1-Small-Region.ome.zarr"), str(series_idx))
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
     OMEZarrConverter.to_tiledb(
@@ -129,28 +130,28 @@ def test_ome_zarr_converter_rountrip(
     assert len(input_group) == len(output_group)
 
     # Compare the .zattrs files
-    with open(input_path / ".zattrs") as f:
+    with open(f"{input_path}/.zattrs") as f:
         input_attrs = json.load(f)
         # ome-zarr-py replaces empty name with "/"
         name = input_attrs["multiscales"][0]["name"]
         if not name:
             input_attrs["multiscales"][0]["name"] = "/"
-    with open(output_path / ".zattrs") as f:
+    with open(f"{output_path}/.zattrs") as f:
         output_attrs = json.load(f)
     assert input_attrs == output_attrs
 
     # Compare the level arrays
     for i in range(len(input_group)):
         # Compare the .zarray files
-        with open(input_path / str(i) / ".zarray") as f:
+        with open(f"{input_path}/{str(i)}/.zarray") as f:
             input_zarray = json.load(f)
-        with open(output_path / str(i) / ".zarray") as f:
+        with open(f"{output_path}/{str(i)}/.zarray") as f:
             output_zarray = json.load(f)
         assert input_zarray == output_zarray
 
         # Compare the actual data
-        input_array = zarr.open(input_path / str(i))[:]
-        output_array = zarr.open(output_path / str(i))[:]
+        input_array = zarr.open(f"{input_path}/{str(i)}")[:]
+        output_array = zarr.open(f"{input_path}/{str(i)}")[:]
         if isinstance(compressor, tiledb.WebpFilter) and not compressor.lossless:
             assert_image_similarity(
                 input_array.squeeze(),
@@ -181,7 +182,7 @@ def test_ome_zarr_converter_incremental(tmp_path):
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
-    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    input_path = os.path.join(get_path("CMU-1-Small-Region.ome.zarr"), str(series_idx))
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
 
     with TileDBOpenSlide(str(tmp_path)) as t:

@@ -47,7 +47,7 @@ class ReadWriteGroup:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
             if not array_exists(uri, self._ctx):
-                tiledb.Array.create(uri, schema, ctx=self._ctx)
+                tiledb.DenseArray.create(uri, schema, ctx=self._ctx)
                 create = True
             else:
                 # The array exists but it's not added as group member with the given name.
@@ -75,10 +75,15 @@ class ReadWriteGroup:
         return uri, create
 
 
+<<<<<<< HEAD
 def open_bioimg(
     uri: str, mode: str = "r", attr: str = ATTR_NAME, ctx: tiledb.Ctx = None
 ) -> tiledb.Array:
     return tiledb.open(uri, mode=mode, attr=attr if mode == "r" else None, ctx=ctx)
+=======
+def open_bioimg(uri: str, mode: str = "r", *, ctx: tiledb.Ctx = None) -> tiledb.Array:
+    return tiledb.open(uri, mode=mode, attr=ATTR_NAME if mode == "r" else None, ctx=ctx)
+>>>>>>> 8bb2541 (Initialize ctx support)
 
 
 def get_schema(
@@ -121,7 +126,7 @@ def create_image_pyramid(
     ctx: tiledb.Ctx,
     pyramid_kwargs: Mapping[str, Any],
 ) -> None:
-    with open_bioimg(base_uri, ctx) as a:
+    with open_bioimg(base_uri, ctx=ctx) as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
         dim_axes = "".join(dim_names)

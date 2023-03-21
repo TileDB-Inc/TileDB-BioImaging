@@ -329,7 +329,7 @@ def _convert_level_to_tiledb(
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
     if created:
         # write image and metadata to TileDB array
-        with open_bioimg(uri, "w", ctx) as out_array:
+        with open_bioimg(uri, "w", ctx=ctx) as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
             if chunked or max_workers:
                 inv_axes_mapper = axes_mapper.inverse

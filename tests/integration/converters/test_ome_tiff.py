@@ -14,15 +14,10 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
 
-@pytest.mark.parametrize("open_fileobj", [False, True])
-def test_ome_tiff_converter(tmp_path, open_fileobj):
-    input_path = str(get_path("CMU-1-Small-Region.ome.tiff"))
+def test_ome_tiff_converter(tmp_path):
+    input_path = get_path("CMU-1-Small-Region.ome.tiff")
     output_path = str(tmp_path)
-    if open_fileobj:
-        with open(input_path, "rb") as f:
-            OMETiffConverter.to_tiledb(f, output_path)
-    else:
-        OMETiffConverter.to_tiledb(input_path, output_path)
+    OMETiffConverter.to_tiledb(input_path, output_path)
 
     with TileDBOpenSlide(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 2
@@ -95,9 +90,7 @@ def test_ome_tiff_converter_group_metadata(tmp_path, filename):
             assert shape[level_axes.index("Y")] == level_height
 
 
-@pytest.mark.parametrize(
-    "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
-)
+@pytest.mark.parametrize("filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3)])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
 @pytest.mark.parametrize(

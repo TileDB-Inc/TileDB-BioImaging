@@ -36,7 +36,7 @@ class OMETiffReader(ImageReader):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
-        self._vfs.close(self._input_io)
+        self._input_io.close()
 
     @property
     def axes(self) -> Axes:

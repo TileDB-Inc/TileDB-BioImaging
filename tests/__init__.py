@@ -52,7 +52,7 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
 
 
 def get_path(uri):
-    return DATA_DIR / uri
+    return str(DATA_DIR / uri)
 
 
 def assert_image_similarity(im1, im2, min_threshold=0.95, channel_axis=-1, win_size=11):

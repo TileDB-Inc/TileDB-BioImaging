@@ -9,6 +9,7 @@ from numcodecs import Blosc
 from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
+import tiledb
 from tiledb.cc import WebpInputFormat
 
 from .axes import Axes
@@ -16,12 +17,17 @@ from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(self, input_path: str, ctx: tiledb.Ctx = None):
         """
         OME-Zarr image reader
 
         :param input_path: The path to the Zarr image
         """
+        if ctx:
+            raise NotImplementedError(
+                "VFS configuration is not supported for Zarr files yet"
+            )
+
         root_node = next(Reader(ZarrLocation(input_path))())
         self._multiscales = cast(Multiscales, root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], root_node.load(OMERO))

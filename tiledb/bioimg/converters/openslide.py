@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple, cast
 import numpy as np
 import openslide as osd
 
+import tiledb
 from tiledb.cc import WebpInputFormat
 
 from .axes import Axes
@@ -10,13 +11,18 @@ from .base import ImageConverter, ImageReader
 
 
 class OpenSlideReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(self, input_path: str, ctx: tiledb.Ctx = None):
         """
         OpenSlide image reader
 
         :param input_path: The path to the OpenSlide image
 
         """
+        if ctx:
+            # shortcut/22596/investigate-add-fileio-support
+            raise NotImplementedError(
+                "VFS configuration is not yet supported for Openslide"
+            )
         self._osd = osd.OpenSlide(input_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
