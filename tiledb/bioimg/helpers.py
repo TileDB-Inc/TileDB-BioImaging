@@ -73,8 +73,8 @@ class ReadWriteGroup:
         return uri, create
 
 
-def open_bioimg(uri: str, mode: str = "r") -> tiledb.Array:
-    return tiledb.open(uri, mode=mode, attr=ATTR_NAME if mode == "r" else None)
+def open_bioimg(uri: str, mode: str = "r", attr: str = ATTR_NAME) -> tiledb.Array:
+    return tiledb.open(uri, mode=mode, attr=attr if mode == "r" else None)
 
 
 def get_schema(

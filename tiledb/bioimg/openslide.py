@@ -13,21 +13,22 @@ except ImportError:
 
 import tiledb
 
+from . import ATTR_NAME
 from .converters.axes import Axes
 from .helpers import open_bioimg
 
 
 class TileDBOpenSlide:
     @classmethod
-    def from_group_uri(cls, uri: str) -> TileDBOpenSlide:
+    def from_group_uri(cls, uri: str, attr: str = ATTR_NAME) -> TileDBOpenSlide:
         warnings.warn(
             "This method is deprecated, please use TileDBOpenSlide() instead",
             DeprecationWarning,
             stacklevel=2,
         )
-        return cls(uri)
+        return cls(uri, attr=attr)
 
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, *, attr: str = ATTR_NAME):
         """Open this TileDBOpenSlide.
 
         :param uri: uri of a tiledb.Group containing the image
@@ -35,7 +36,7 @@ class TileDBOpenSlide:
         self._group = tiledb.Group(uri)
         pixel_depth = self._group.meta.get("pixel_depth", 1)
         self._levels = sorted(
-            (TileDBOpenSlideLevel(o.uri, pixel_depth) for o in self._group),
+            (TileDBOpenSlideLevel(o.uri, pixel_depth, attr=attr) for o in self._group),
             key=attrgetter("level"),
         )
 
@@ -154,8 +155,8 @@ class TileDBOpenSlide:
 
 
 class TileDBOpenSlideLevel:
-    def __init__(self, uri: str, pixel_depth: int):
-        self._tdb = open_bioimg(uri)
+    def __init__(self, uri: str, pixel_depth: int, *, attr: str):
+        self._tdb = open_bioimg(uri, attr=attr)
         self._pixel_depth = pixel_depth
 
     @property
