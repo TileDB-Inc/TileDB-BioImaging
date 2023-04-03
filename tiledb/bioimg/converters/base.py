@@ -281,8 +281,10 @@ class ImageConverter:
                 ),
             )
 
-        if register_group is not None and urlparse(output_path).scheme == "tiledb":
-            register_group(name=os.path.basename(output_path), **register_kwargs)
+        if register_group is not None and urlparse(output_path).scheme != "tiledb":
+            # When the scheme is `tiledb` the group has already been registered upon creation
+            if bool(register_kwargs):
+                register_group(name=os.path.basename(output_path), **register_kwargs)
 
 
 def _convert_level_to_tiledb(
