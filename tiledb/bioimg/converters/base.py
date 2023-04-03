@@ -18,6 +18,7 @@ except ImportError:
 import tiledb
 from tiledb.cc import WebpInputFormat
 
+from .. import ATTR_NAME
 from ..helpers import (
     ReadWriteGroup,
     create_image_pyramid,
@@ -135,7 +136,12 @@ class ImageConverter:
 
     @classmethod
     def from_tiledb(
-        cls, input_path: str, output_path: str, *, level_min: int = 0, attr: str
+        cls,
+        input_path: str,
+        output_path: str,
+        *,
+        level_min: int = 0,
+        attr: str = ATTR_NAME,
     ) -> None:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level.
