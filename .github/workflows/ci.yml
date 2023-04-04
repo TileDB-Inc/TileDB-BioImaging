@@ -16,7 +16,7 @@ jobs:
 
     env:
       run_coverage: ${{ github.ref == 'refs/heads/main' }}
-
+    
     steps:
     - uses: actions/checkout@v2
 
@@ -29,10 +29,18 @@ jobs:
         cache-downloads: true
         extra-specs: |
           python=3.7
-          openslide
+          sel(linux): openslide
           pre-commit
           pytest-cov
           pytest-mock
+    
+    - name: Install openslide for Win 
+      run: |
+        choco install wget --no-progress
+        wget https://github.com/openslide/openslide-winbuild/releases/download/v20221217/openslide-win64-20221217.zip
+        unzip ./openslide-win64-20221217.zip -d /usr/local/
+        mv /usr/local/openslide-win64-20221217/* /usr/local/
+      if: matrix.os == 'windows-latest'
 
     - name: Run pre-commit hooks
       run: pre-commit run -a
@@ -44,14 +52,15 @@ jobs:
 
     - name: Run tests with coverage
       id: stats
+      shell: powershell
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
-        pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ > coverage.txt
-        cat coverage.txt
-        TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
-        echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+        pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
+        # cat coverage.txt
+        # TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
+        # echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
 
     - name: Run notebook examples
       run: |
