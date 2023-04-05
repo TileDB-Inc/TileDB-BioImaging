@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type, Union
-from urllib.parse import urlparse
 
 import numpy as np
 from tqdm import tqdm
@@ -173,7 +171,6 @@ class ImageConverter:
         chunked: bool = False,
         max_workers: int = 0,
         compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
-        register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
@@ -194,8 +191,6 @@ class ImageConverter:
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
         :param compressor: TileDB compression filter
-        :param register_kwargs: Cloud group registration optional args e.g namespace,
-            parent_uri, storage_uri, credentials_name
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
         :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
             generating downsampled versions of the base level. Valid keyword arguments are:
@@ -280,9 +275,6 @@ class ImageConverter:
                     sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
                 ),
             )
-
-        if register_group is not None and urlparse(output_path).scheme == "tiledb":
-            register_group(name=os.path.basename(output_path), **register_kwargs)
 
 
 def _convert_level_to_tiledb(
