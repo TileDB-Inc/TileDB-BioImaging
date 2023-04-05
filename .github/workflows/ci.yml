@@ -56,11 +56,17 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
-        mkdir test_temp
-        pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
-        # cat coverage.txt
-        # TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
-        # echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+        # This GITHUB_WORKSPACE is bydefault set to D: driver whereas pytest's tmp_dir 
+        # default is C: ,thus we create a temp_test folder for pytest's tmp_dir to run on D: as well 
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ > coverage.txt
+          cat coverage.txt
+          TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
+          echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+        else
+          mkdir test_temp
+          pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
+        fi
 
     - name: Run notebook examples
       run: |
@@ -68,7 +74,7 @@ jobs:
         pytest --nbmake examples
 
     - name: Create Test Coverage Badge
-      if: ${{ fromJSON(env.run_coverage) }}
+      if: ${{ fromJSON(env.run_coverage) && matrix.os == 'ubuntu-latest'}}
       uses: schneegans/dynamic-badges-action@v1.1.0
       with:
         auth: ${{ secrets.COVERAGE_SECRET }}
