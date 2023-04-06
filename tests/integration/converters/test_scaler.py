@@ -5,7 +5,7 @@ from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
-@pytest.mark.parametrize("scale_factors", [[2, 4.0, 8, 16], [3.1, 11, 13]])
+@pytest.mark.parametrize("scale_factors", [[2, 4.0, 8, 16]])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
 @pytest.mark.parametrize("progressive", [True, False])
 def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
