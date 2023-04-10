@@ -4,7 +4,7 @@ import tiledb
 from tests import get_schema
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-
+import pytest
 
 class TestTileDBOpenSlide:
     def test(self, tmp_path):
@@ -26,3 +26,7 @@ class TestTileDBOpenSlide:
         with TileDBOpenSlide(group_path) as t:
             assert t.level_count == len(level_dimensions)
             assert t.level_dimensions == tuple(level_dimensions)
+
+        with pytest.raises(KeyError) as e_info:
+            _ = TileDBOpenSlide(group_path, attr='test_attr_name')
+            assert "No attribute matching 'test_attr_name'" in str(e_info.value)
