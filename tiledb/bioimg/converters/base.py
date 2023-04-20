@@ -18,6 +18,7 @@ except ImportError:
 import tiledb
 from tiledb.cc import WebpInputFormat
 
+from .. import ATTR_NAME
 from ..helpers import (
     ReadWriteGroup,
     create_image_pyramid,
@@ -135,7 +136,12 @@ class ImageConverter:
 
     @classmethod
     def from_tiledb(
-        cls, input_path: str, output_path: str, *, level_min: int = 0
+        cls,
+        input_path: str,
+        output_path: str,
+        *,
+        level_min: int = 0,
+        attr: str = ATTR_NAME,
     ) -> None:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level.
@@ -144,11 +150,12 @@ class ImageConverter:
         :param output_path: path to the image
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels.
+        :param attr: attribute name for backwards compatiblity support
         """
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        slide = TileDBOpenSlide(input_path)
+        slide = TileDBOpenSlide(input_path, attr=attr)
         writer = cls._ImageWriterType(output_path)
         with slide, writer:
             writer.write_group_metadata(slide.properties)

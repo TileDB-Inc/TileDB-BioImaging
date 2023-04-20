@@ -22,7 +22,6 @@ def test_ome_tiff_converter(tmp_path, open_fileobj):
         with open(input_path, "rb") as f:
             OMETiffConverter.to_tiledb(f, output_path)
     else:
-        print(output_path)
         OMETiffConverter.to_tiledb(input_path, output_path)
 
     with TileDBOpenSlide(output_path) as t:
