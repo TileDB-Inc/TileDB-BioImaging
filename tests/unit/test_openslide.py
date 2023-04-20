@@ -7,6 +7,8 @@ from tests import get_schema
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 
+from .. import ATTR_NAME
+
 
 class TestTileDBOpenSlide:
     def test(self, tmp_path):
@@ -26,6 +28,10 @@ class TestTileDBOpenSlide:
                 G.add(level_path)
 
         with TileDBOpenSlide(group_path) as t:
+            assert t.level_count == len(level_dimensions)
+            assert t.level_dimensions == tuple(level_dimensions)
+
+        with TileDBOpenSlide(group_path, attr=ATTR_NAME) as t:
             assert t.level_count == len(level_dimensions)
             assert t.level_dimensions == tuple(level_dimensions)
 
