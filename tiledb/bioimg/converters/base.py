@@ -181,7 +181,6 @@ class ImageConverter:
         max_workers: int = 0,
         compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
         ctx: tiledb.Ctx = None,
-        register_kwargs: Mapping[str, Any] = {},
         reader_kwargs: Mapping[str, Any] = {},
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:

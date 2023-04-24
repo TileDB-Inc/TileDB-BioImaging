@@ -17,9 +17,7 @@ from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrReader(ImageReader):
-    def __init__(self, 
-                 input_path: str, 
-                 ctx: Optional[tiledb.Ctx]):
+    def __init__(self, input_path: str, ctx: Optional[tiledb.Ctx] = None):
         """
         OME-Zarr image reader
 
@@ -27,7 +25,7 @@ class OMEZarrReader(ImageReader):
         :param ctx: tiledb.Ctx
         """
         # shortcut/22596
-        self._ctx = ctx 
+        self._ctx = ctx
         root_node = next(Reader(ZarrLocation(input_path))())
         self._multiscales = cast(Multiscales, root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], root_node.load(OMERO))

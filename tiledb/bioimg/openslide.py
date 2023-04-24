@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from operator import attrgetter
-from typing import Any, Mapping, MutableMapping, Sequence, Tuple, Union
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -21,7 +21,7 @@ from .helpers import open_bioimg
 class TileDBOpenSlide:
     @classmethod
     def from_group_uri(
-        cls, uri: str, attr: str = ATTR_NAME, ctx: tiledb.Ctx = None
+        cls, uri: str, attr: str = ATTR_NAME, ctx: Optional[tiledb.Ctx] = None
     ) -> TileDBOpenSlide:
         warnings.warn(
             "This method is deprecated, please use TileDBOpenSlide() instead",
@@ -30,7 +30,9 @@ class TileDBOpenSlide:
         )
         return cls(uri, attr=attr, ctx=ctx)
 
-    def __init__(self, uri: str, *, attr: str = ATTR_NAME, ctx: tiledb.Ctx):
+    def __init__(
+        self, uri: str, *, attr: str = ATTR_NAME, ctx: Optional[tiledb.Ctx] = None
+    ):
         """Open this TileDBOpenSlide.
 
         :param uri: uri of a tiledb.Group containing the image

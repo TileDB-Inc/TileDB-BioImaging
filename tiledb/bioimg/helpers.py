@@ -75,15 +75,10 @@ class ReadWriteGroup:
         return uri, create
 
 
-<<<<<<< HEAD
 def open_bioimg(
     uri: str, mode: str = "r", attr: str = ATTR_NAME, ctx: tiledb.Ctx = None
 ) -> tiledb.Array:
     return tiledb.open(uri, mode=mode, attr=attr if mode == "r" else None, ctx=ctx)
-=======
-def open_bioimg(uri: str, mode: str = "r", *, ctx: tiledb.Ctx = None) -> tiledb.Array:
-    return tiledb.open(uri, mode=mode, attr=ATTR_NAME if mode == "r" else None, ctx=ctx)
->>>>>>> 8bb2541 (Initialize ctx support)
 
 
 def get_schema(
