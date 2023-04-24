@@ -19,7 +19,7 @@ class OpenSlideReader(ImageReader):
 
         """
         if ctx:
-            # shortcut/22596/investigate-add-fileio-support
+            # shortcut/22596
             raise NotImplementedError(
                 "VFS configuration is not yet supported for Openslide"
             )

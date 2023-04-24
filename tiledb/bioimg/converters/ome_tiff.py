@@ -16,19 +16,24 @@ class OMETiffReader(ImageReader):
     def __init__(
         self,
         input_path: str,
-        ctx: tiledb.Ctx = None,
+        ctx: Optional[tiledb.Ctx],
         extra_tags: Sequence[Union[str, int]] = (),
     ):
         """
         OME-TIFF image reader
 
         :param input_path: The path to the TIFF image
+        :param ctx: tiledb.Ctx
         :param extra_tags: Extra tags to read, specified either by name or by int code.
         """
         self._extra_tags = extra_tags
-        self._vfs = VFS(ctx=ctx)
-        self._input_io = self._vfs.open(input_path)
-        self._tiff = tifffile.TiffFile(self._input_io)
+        self._input_io = input_path
+        
+        if ctx:
+            self._vfs = VFS(ctx=ctx)
+            self._input_io = self._vfs.open(input_path)
+        
+        self._tiff = tifffile.TiffFile(self._input_io) # type: ignore
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
         omexml = self._tiff.ome_metadata
@@ -36,7 +41,8 @@ class OMETiffReader(ImageReader):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
-        self._input_io.close()
+        if not isinstance(self._input_io, str):
+            self._input_io.close()
 
     @property
     def axes(self) -> Axes:
