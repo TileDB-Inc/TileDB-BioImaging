@@ -1,4 +1,5 @@
 import setuptools
+from setuptools import find_namespace_packages
 
 zarr = ["ome-zarr"]
 openslide = ["openslide-python"]
@@ -7,6 +8,7 @@ cloud = ["tiledb-cloud"]
 
 full = sorted({*zarr, *openslide, *tiff, *cloud})
 setuptools.setup(
+    packages=find_namespace_packages(exclude=["tests*", "docs*"]),
     setup_requires=["setuptools_scm"],
     use_scm_version={
         "version_scheme": "guess-next-dev",
