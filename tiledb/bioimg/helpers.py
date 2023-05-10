@@ -11,7 +11,10 @@ import tiledb
 from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
+from .converters.axes import Axes
 from .converters.scale import Scaler
+
+LENGTH_UNITS = {"m": 0, "dm": -1, "cm": -2, "mm": -3, "μm": -6, "nm": -9, "pm": -12}
 
 
 class ReadWriteGroup:
@@ -148,3 +151,81 @@ def get_pixel_depth(compressor: tiledb.Filter) -> int:
     if webp_format in (WebpInputFormat.WEBP_RGBA, WebpInputFormat.WEBP_BGRA):
         return 4
     raise ValueError(f"Invalid WebpInputFormat: {compressor.input_format}")
+
+
+def get_axes_mapping(compressor: tiledb.Filter, axes: Axes) -> Mapping[str, str]:
+    if isinstance(compressor, tiledb.WebpFilter):
+        return {"Y": "Y", "X": "XC"}
+
+    return {axis: axis for axis in axes.dims}
+
+
+def iter_color(attr_type: np.dtype) -> Iterator[Mapping[str, Any]]:
+    yield {
+        "red": np.iinfo(attr_type).max,
+        "green": np.iinfo(attr_type).min,
+        "blue": np.iinfo(attr_type).min,
+        "alpha": np.iinfo(attr_type).max,
+    }
+    yield {
+        "red": np.iinfo(attr_type).min,
+        "green": np.iinfo(attr_type).max,
+        "blue": np.iinfo(attr_type).min,
+        "alpha": np.iinfo(attr_type).max,
+    }
+    yield {
+        "red": np.iinfo(attr_type).min,
+        "green": np.iinfo(attr_type).min,
+        "blue": np.iinfo(attr_type).max,
+        "alpha": np.iinfo(attr_type).max,
+    }
+
+    while True:
+        if np.issubdtype(attr_type, np.integer):
+            red = np.random.randint(
+                low=np.iinfo(attr_type).min,
+                high=np.iinfo(attr_type).max,
+                dtype=attr_type,
+            )
+            green = np.random.randint(
+                low=np.iinfo(attr_type).min,
+                high=np.iinfo(attr_type).max,
+                dtype=attr_type,
+            )
+            blue = np.random.randint(
+                low=np.iinfo(attr_type).min,
+                high=np.iinfo(attr_type).max,
+                dtype=attr_type,
+            )
+        else:
+            red = np.random.uniform(
+                low=np.iinfo(attr_type).min, high=np.iinfo(attr_type).max
+            ).astype(attr_type)
+            green = np.random.uniform(
+                low=np.iinfo(attr_type).min, high=np.iinfo(attr_type).max
+            ).astype(attr_type)
+            blue = np.random.uniform(
+                low=np.iinfo(attr_type).min, high=np.iinfo(attr_type).max
+            ).astype(attr_type)
+
+        yield {
+            "red": red,
+            "green": green,
+            "blue": blue,
+            "alpha": np.iinfo(attr_type).max,
+        }
+
+
+def get_rgba(value: int) -> dict[str, int]:
+    color = {
+        "red": (value & 0xFF000000) // 2**24,
+        "green": (value & 0x00FF0000) // 2**16,
+        "blue": (value & 0x0000FF00) // 2**8,
+        "alpha": value & 0x000000FF,
+    }
+
+    return color
+
+
+def length_converter(value: float, original_unit: str, requested_unit: str) -> float:
+    return value * 10 ** (LENGTH_UNITS[original_unit] - LENGTH_UNITS[requested_unit])

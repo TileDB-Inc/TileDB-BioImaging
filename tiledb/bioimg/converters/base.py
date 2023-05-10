@@ -99,6 +99,16 @@ class ImageReader(ABC):
     def group_metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
 
+    @property
+    @abstractmethod
+    def image_metadata(self) -> Dict[str, Any]:
+        """Return the metadata for the whole multi-resolution image."""
+
+    @property
+    @abstractmethod
+    def original_metadata(self) -> Dict[str, Any]:
+        """Return the metadata of the original file."""
+
 
 class ImageWriter(ABC):
     @abstractmethod
@@ -228,60 +238,64 @@ class ImageConverter:
         max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
-        with rw_group, reader:
-            stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
-            if stored_pkg_version not in (None, PKG_VERSION):
-                raise RuntimeError(
-                    "Incremental ingestion is not supported for different versions: "
-                    f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
-                )
-
-            if (
-                isinstance(compressor, tiledb.WebpFilter)
-                and compressor.input_format == WebpInputFormat.WEBP_NONE
-            ):
-                compressor = tiledb.WebpFilter(
-                    input_format=reader.webp_format,
-                    quality=compressor.quality,
-                    lossless=compressor.lossless,
-                )
-
-            convert_kwargs = dict(
-                reader=reader,
-                rw_group=rw_group,
-                max_tiles=max_tiles,
-                preserve_axes=preserve_axes,
-                chunked=chunked,
-                max_workers=max_workers,
-                compressor=compressor,
-            )
-            if pyramid_kwargs is not None:
-                if level_min < reader.level_count - 1:
-                    warnings.warn(
-                        f"The image contains multiple levels but only level {level_min} "
-                        "will be considered for generating the image pyramid"
+        with reader:
+            with rw_group:
+                stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
+                if stored_pkg_version not in (None, PKG_VERSION):
+                    raise RuntimeError(
+                        "Incremental ingestion is not supported for different versions: "
+                        f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
                     )
-                uri = _convert_level_to_tiledb(level_min, **convert_kwargs)
-                create_image_pyramid(
-                    rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
-                )
-            else:
-                for level in range(level_min, reader.level_count):
-                    _convert_level_to_tiledb(level, **convert_kwargs)
 
-        with rw_group:
-            rw_group.w_group.meta.update(
-                reader.group_metadata,
-                axes=reader.axes.dims,
-                pixel_depth=get_pixel_depth(compressor),
-                pkg_version=PKG_VERSION,
-                fmt_version=FMT_VERSION,
-                dataset_type=DATASET_TYPE,
-                channels=json.dumps(reader.channels),
-                levels=json.dumps(
-                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
-                ),
-            )
+                if (
+                    isinstance(compressor, tiledb.WebpFilter)
+                    and compressor.input_format == WebpInputFormat.WEBP_NONE
+                ):
+                    compressor = tiledb.WebpFilter(
+                        input_format=reader.webp_format,
+                        quality=compressor.quality,
+                        lossless=compressor.lossless,
+                    )
+
+                convert_kwargs = dict(
+                    reader=reader,
+                    rw_group=rw_group,
+                    max_tiles=max_tiles,
+                    preserve_axes=preserve_axes,
+                    chunked=chunked,
+                    max_workers=max_workers,
+                    compressor=compressor,
+                )
+                if pyramid_kwargs is not None:
+                    if level_min < reader.level_count - 1:
+                        warnings.warn(
+                            f"The image contains multiple levels but only level {level_min} "
+                            "will be considered for generating the image pyramid"
+                        )
+                    uri = _convert_level_to_tiledb(level_min, **convert_kwargs)
+                    create_image_pyramid(
+                        rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
+                    )
+                else:
+                    for level in range(level_min, reader.level_count):
+                        _convert_level_to_tiledb(level, **convert_kwargs)
+
+            with rw_group:
+                rw_group.w_group.meta.update(
+                    reader.group_metadata,
+                    axes=reader.axes.dims,
+                    pixel_depth=get_pixel_depth(compressor),
+                    pkg_version=PKG_VERSION,
+                    fmt_version=FMT_VERSION,
+                    dataset_type=DATASET_TYPE,
+                    metadata=json.dumps(reader.image_metadata),
+                    levels=json.dumps(
+                        sorted(
+                            iter_levels_meta(rw_group.r_group), key=itemgetter("level")
+                        )
+                    ),
+                    original_metadata=json.dumps(reader.original_metadata),
+                )
 
 
 def _convert_level_to_tiledb(
