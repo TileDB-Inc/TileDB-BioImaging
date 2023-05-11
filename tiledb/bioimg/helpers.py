@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Tuple
+from typing import Any, Iterator, Mapping, Sequence, Tuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -138,8 +138,19 @@ def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
         with open_bioimg(o.uri) as array:
             level = array.meta["level"]
             domain = array.schema.domain
-            axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
-            yield dict(level=level, name=f"l_{level}.tdb", axes=axes, shape=array.shape)
+            axes = Axes(
+                "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
+            )
+            shape = (
+                axes.webp_mapper(4).inverse.map_shape(array.shape)
+                if (
+                    isinstance(
+                        array.schema.attr(ATTR_NAME).filters[0], tiledb.WebpFilter
+                    )
+                )
+                else array.shape
+            )
+            yield dict(level=level, name=f"l_{level}.tdb", axes=axes.dims, shape=shape)
 
 
 def get_pixel_depth(compressor: tiledb.Filter) -> int:
@@ -153,11 +164,13 @@ def get_pixel_depth(compressor: tiledb.Filter) -> int:
     raise ValueError(f"Invalid WebpInputFormat: {compressor.input_format}")
 
 
-def get_axes_mapping(compressor: tiledb.Filter, axes: Axes) -> Mapping[str, str]:
+def get_axes_mapping(
+    compressor: tiledb.Filter, axes: str
+) -> Mapping[str, Sequence[str]]:
     if isinstance(compressor, tiledb.WebpFilter):
-        return {"Y": "Y", "X": "XC"}
+        return {"Y": ["Y"], "X": ["X", "C"]}
 
-    return {axis: axis for axis in axes.dims}
+    return {axis: [axis] for axis in axes}
 
 
 def iter_color(attr_type: np.dtype) -> Iterator[Mapping[str, Any]]:

@@ -22,6 +22,7 @@ from .. import ATTR_NAME
 from ..helpers import (
     ReadWriteGroup,
     create_image_pyramid,
+    get_axes_mapping,
     get_pixel_depth,
     get_schema,
     iter_levels_meta,
@@ -280,6 +281,14 @@ class ImageConverter:
                     for level in range(level_min, reader.level_count):
                         _convert_level_to_tiledb(level, **convert_kwargs)
 
+            metadata = reader.image_metadata
+            metadata["axes_mapping"] = get_axes_mapping(
+                compressor=compressor,
+                axes=reader.axes.dims
+                if preserve_axes
+                else reader.axes.canonical(reader.level_shape(level_min)).dims,
+            )
+
             with rw_group:
                 rw_group.w_group.meta.update(
                     reader.group_metadata,
@@ -288,7 +297,7 @@ class ImageConverter:
                     pkg_version=PKG_VERSION,
                     fmt_version=FMT_VERSION,
                     dataset_type=DATASET_TYPE,
-                    metadata=json.dumps(reader.image_metadata),
+                    metadata=json.dumps(metadata),
                     levels=json.dumps(
                         sorted(
                             iter_levels_meta(rw_group.r_group), key=itemgetter("level")
