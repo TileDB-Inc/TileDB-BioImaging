@@ -23,6 +23,10 @@ Breaking changes to the underlying data format and the API are to be expected.
     - OME-Zarr
     - OME-Tiff
 
+### Visualization Options
+
+- [TileDB Cloud](https://cloud.tiledb.com)
+- Napari: https://github.com/TileDB-Inc/napari-tiledb-bioimg
 
 ## Quick Installation
 
