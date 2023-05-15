@@ -142,7 +142,7 @@ class OMETiffReader(ImageReader):
 
     @property
     def image_metadata(self) -> Dict[str, Any]:
-        metadata = {}
+        metadata: Dict[str, Any] = {}
         color_generator = iter_color(self._series.keyframe.dtype)
 
         if self._metadata and self._tiff.is_ome:
@@ -183,7 +183,7 @@ class OMETiffReader(ImageReader):
                 )
 
             if "PhysicalSizeY" in image:
-                metadata["PhysicalSizeΥ"] = length_converter(
+                metadata["PhysicalSizeY"] = length_converter(
                     image["PhysicalSizeY"],
                     image["PhysicalSizeYUnit"]
                     if "PhysicalSizeYUnit" in image

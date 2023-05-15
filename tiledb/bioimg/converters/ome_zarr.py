@@ -19,26 +19,34 @@ from .base import ImageConverter, ImageReader, ImageWriter
 class OMEZarrReader(ImageReader):
     @property
     def image_metadata(self) -> Dict[str, Any]:
-        metadata = {}
+        metadata: Dict[str, Any] = {}
         node_metadata = self._multiscales.node.metadata
-
         color_generator = iter_color(self.level_dtype(0))
         channels = []
         for idx in range(len(node_metadata.get("name"))):
-            channel = {"ID": f"{idx}", "Name": node_metadata.get("name")[idx]}
+            channel: Dict[str, Any] = {
+                "ID": f"{idx}",
+                "Name": node_metadata.get("name")[idx],
+            }
 
             if "colormap" in node_metadata:
                 channel["Color"] = {
-                    "red": node_metadata.get("colormap")[idx][1][0]
-                    * np.iinfo(self.level_dtype(0)).max,
-                    "green": node_metadata.get("colormap")[idx][1][1]
-                    * np.iinfo(self.level_dtype(0)).max,
-                    "blue": node_metadata.get("colormap")[idx][1][2]
-                    * np.iinfo(self.level_dtype(0)).max,
-                    "alpha": np.iinfo(self.level_dtype(0)).max,
+                    "red": int(
+                        node_metadata.get("colormap")[idx][1][0]
+                        * np.iinfo(self.level_dtype(0)).max
+                    ),
+                    "green": int(
+                        node_metadata.get("colormap")[idx][1][1]
+                        * np.iinfo(self.level_dtype(0)).max
+                    ),
+                    "blue": int(
+                        node_metadata.get("colormap")[idx][1][2]
+                        * np.iinfo(self.level_dtype(0)).max
+                    ),
+                    "alpha": int(np.iinfo(self.level_dtype(0)).max),
                 }
             else:
-                channel["Color"]: next(color_generator)
+                channel["Color"] = next(color_generator)
 
             if "contrast_limits" in node_metadata:
                 channel["Min"] = node_metadata["contrast_limits"][idx][0]
@@ -52,7 +60,7 @@ class OMEZarrReader(ImageReader):
 
     @property
     def original_metadata(self) -> Dict[str, Any]:
-        metadata = {"ZARR": {}}
+        metadata: Dict[str, Any] = {"ZARR": {}}
 
         metadata["ZARR"]["MULTISCALE"] = self._multiscales
         metadata["ZARR"]["OMERO"] = self._omero

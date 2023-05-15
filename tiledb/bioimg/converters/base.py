@@ -5,6 +5,7 @@ import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
+from threading import Lock
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
@@ -267,19 +268,48 @@ class ImageConverter:
                     max_workers=max_workers,
                     compressor=compressor,
                 )
+
+                dimensions = []
+                shape_mapper = reader.axes.mapper(
+                    reader.axes
+                    if preserve_axes
+                    else reader.axes.canonical(reader.level_shape(level_min))
+                )
+
                 if pyramid_kwargs is not None:
                     if level_min < reader.level_count - 1:
                         warnings.warn(
                             f"The image contains multiple levels but only level {level_min} "
                             "will be considered for generating the image pyramid"
                         )
-                    uri = _convert_level_to_tiledb(level_min, **convert_kwargs)
-                    create_image_pyramid(
-                        rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
+                    uri, min_max_channels = _convert_level_to_tiledb(
+                        level_min, **convert_kwargs
+                    )
+
+                    dimensions.append(reader.level_shape(level_min))
+
+                    dimensions += create_image_pyramid(
+                        rw_group,
+                        uri,
+                        level_min,
+                        max_tiles,
+                        compressor,
+                        pyramid_kwargs,
+                        reader.level_shape(level_min),
+                        preserve_axes,
+                        reader.axes,
+                        reader.level_dtype(level_min),
                     )
                 else:
                     for level in range(level_min, reader.level_count):
-                        _convert_level_to_tiledb(level, **convert_kwargs)
+                        dimensions.append(reader.level_shape(level))
+
+                        if level == level_min:
+                            _, min_max_channels = _convert_level_to_tiledb(
+                                level, **convert_kwargs
+                            )
+                        else:
+                            _convert_level_to_tiledb(level, **convert_kwargs)
 
             metadata = reader.image_metadata
             metadata["axes_mapping"] = get_axes_mapping(
@@ -288,6 +318,13 @@ class ImageConverter:
                 if preserve_axes
                 else reader.axes.canonical(reader.level_shape(level_min)).dims,
             )
+            metadata["dimensions"] = [
+                shape_mapper.map_shape(shape) for shape in dimensions
+            ]
+
+            for idx in range(len(metadata["Channels"])):
+                metadata["Channels"][idx]["Min"] = min_max_channels[idx][0]
+                metadata["Channels"][idx]["Max"] = min_max_channels[idx][1]
 
             with rw_group:
                 rw_group.w_group.meta.update(
@@ -317,7 +354,7 @@ def _convert_level_to_tiledb(
     chunked: bool,
     max_workers: int,
     compressor: tiledb.Filter,
-) -> str:
+) -> Tuple[str, Sequence[Sequence[int | float]]]:
     # create mapper from source to target axes
     source_axes = reader.axes
     source_shape = reader.level_shape(level)
@@ -339,24 +376,55 @@ def _convert_level_to_tiledb(
     attr_dtype = reader.level_dtype(level)
     schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
 
+    channel_index = source_axes.dims.find("C")
+    channel_count = source_shape[channel_index]
+    channel_min_max = [
+        [
+            np.iinfo(reader.level_dtype(level)).max,
+            np.iinfo(reader.level_dtype(level)).min,
+        ]
+        for _ in range(channel_count)
+    ]
+
     # get or create TileDB array uri
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
     if created:
         # write image and metadata to TileDB array
         with open_bioimg(uri, "w") as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
+            min_max_axes = tuple(
+                idx for idx in range(len(source_axes.dims)) if idx != channel_index
+            )
+
             if chunked or max_workers:
                 inv_axes_mapper = axes_mapper.inverse
+                min_max_lock = Lock()
 
-                def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
+                def tile_to_tiledb(level_tile: Tuple[slice, ...], lock: Lock) -> None:
                     source_tile = inv_axes_mapper.map_tile(level_tile)
                     image = reader.level_image(level, source_tile)
                     out_array[level_tile] = axes_mapper.map_array(image)
 
+                    minimum = np.amin(image, axis=min_max_axes)
+                    maximum = np.amax(image, axis=min_max_axes)
+
+                    with lock:
+                        for channel in range(channel_count):
+                            channel_min_max[channel][0] = min(
+                                channel_min_max[channel][0], minimum.item(channel)
+                            )
+                            channel_min_max[channel][1] = max(
+                                channel_min_max[channel][1], maximum.item(channel)
+                            )
+
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
                 mapper = getattr(ex, "map", map)
                 for _ in tqdm(
-                    mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
+                    mapper(
+                        tile_to_tiledb,
+                        iter_tiles(out_array.domain),
+                        [min_max_lock] * num_tiles(out_array.domain),
+                    ),
                     desc=f"Ingesting level {level}",
                     total=num_tiles(out_array.domain),
                     unit="tiles",
@@ -367,4 +435,16 @@ def _convert_level_to_tiledb(
             else:
                 image = reader.level_image(level)
                 out_array[:] = axes_mapper.map_array(image)
-    return uri
+
+                minimum = np.amin(image, axis=min_max_axes)
+                maximum = np.amax(image, axis=min_max_axes)
+
+                for channel in range(channel_count):
+                    channel_min_max[channel][0] = min(
+                        channel_min_max[channel][0], minimum.item(channel)
+                    )
+                    channel_min_max[channel][1] = max(
+                        channel_min_max[channel][1], maximum.item(channel)
+                    )
+
+    return uri, channel_min_max

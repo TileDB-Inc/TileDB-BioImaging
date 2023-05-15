@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Sequence, Tuple
+from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -104,20 +104,37 @@ def create_image_pyramid(
     rw_group: ReadWriteGroup,
     base_uri: str,
     base_level: int,
-    max_tiles: Mapping[str, int],
+    max_tiles: MutableMapping[str, int],
     compressor: tiledb.Filter,
     pyramid_kwargs: Mapping[str, Any],
-) -> None:
-    with open_bioimg(base_uri) as a:
-        base_shape = a.shape
-        dim_names = tuple(dim.name for dim in a.domain)
-        dim_axes = "".join(dim_names)
-        attr_dtype = a.attr(0).dtype
+    base_shape: Tuple[int, ...],
+    preserve_axes: bool,
+    base_axes: Axes,
+    attr_dtype: np.dtype,
+) -> Sequence[Tuple[int, ...]]:
+    pixel_depth = get_pixel_depth(compressor)
+    if pixel_depth == 1:
+        if preserve_axes:
+            target_axes = base_axes
+        else:
+            target_axes = base_axes.canonical(base_shape)
+        axes_mapper = base_axes.mapper(target_axes)
+        dim_names = tuple(target_axes.dims)
+    else:
+        max_tiles["X"] *= pixel_depth
+        axes_mapper = base_axes.webp_mapper(pixel_depth)
+        dim_names = ("Y", "X")
 
-    scaler = Scaler(base_shape, dim_axes, **pyramid_kwargs)
+    scaler = Scaler(base_shape, base_axes.dims, **pyramid_kwargs)
     for i, dim_shape in enumerate(scaler.level_shapes):
         level = base_level + 1 + i
-        schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
+        schema = get_schema(
+            dim_names,
+            axes_mapper.map_shape(dim_shape),
+            max_tiles,
+            attr_dtype,
+            compressor,
+        )
         uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
         if not created:
             continue
@@ -125,12 +142,13 @@ def create_image_pyramid(
         with open_bioimg(uri, mode="w") as out_array:
             out_array.meta.update(level=level)
             with open_bioimg(base_uri) as in_array:
-                scaler.apply(in_array, out_array, i)
+                scaler.apply(in_array, out_array, i, axes_mapper)
 
         # if a non-progressive method is used, the input layer of the scaler
         # is the base image layer else we use the previously generated layer
         if scaler.progressive:
             base_uri = uri
+    return scaler.level_shapes
 
 
 def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
@@ -173,7 +191,7 @@ def get_axes_mapping(
     return {axis: [axis] for axis in axes}
 
 
-def iter_color(attr_type: np.dtype) -> Iterator[Mapping[str, Any]]:
+def iter_color(attr_type: np.dtype) -> Iterator[Dict[str, int]]:
     yield {
         "red": np.iinfo(attr_type).max,
         "green": np.iinfo(attr_type).min,
@@ -241,4 +259,5 @@ def get_rgba(value: int) -> dict[str, int]:
 
 
 def length_converter(value: float, original_unit: str, requested_unit: str) -> float:
-    return value * 10 ** (LENGTH_UNITS[original_unit] - LENGTH_UNITS[requested_unit])
+    result = value * 10 ** (LENGTH_UNITS[original_unit] - LENGTH_UNITS[requested_unit])
+    return float(result)
