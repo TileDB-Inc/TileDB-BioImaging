@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
 from urllib.parse import urlparse
@@ -14,7 +15,15 @@ from . import ATTR_NAME
 from .converters.axes import Axes
 from .converters.scale import Scaler
 
-LENGTH_UNITS = {"m": 0, "dm": -1, "cm": -2, "mm": -3, "μm": -6, "nm": -9, "pm": -12}
+LENGTH_UNITS = {
+    "m": 0,
+    "dm": -1,
+    "cm": -2,
+    "mm": -3,
+    unicodedata.normalize("NFKD", "μm"): -6,
+    "nm": -9,
+    "pm": -12,
+}
 
 
 class ReadWriteGroup:
@@ -259,5 +268,8 @@ def get_rgba(value: int) -> dict[str, int]:
 
 
 def length_converter(value: float, original_unit: str, requested_unit: str) -> float:
-    result = value * 10 ** (LENGTH_UNITS[original_unit] - LENGTH_UNITS[requested_unit])
+    result = value * 10 ** (
+        LENGTH_UNITS[unicodedata.normalize("NFKD", original_unit)]
+        - LENGTH_UNITS[unicodedata.normalize("NFKD", requested_unit)]
+    )
     return float(result)

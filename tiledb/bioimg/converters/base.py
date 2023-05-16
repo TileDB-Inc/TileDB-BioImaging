@@ -8,6 +8,7 @@ from operator import itemgetter
 from threading import Lock
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type, Union
 
+import jsonpickle
 import numpy as np
 from tqdm import tqdm
 
@@ -340,7 +341,7 @@ class ImageConverter:
                             iter_levels_meta(rw_group.r_group), key=itemgetter("level")
                         )
                     ),
-                    original_metadata=json.dumps(reader.original_metadata),
+                    original_metadata=jsonpickle.encode(reader.original_metadata),
                 )
 
 
@@ -377,7 +378,7 @@ def _convert_level_to_tiledb(
     schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
 
     channel_index = source_axes.dims.find("C")
-    channel_count = source_shape[channel_index]
+    channel_count = source_shape[channel_index] if channel_index > -1 else 1
     channel_min_max = [
         [
             np.iinfo(reader.level_dtype(level)).max,

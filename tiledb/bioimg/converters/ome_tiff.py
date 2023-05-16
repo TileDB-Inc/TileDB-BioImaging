@@ -153,24 +153,42 @@ class OMETiffReader(ImageReader):
 
             channels = []
 
-            for idx, channel in enumerate(image["Channel"]):
-                channel_metadata = {
-                    "ID": channel["ID"] if "ID" in channel else f"{idx}",
-                    "Name": channel["Name"] if "Name" in channel else f"Channel {idx}",
-                    "Color": get_rgba(channel["Color"])
-                    if "Color" in channel
-                    else next(color_generator),
-                }
-                if "EmissionWavelength" in channel:
-                    channel["EmissionWavelength"] = length_converter(
-                        channel["EmissionWavelength"],
-                        channel["EmissionWavelengthUnit"]
-                        if "EmissionWavelengthUnit" in channel
-                        else "nm",
-                        "nm",
-                    )
+            for idx, channel in enumerate(
+                image["Channel"]
+                if isinstance(image["Channel"], list)
+                else [image["Channel"]]
+            ):
+                if "SamplesPerPixel" in channel and channel["SamplesPerPixel"] != 1:
+                    for i in range(channel["SamplesPerPixel"]):
+                        channel_metadata = {
+                            "ID": channel["ID"] if "ID" in channel else f"{idx}-{i}",
+                            "Name": channel["Name"]
+                            if "Name" in channel
+                            else f"Channel {idx}-{i}",
+                            "Color": next(color_generator),
+                        }
 
-                channels.append(channel_metadata)
+                        channels.append(channel_metadata)
+                else:
+                    channel_metadata = {
+                        "ID": channel["ID"] if "ID" in channel else f"{idx}",
+                        "Name": channel["Name"]
+                        if "Name" in channel
+                        else f"Channel {idx}",
+                        "Color": get_rgba(channel["Color"])
+                        if "Color" in channel
+                        else next(color_generator),
+                    }
+                    if "EmissionWavelength" in channel:
+                        channel["EmissionWavelength"] = length_converter(
+                            channel["EmissionWavelength"],
+                            channel["EmissionWavelengthUnit"]
+                            if "EmissionWavelengthUnit" in channel
+                            else "nm",
+                            "nm",
+                        )
+
+                    channels.append(channel_metadata)
 
             metadata["Channels"] = channels
             if "PhysicalSizeX" in image:
@@ -229,12 +247,24 @@ class OMETiffReader(ImageReader):
                 metadata["Channels"] = [red_channel, green_channel, blue_channel]
             else:
                 channels = []
-
-                for idx in range(self._series.shape[self.axes.dims.index("C")]):
+                if "C" in self.axes.dims:
+                    for idx in range(self._series.shape[self.axes.dims.index("C")]):
+                        channel = {
+                            "ID": f"{idx}",
+                            "Name": f"Channel {idx}",
+                            "Color": next(color_generator),
+                        }
+                        channels.append(channel)
+                else:
                     channel = {
-                        "ID": f"{idx}",
-                        "Name": f"Channel {idx}",
-                        "Color": next(color_generator),
+                        "ID": f"{0}",
+                        "Name": f"Channel {0}",
+                        "Color": {
+                            "red": np.iinfo(self.level_dtype(0)).max,
+                            "green": np.iinfo(self.level_dtype(0)).max,
+                            "blue": np.iinfo(self.level_dtype(0)).max,
+                            "alpha": np.iinfo(self.level_dtype(0)).max,
+                        },
                     }
                     channels.append(channel)
                 metadata["Channels"] = channels

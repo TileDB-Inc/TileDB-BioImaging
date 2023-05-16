@@ -48,9 +48,8 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, comp
         assert group_properties["fmt_version"] == FMT_VERSION
         assert isinstance(group_properties.get("pkg_version"), str)
         assert group_properties["axes"] == "YXC"
-        assert group_properties["channels"] == json.dumps(
-            ["RED", "GREEN", "BLUE", "ALPHA"]
-        )
+        assert len(json.loads(group_properties["metadata"])["Channels"]) == 3
+
         levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)
 
@@ -90,9 +89,7 @@ def test_openslide_converter_group_metadata(tmp_path, preserve_axes):
         assert group_properties["fmt_version"] == FMT_VERSION
         assert isinstance(group_properties.get("pkg_version"), str)
         assert group_properties["axes"] == "YXC"
-        assert group_properties["channels"] == json.dumps(
-            ["RED", "GREEN", "BLUE", "ALPHA"]
-        )
+        assert len(json.loads(group_properties["metadata"])["Channels"]) == 3
 
         levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)

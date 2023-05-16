@@ -190,9 +190,10 @@ def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
         assert group_properties["fmt_version"] == FMT_VERSION
         assert isinstance(group_properties.get("pkg_version"), str)
         assert group_properties["axes"] == "TCZYX"
-        assert group_properties["channels"] == json.dumps(
-            ["Channel 0", "Channel 1", "Channel 2"]
-        )
+        assert [
+            channel["Name"]
+            for channel in json.loads(group_properties["metadata"])["Channels"]
+        ] == ["Channel 0", "Channel 1", "Channel 2"]
 
         levels_group_meta = json.loads(group_properties["levels"])
         assert t.level_count == len(levels_group_meta)
