@@ -87,6 +87,7 @@ class OpenSlideReader(ImageReader):
         green_channel = {"ID": 1, "Name": "Green", "Color": next(color_generator)}
         blue_channel = {"ID": 2, "Name": "Blue", "Color": next(color_generator)}
 
+        # We skip the alpha channel
         metadata["Channels"] = [red_channel, green_channel, blue_channel]
 
         if "aperio.MPP" in properties:

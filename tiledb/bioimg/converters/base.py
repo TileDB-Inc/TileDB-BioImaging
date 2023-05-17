@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from threading import Lock
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import jsonpickle
 import numpy as np
@@ -241,76 +240,74 @@ class ImageConverter:
         max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
-        with reader:
-            with rw_group:
-                stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
-                if stored_pkg_version not in (None, PKG_VERSION):
-                    raise RuntimeError(
-                        "Incremental ingestion is not supported for different versions: "
-                        f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
-                    )
-
-                if (
-                    isinstance(compressor, tiledb.WebpFilter)
-                    and compressor.input_format == WebpInputFormat.WEBP_NONE
-                ):
-                    compressor = tiledb.WebpFilter(
-                        input_format=reader.webp_format,
-                        quality=compressor.quality,
-                        lossless=compressor.lossless,
-                    )
-
-                convert_kwargs = dict(
-                    reader=reader,
-                    rw_group=rw_group,
-                    max_tiles=max_tiles,
-                    preserve_axes=preserve_axes,
-                    chunked=chunked,
-                    max_workers=max_workers,
-                    compressor=compressor,
+        with rw_group, reader:
+            stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
+            if stored_pkg_version not in (None, PKG_VERSION):
+                raise RuntimeError(
+                    "Incremental ingestion is not supported for different versions: "
+                    f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
                 )
 
-                dimensions = []
-                shape_mapper = reader.axes.mapper(
-                    reader.axes
-                    if preserve_axes
-                    else reader.axes.canonical(reader.level_shape(level_min))
+            if (
+                isinstance(compressor, tiledb.WebpFilter)
+                and compressor.input_format == WebpInputFormat.WEBP_NONE
+            ):
+                compressor = tiledb.WebpFilter(
+                    input_format=reader.webp_format,
+                    quality=compressor.quality,
+                    lossless=compressor.lossless,
                 )
 
-                if pyramid_kwargs is not None:
-                    if level_min < reader.level_count - 1:
-                        warnings.warn(
-                            f"The image contains multiple levels but only level {level_min} "
-                            "will be considered for generating the image pyramid"
-                        )
-                    uri, min_max_channels = _convert_level_to_tiledb(
-                        level_min, **convert_kwargs
+            convert_kwargs = dict(
+                reader=reader,
+                rw_group=rw_group,
+                max_tiles=max_tiles,
+                preserve_axes=preserve_axes,
+                chunked=chunked,
+                max_workers=max_workers,
+                compressor=compressor,
+            )
+
+            dimensions = []
+            shape_mapper = reader.axes.mapper(
+                reader.axes
+                if preserve_axes
+                else reader.axes.canonical(reader.level_shape(level_min))
+            )
+            channel_minmax = []
+
+            if pyramid_kwargs is not None:
+                if level_min < reader.level_count - 1:
+                    warnings.warn(
+                        f"The image contains multiple levels but only level {level_min} "
+                        "will be considered for generating the image pyramid"
                     )
+                uri, min_max_channels = _convert_level_to_tiledb(
+                    level_min, **convert_kwargs
+                )
 
-                    dimensions.append(reader.level_shape(level_min))
+                dimensions.append(reader.level_shape(level_min))
+                channel_minmax.append(min_max_channels)
 
-                    dimensions += create_image_pyramid(
-                        rw_group,
-                        uri,
-                        level_min,
-                        max_tiles,
-                        compressor,
-                        pyramid_kwargs,
-                        reader.level_shape(level_min),
-                        preserve_axes,
-                        reader.axes,
-                        reader.level_dtype(level_min),
+                dimensions += create_image_pyramid(
+                    rw_group,
+                    uri,
+                    level_min,
+                    max_tiles,
+                    compressor,
+                    pyramid_kwargs,
+                    reader.level_shape(level_min),
+                    preserve_axes,
+                    reader.axes,
+                    reader.level_dtype(level_min),
+                )
+            else:
+                for level in range(level_min, reader.level_count):
+                    _, min_max_channels = _convert_level_to_tiledb(
+                        level, **convert_kwargs
                     )
-                else:
-                    for level in range(level_min, reader.level_count):
-                        dimensions.append(reader.level_shape(level))
-
-                        if level == level_min:
-                            _, min_max_channels = _convert_level_to_tiledb(
-                                level, **convert_kwargs
-                            )
-                        else:
-                            _convert_level_to_tiledb(level, **convert_kwargs)
+                    dimensions.append(reader.level_shape(level))
+                    channel_minmax.append(min_max_channels)
 
             metadata = reader.image_metadata
             metadata["axes_mapping"] = get_axes_mapping(
@@ -324,25 +321,26 @@ class ImageConverter:
             ]
 
             for idx in range(len(metadata["Channels"])):
-                metadata["Channels"][idx]["Min"] = min_max_channels[idx][0]
-                metadata["Channels"][idx]["Max"] = min_max_channels[idx][1]
+                metadata["Channels"][idx]["Min"] = channel_minmax[0][idx][0]
+                metadata["Channels"][idx]["Max"] = channel_minmax[0][idx][1]
 
-            with rw_group:
-                rw_group.w_group.meta.update(
-                    reader.group_metadata,
-                    axes=reader.axes.dims,
-                    pixel_depth=get_pixel_depth(compressor),
-                    pkg_version=PKG_VERSION,
-                    fmt_version=FMT_VERSION,
-                    dataset_type=DATASET_TYPE,
-                    metadata=json.dumps(metadata),
-                    levels=json.dumps(
-                        sorted(
-                            iter_levels_meta(rw_group.r_group), key=itemgetter("level")
-                        )
-                    ),
-                    original_metadata=jsonpickle.encode(reader.original_metadata),
-                )
+            original_metadata = reader.original_metadata
+
+        with rw_group:
+            rw_group.w_group.meta.update(
+                reader.group_metadata,
+                axes=reader.axes.dims,
+                pixel_depth=get_pixel_depth(compressor),
+                pkg_version=PKG_VERSION,
+                fmt_version=FMT_VERSION,
+                dataset_type=DATASET_TYPE,
+                metadata=jsonpickle.encode(metadata, unpicklable=False),
+                levels=jsonpickle.encode(
+                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level")),
+                    unpicklable=False,
+                ),
+                original_metadata=jsonpickle.encode(original_metadata),
+            )
 
 
 def _convert_level_to_tiledb(
@@ -406,17 +404,8 @@ def _convert_level_to_tiledb(
                     image = reader.level_image(level, source_tile)
                     out_array[level_tile] = axes_mapper.map_array(image)
 
-                    minimum = np.amin(image, axis=min_max_axes)
-                    maximum = np.amax(image, axis=min_max_axes)
-
                     with lock:
-                        for channel in range(channel_count):
-                            channel_min_max[channel][0] = min(
-                                channel_min_max[channel][0], minimum.item(channel)
-                            )
-                            channel_min_max[channel][1] = max(
-                                channel_min_max[channel][1], maximum.item(channel)
-                            )
+                        compute_channel_minmax(image, min_max_axes, channel_min_max)
 
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
                 mapper = getattr(ex, "map", map)
@@ -437,15 +426,20 @@ def _convert_level_to_tiledb(
                 image = reader.level_image(level)
                 out_array[:] = axes_mapper.map_array(image)
 
-                minimum = np.amin(image, axis=min_max_axes)
-                maximum = np.amax(image, axis=min_max_axes)
-
-                for channel in range(channel_count):
-                    channel_min_max[channel][0] = min(
-                        channel_min_max[channel][0], minimum.item(channel)
-                    )
-                    channel_min_max[channel][1] = max(
-                        channel_min_max[channel][1], maximum.item(channel)
-                    )
+                compute_channel_minmax(image, min_max_axes, channel_min_max)
 
     return uri, channel_min_max
+
+
+def compute_channel_minmax(
+    image: np.ndarray, axes: Tuple[int, ...], minmax: List[List[int]]
+) -> None:
+    minimum = np.amin(image, axis=axes)
+    maximum = np.amax(image, axis=axes)
+
+    minimum = [minimum] if np.isscalar(minimum) else minimum
+    maximum = [maximum] if np.isscalar(maximum) else maximum
+
+    for channel, (_min, _max) in enumerate(zip(minimum, maximum)):
+        minmax[channel][0] = min(minmax[channel][0], _min)
+        minmax[channel][1] = max(minmax[channel][1], _max)

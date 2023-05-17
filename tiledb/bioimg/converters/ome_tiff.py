@@ -256,6 +256,7 @@ class OMETiffReader(ImageReader):
                         }
                         channels.append(channel)
                 else:
+                    # If no 'C' axis exist then the image is treated as grayscale
                     channel = {
                         "ID": f"{0}",
                         "Name": f"Channel {0}",

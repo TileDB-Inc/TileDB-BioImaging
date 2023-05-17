@@ -131,15 +131,17 @@ class YXC_TO_YX(AxesMapper):
 
     def transform_shape(self, shape: MutableSequence[int]) -> None:
         y, x, c = shape
-        # if c != self.c_size:
-        #     raise ValueError(f"C dimension must have size {self.c_size}: {c} given")
+        if c != self.c_size:
+            raise ValueError(f"C dimension must have size {self.c_size}: {c} given")
         shape[1] *= c
         del shape[2]
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
         y, x, c = tile
-        # if c != slice(None):
-        #     raise ValueError(f"C dimension can cannot be sliced: {c} given")
+        if c.stop - c.start != self.c_size:
+            raise ValueError(
+                f"C dimension must have size {self.c_size}: {c.stop - c.start} given"
+            )
         tile[1] = slice(x.start * self.c_size, x.stop * self.c_size)
         del tile[2]
 
