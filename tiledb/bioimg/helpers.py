@@ -102,9 +102,9 @@ def create_image_pyramid(
     base_uri: str,
     base_level: int,
     max_tiles: Mapping[str, int],
-    compressor: tiledb.Filter,
+    compressors: Mapping[int, tiledb.Filter],
     pyramid_kwargs: Mapping[str, Any],
-) -> None:
+) -> Mapping[int, tiledb.Filter]:
     with open_bioimg(base_uri) as a:
         base_shape = a.shape
         dim_names = tuple(dim.name for dim in a.domain)
@@ -112,9 +112,15 @@ def create_image_pyramid(
         attr_dtype = a.attr(0).dtype
 
     scaler = Scaler(base_shape, dim_axes, **pyramid_kwargs)
+
     for i, dim_shape in enumerate(scaler.level_shapes):
         level = base_level + 1 + i
-        schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
+
+        # The compressor of level 0 is used for the newly created scaled levels
+        scaler.update_compressors(level, compressors[base_level])
+        schema = get_schema(
+            dim_names, dim_shape, max_tiles, attr_dtype, compressors[base_level]
+        )
         uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
         if not created:
             continue
@@ -129,6 +135,8 @@ def create_image_pyramid(
         if scaler.progressive:
             base_uri = uri
 
+    return scaler.compressors
+
 
 def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
     for o in group:
@@ -137,6 +145,14 @@ def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
             domain = array.schema.domain
             axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
             yield dict(level=level, name=f"l_{level}.tdb", axes=axes, shape=array.shape)
+
+
+def iter_pixel_depths_meta(
+    compressors: Mapping[int, tiledb.Filter]
+) -> Iterator[Tuple[int, int]]:
+    for comp_level, compressor in compressors.items():
+        level_pixel_depth = get_pixel_depth(compressor)
+        yield (comp_level, level_pixel_depth)
 
 
 def get_pixel_depth(compressor: tiledb.Filter) -> int:

@@ -11,6 +11,8 @@ try:
 except ImportError:
     pass
 
+import json
+
 import tiledb
 
 from . import ATTR_NAME
@@ -34,7 +36,8 @@ class TileDBOpenSlide:
         :param uri: uri of a tiledb.Group containing the image
         """
         self._group = tiledb.Group(uri)
-        pixel_depth = self._group.meta.get("pixel_depth", 1)
+        pixel_depth = self._group.meta.get("pixel_depth", "")
+        pixel_depth = dict(json.loads(pixel_depth)) if pixel_depth else {}
         self._levels = sorted(
             (TileDBOpenSlideLevel(o.uri, pixel_depth, attr=attr) for o in self._group),
             key=attrgetter("level"),
@@ -155,9 +158,9 @@ class TileDBOpenSlide:
 
 
 class TileDBOpenSlideLevel:
-    def __init__(self, uri: str, pixel_depth: int, *, attr: str):
+    def __init__(self, uri: str, pixel_depth: Mapping[str, int], *, attr: str):
         self._tdb = open_bioimg(uri, attr=attr)
-        self._pixel_depth = pixel_depth
+        self._pixel_depth = pixel_depth.get(str(self.level), 1)
 
     @property
     def level(self) -> int:
