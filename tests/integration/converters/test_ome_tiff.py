@@ -1,3 +1,4 @@
+import itertools
 import json
 
 import numpy as np
@@ -241,3 +242,70 @@ def compare_tiff_page_tags(p1, p2, skip=(), ignore_value=()):
         assert tag1.name == tag2.name
         if tag1.name not in ignore_value:
             assert tag1.value == tag2.value, tag1.name
+
+
+compressors = [
+    None,
+    tiledb.ZstdFilter(level=0),
+    tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
+    tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+]
+
+
+@pytest.mark.parametrize(
+    "filename", ["CMU-1-Small-Region.ome.tiff", "CMU-1-Small-Region-rgb.ome.tiff"]
+)
+@pytest.mark.parametrize(
+    "compressor_0, compressor_1", itertools.product(compressors, compressors)
+)
+@pytest.mark.parametrize("mapping", [True, False])
+def test_ome_tiff_converter_different_compressors(
+    tmp_path, filename, compressor_0, compressor_1, mapping
+):
+    input_path = str(get_path(filename))
+    output_path = str(tmp_path)
+    filters = {0: compressor_0, 1: compressor_1}
+    if not compressor_0 and not compressor_1:
+        # Test the default filter ZstdFilter when compressor==None
+        OMETiffConverter.to_tiledb(input_path, output_path, compressor=None)
+        assert len(tiledb.Group(str(tmp_path))) == 2
+        with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
+            assert len(A.schema.attr(0).filters) == 1
+            assert isinstance(A.schema.attr(0).filters[0], tiledb.ZstdFilter)
+        with open_bioimg(str(tmp_path / "l_1.tdb")) as A:
+            assert len(A.schema.attr(0).filters) == 1
+            assert isinstance(A.schema.attr(0).filters[0], tiledb.ZstdFilter)
+    elif compressor_0 and compressor_1:
+        # Both compressors are given
+        OMETiffConverter.to_tiledb(input_path, output_path, compressor=filters)
+        assert len(tiledb.Group(str(tmp_path))) == 2
+        with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
+            assert len(A.schema.attr(0).filters) == 1
+            assert isinstance(A.schema.attr(0).filters[0], type(compressor_0))
+        with open_bioimg(str(tmp_path / "l_1.tdb")) as A:
+            assert len(A.schema.attr(0).filters) == 1
+            assert isinstance(A.schema.attr(0).filters[0], type(compressor_1))
+    else:
+        filtered_compressors = {k: v for k, v in filters.items() if v is not None}
+        if mapping:
+            # Error out if number of compressors in mapping not equal to levels
+            with pytest.raises(ValueError) as ve:
+                OMETiffConverter.to_tiledb(
+                    input_path, output_path, compressor=filtered_compressors
+                )
+                assert (
+                    "Compressor filter mapping does not map every level to a Filter"
+                    in str(ve.value)
+                )
+        else:
+            # Apart from mapping accept also a single filter
+            single_compressor = next(iter(filtered_compressors.values()))
+            OMETiffConverter.to_tiledb(
+                input_path, output_path, compressor=single_compressor
+            )
+            with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
+                assert len(A.schema.attr(0).filters) == 1
+                assert isinstance(A.schema.attr(0).filters[0], type(single_compressor))
+            with open_bioimg(str(tmp_path / "l_1.tdb")) as A:
+                assert len(A.schema.attr(0).filters) == 1
+                assert isinstance(A.schema.attr(0).filters[0], type(single_compressor))

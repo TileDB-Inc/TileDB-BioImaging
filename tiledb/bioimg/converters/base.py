@@ -5,7 +5,16 @@ import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import (
+    Any,
+    Dict,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 
 import numpy as np
 from tqdm import tqdm
@@ -25,6 +34,7 @@ from ..helpers import (
     get_pixel_depth,
     get_schema,
     iter_levels_meta,
+    iter_pixel_depths_meta,
     open_bioimg,
 )
 from ..openslide import TileDBOpenSlide
@@ -177,7 +187,7 @@ class ImageConverter:
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
-        compressor: tiledb.Filter = tiledb.ZstdFilter(level=0),
+        compressor: Optional[Union[Mapping[int, Any], Any]] = None,
         reader_kwargs: Mapping[str, Any] = {},
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
@@ -197,7 +207,7 @@ class ImageConverter:
             original ones.
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
-        :param compressor: TileDB compression filter
+        :param compressor: TileDB compression filter mapping for each level
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
         :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
             generating downsampled versions of the base level. Valid keyword arguments are:
@@ -236,15 +246,32 @@ class ImageConverter:
                     f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
                 )
 
-            if (
-                isinstance(compressor, tiledb.WebpFilter)
-                and compressor.input_format == WebpInputFormat.WEBP_NONE
-            ):
-                compressor = tiledb.WebpFilter(
-                    input_format=reader.webp_format,
-                    quality=compressor.quality,
-                    lossless=compressor.lossless,
-                )
+            # Check if compressor Mapping has 1-1 correspondance
+            if isinstance(compressor, Mapping):
+                if len(compressor.items()) != reader.level_count:
+                    raise ValueError(
+                        f"Compressor filter mapping does not map every level to a Filter {len(compressor.items())} != {reader.level_count}"
+                    )
+
+            compressors = {}
+            for level in range(level_min, reader.level_count):
+                if compressor is None:
+                    compressors[level] = tiledb.ZstdFilter(level=0)
+                elif isinstance(compressor, tiledb.Filter):
+                    if (
+                        isinstance(compressor, tiledb.WebpFilter)
+                        and compressor.input_format == WebpInputFormat.WEBP_NONE
+                    ):
+                        compressor = tiledb.WebpFilter(
+                            input_format=reader.webp_format,
+                            quality=compressor.quality,
+                            lossless=compressor.lossless,
+                        )
+                    # One filter is given apply to all levels
+                    compressors[level] = compressor
+                elif isinstance(compressor, Mapping):
+                    compressors = compressor  # type: ignore
+                    break
 
             convert_kwargs = dict(
                 reader=reader,
@@ -253,27 +280,31 @@ class ImageConverter:
                 preserve_axes=preserve_axes,
                 chunked=chunked,
                 max_workers=max_workers,
-                compressor=compressor,
+                compressor=compressors,
             )
+
+            scaled_compressors: Mapping[int, Any] = {}
             if pyramid_kwargs is not None:
                 if level_min < reader.level_count - 1:
                     warnings.warn(
                         f"The image contains multiple levels but only level {level_min} "
                         "will be considered for generating the image pyramid"
                     )
-                uri = _convert_level_to_tiledb(level_min, **convert_kwargs)
-                create_image_pyramid(
-                    rw_group, uri, level_min, max_tiles, compressor, pyramid_kwargs
+                uri = _convert_level_to_tiledb(level_min, **convert_kwargs)  # type: ignore
+                scaled_compressors = create_image_pyramid(
+                    rw_group, uri, level_min, max_tiles, compressors, pyramid_kwargs
                 )
             else:
                 for level in range(level_min, reader.level_count):
-                    _convert_level_to_tiledb(level, **convert_kwargs)
+                    _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
 
         with rw_group:
             rw_group.w_group.meta.update(
                 reader.group_metadata,
                 axes=reader.axes.dims,
-                pixel_depth=get_pixel_depth(compressor),
+                pixel_depth=json.dumps(
+                    dict(iter_pixel_depths_meta({**compressors, **scaled_compressors}))
+                ),
                 pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
@@ -293,12 +324,12 @@ def _convert_level_to_tiledb(
     preserve_axes: bool,
     chunked: bool,
     max_workers: int,
-    compressor: tiledb.Filter,
+    compressor: Mapping[int, tiledb.Filter],
 ) -> str:
     # create mapper from source to target axes
     source_axes = reader.axes
     source_shape = reader.level_shape(level)
-    pixel_depth = get_pixel_depth(compressor)
+    pixel_depth = get_pixel_depth(compressor.get(level, tiledb.ZstdFilter(level=0)))
     if pixel_depth == 1:
         if preserve_axes:
             target_axes = source_axes
@@ -314,7 +345,13 @@ def _convert_level_to_tiledb(
     # create TileDB schema
     dim_shape = axes_mapper.map_shape(source_shape)
     attr_dtype = reader.level_dtype(level)
-    schema = get_schema(dim_names, dim_shape, max_tiles, attr_dtype, compressor)
+    schema = get_schema(
+        dim_names,
+        dim_shape,
+        max_tiles,
+        attr_dtype,
+        compressor.get(level, tiledb.ZstdFilter(level=0)),
+    )
 
     # get or create TileDB array uri
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)

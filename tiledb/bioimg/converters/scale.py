@@ -1,5 +1,5 @@
 from concurrent import futures
-from typing import Any, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import skimage as sk
 
@@ -28,7 +28,7 @@ class Scaler(object):
         )
         self._level_shapes = []
         self._scale_factors = []
-
+        self._scale_compressors: Dict[int, tiledb.Filter] = {}
         previous_scale_factor = 1.0
         for scale_factor in scale_factors:
             dim_factors = [
@@ -62,6 +62,13 @@ class Scaler(object):
     @property
     def progressive(self) -> bool:
         return self._progressive
+
+    @property
+    def compressors(self) -> Mapping[int, tiledb.Filter]:
+        return self._scale_compressors
+
+    def update_compressors(self, level: int, lvl_filter: tiledb.Filter) -> None:
+        self._scale_compressors[level] = lvl_filter
 
     def apply(
         self, in_array: tiledb.Array, out_array: tiledb.Array, level: int
