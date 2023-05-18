@@ -250,7 +250,7 @@ class ImageConverter:
             if isinstance(compressor, Mapping):
                 if len(compressor.items()) != reader.level_count:
                     raise ValueError(
-                        "Compressor filter mapping does not map every level to a Filter"
+                        f"Compressor filter mapping does not map every level to a Filter {len(compressor.items())} != {reader.level_count}"
                     )
 
             compressors = {}
