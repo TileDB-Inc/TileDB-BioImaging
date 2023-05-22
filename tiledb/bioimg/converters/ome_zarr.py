@@ -11,6 +11,7 @@ from ome_zarr.writer import write_multiscale
 
 from tiledb.cc import WebpInputFormat
 
+from ..helpers import iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -78,6 +79,50 @@ class OMEZarrReader(ImageReader):
             omero=self._omero.image_data if self._omero else None,
         )
         return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
+
+    @property
+    def image_metadata(self) -> Dict[str, Any]:
+        metadata: Dict[str, Any] = {}
+        node_metadata = self._multiscales.node.metadata
+        color_generator = iter_color(np.dtype(np.uint8))
+        channels = []
+        for idx in range(len(node_metadata.get("name"))):
+            channel: Dict[str, Any] = {
+                "ID": f"{idx}",
+                "Name": node_metadata.get("name")[idx],
+            }
+
+            if "colormap" in node_metadata:
+                channel["Color"] = {
+                    name: int(
+                        node_metadata.get("colormap")[idx][1][idx]
+                        * np.iinfo(self.level_dtype(0)).max
+                    )
+                    for idx, name in enumerate(["Red", "Green", "Blue"])
+                }
+                channel["Color"]["Alpha"] = int(np.iinfo(self.level_dtype(0)).max)
+
+            else:
+                channel["Color"] = next(color_generator)
+
+            if "contrast_limits" in node_metadata:
+                channel["Min"] = node_metadata["contrast_limits"][idx][0]
+                channel["Max"] = node_metadata["contrast_limits"][idx][1]
+
+            channels.append(channel)
+
+        metadata["Channels"] = channels
+
+        return metadata
+
+    @property
+    def original_metadata(self) -> Dict[str, Any]:
+        metadata: Dict[str, Any] = {"ZARR": {}}
+
+        metadata["ZARR"]["MULTISCALE"] = self._multiscales
+        metadata["ZARR"]["OMERO"] = self._omero
+
+        return metadata
 
 
 class OMEZarrWriter(ImageWriter):

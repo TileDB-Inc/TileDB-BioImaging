@@ -9,6 +9,7 @@ from typing import (
     Any,
     Dict,
     Mapping,
+    MutableMapping,
     Optional,
     Sequence,
     Tuple,
@@ -16,8 +17,11 @@ from typing import (
     Union,
 )
 
+import jsonpickle
 import numpy as np
 from tqdm import tqdm
+
+from .scale import Scaler
 
 try:
     from tiledb.cloud.groups import register as register_group
@@ -30,8 +34,9 @@ from tiledb.cc import WebpInputFormat
 from .. import ATTR_NAME
 from ..helpers import (
     ReadWriteGroup,
-    create_image_pyramid,
-    get_pixel_depth,
+    compute_channel_minmax,
+    get_axes_mapper,
+    get_axes_translation,
     get_schema,
     iter_levels_meta,
     iter_pixel_depths_meta,
@@ -108,6 +113,16 @@ class ImageReader(ABC):
     @abstractmethod
     def group_metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
+
+    @property
+    @abstractmethod
+    def image_metadata(self) -> Dict[str, Any]:
+        """Return the metadata for the whole multi-resolution image."""
+
+    @property
+    @abstractmethod
+    def original_metadata(self) -> Dict[str, Any]:
+        """Return the metadata of the original file."""
 
 
 class ImageWriter(ABC):
@@ -238,6 +253,10 @@ class ImageConverter:
         max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
+
+        metadata = {}
+        original_metadata = {}
+
         with rw_group, reader:
             stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
             if stored_pkg_version not in (None, PKG_VERSION):
@@ -276,12 +295,17 @@ class ImageConverter:
             convert_kwargs = dict(
                 reader=reader,
                 rw_group=rw_group,
-                max_tiles=max_tiles,
+                max_tiles=max_tiles.copy(),
                 preserve_axes=preserve_axes,
                 chunked=chunked,
                 max_workers=max_workers,
                 compressor=compressors,
             )
+
+            metadata = reader.image_metadata
+            metadata["Axes"] = []
+
+            channel_min_max = []
 
             scaled_compressors: Mapping[int, Any] = {}
             if pyramid_kwargs is not None:
@@ -290,28 +314,51 @@ class ImageConverter:
                         f"The image contains multiple levels but only level {level_min} "
                         "will be considered for generating the image pyramid"
                     )
-                uri = _convert_level_to_tiledb(level_min, **convert_kwargs)  # type: ignore
-                scaled_compressors = create_image_pyramid(
-                    rw_group, uri, level_min, max_tiles, compressors, pyramid_kwargs
+                level_meta = _convert_level_to_tiledb(level_min, **convert_kwargs)  # type: ignore
+
+                scaled_compressors, level_shapes, levels_meta = create_image_pyramid(
+                    reader,
+                    rw_group,
+                    level_meta["Uri"],
+                    level_min,
+                    max_tiles.copy(),
+                    compressors,
+                    preserve_axes,
+                    pyramid_kwargs,
                 )
+
+                channel_min_max.append(level_meta["ChannelMinMax"])
+                metadata["Axes"] += levels_meta["Axes"]
             else:
                 for level in range(level_min, reader.level_count):
-                    _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
+                    level_meta = _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
+                    channel_min_max.append(level_meta["ChannelMinMax"])
+                    metadata["Axes"].append(level_meta["Axes"])
+
+            for idx in range(len(metadata["Channels"])):
+                metadata["Channels"][idx]["Min"] = channel_min_max[0].item((idx, 0))
+                metadata["Channels"][idx]["Max"] = channel_min_max[0].item((idx, 1))
+
+            original_metadata = reader.original_metadata
 
         with rw_group:
             rw_group.w_group.meta.update(
                 reader.group_metadata,
                 axes=reader.axes.dims,
-                pixel_depth=json.dumps(
-                    dict(iter_pixel_depths_meta({**compressors, **scaled_compressors}))
+                pixel_depth=jsonpickle.encode(
+                    dict(iter_pixel_depths_meta({**compressors, **scaled_compressors})),
+                    unpicklable=False,
                 ),
                 pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
                 dataset_type=DATASET_TYPE,
                 channels=json.dumps(reader.channels),
-                levels=json.dumps(
-                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level"))
+                levels=jsonpickle.encode(
+                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level")),
+                    unpicklable=False,
                 ),
+                metadata=jsonpickle.encode(metadata, unpicklable=False),
+                original_metadata=jsonpickle.encode(original_metadata),
             )
 
 
@@ -320,28 +367,26 @@ def _convert_level_to_tiledb(
     *,
     reader: ImageReader,
     rw_group: ReadWriteGroup,
-    max_tiles: Dict[str, int],
+    max_tiles: MutableMapping[str, int],
     preserve_axes: bool,
     chunked: bool,
     max_workers: int,
     compressor: Mapping[int, tiledb.Filter],
-) -> str:
+) -> Mapping[str, Any]:
+    level_metadata: MutableMapping[str, Any] = {}
+
     # create mapper from source to target axes
     source_axes = reader.axes
     source_shape = reader.level_shape(level)
-    pixel_depth = get_pixel_depth(compressor.get(level, tiledb.ZstdFilter(level=0)))
-    if pixel_depth == 1:
-        if preserve_axes:
-            target_axes = source_axes
-        else:
-            target_axes = source_axes.canonical(source_shape)
-        axes_mapper = source_axes.mapper(target_axes)
-        dim_names = tuple(target_axes.dims)
-    else:
-        max_tiles["X"] *= pixel_depth
-        axes_mapper = source_axes.webp_mapper(pixel_depth)
-        dim_names = ("Y", "X")
 
+    axes_mapper, dim_names, max_tiles = get_axes_mapper(
+        reader.axes,
+        reader.level_shape(level),
+        compressor,
+        level,
+        preserve_axes,
+        max_tiles,
+    )
     # create TileDB schema
     dim_shape = axes_mapper.map_shape(source_shape)
     attr_dtype = reader.level_dtype(level)
@@ -353,6 +398,31 @@ def _convert_level_to_tiledb(
         compressor.get(level, tiledb.ZstdFilter(level=0)),
     )
 
+    min_max_indices = tuple(
+        idx for idx, char in enumerate(source_axes.dims) if char != "C"
+    )
+
+    channel_index = source_axes.dims.find("C")
+    channel_count = source_shape[channel_index] if channel_index > -1 else 1
+
+    channel_min_max = np.empty((channel_count, 2))
+    channel_min_max[:, 0] = np.repeat(
+        np.iinfo(reader.level_dtype(level)).max, channel_count
+    )
+    channel_min_max[:, 1] = np.repeat(
+        np.iinfo(reader.level_dtype(level)).min, channel_count
+    )
+
+    level_metadata["Axes"] = {
+        "OriginalAxes": [*reader.axes.dims],
+        "OriginalShape": reader.level_shape(level),
+        "StoredAxes": dim_names,
+        "StoredShape": dim_shape,
+        "AxesMapping": get_axes_translation(
+            compressor.get(level, tiledb.ZstdFilter(level=0)), reader.axes.dims
+        ),
+    }
+
     # get or create TileDB array uri
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
     if created:
@@ -362,23 +432,99 @@ def _convert_level_to_tiledb(
             if chunked or max_workers:
                 inv_axes_mapper = axes_mapper.inverse
 
-                def tile_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
+                def tile_to_tiledb(
+                    level_tile: Tuple[slice, ...]
+                ) -> Tuple[np.ndarray, ...]:
                     source_tile = inv_axes_mapper.map_tile(level_tile)
                     image = reader.level_image(level, source_tile)
                     out_array[level_tile] = axes_mapper.map_array(image)
 
+                    return np.amin(image, axis=min_max_indices), np.amax(
+                        image, axis=min_max_indices
+                    )
+
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
                 mapper = getattr(ex, "map", map)
-                for _ in tqdm(
+                for tile_min, tile_max in tqdm(
                     mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
                     desc=f"Ingesting level {level}",
                     total=num_tiles(out_array.domain),
                     unit="tiles",
                 ):
+                    compute_channel_minmax(channel_min_max, tile_min, tile_max)
                     pass
                 if ex:
                     ex.shutdown()
             else:
                 image = reader.level_image(level)
                 out_array[:] = axes_mapper.map_array(image)
-    return uri
+
+                compute_channel_minmax(
+                    channel_min_max,
+                    np.amin(image, axis=min_max_indices),
+                    np.amax(image, axis=min_max_indices),
+                )
+
+    level_metadata["Uri"] = uri
+    level_metadata["ChannelMinMax"] = channel_min_max
+
+    return level_metadata
+
+
+def create_image_pyramid(
+    reader: ImageReader,
+    rw_group: ReadWriteGroup,
+    base_uri: str,
+    base_level: int,
+    max_tiles: MutableMapping[str, int],
+    compressors: Mapping[int, tiledb.Filter],
+    preserve_axes: bool,
+    pyramid_kwargs: Mapping[str, Any],
+) -> Tuple[Mapping[int, tiledb.Filter], Sequence[Tuple[int, ...]], Mapping[str, Any]]:
+    scaler = Scaler(reader.level_shape(base_level), reader.axes.dims, **pyramid_kwargs)
+
+    levels_metadata: MutableMapping[str, Any] = {"Axes": []}
+
+    for i, dim_shape in enumerate(scaler.level_shapes):
+        level = base_level + 1 + i
+
+        # The compressor of level 0 is used for the newly created scaled levels
+        scaler.update_compressors(level, compressors[base_level])
+        axes_mapper, dim_names, max_tiles = get_axes_mapper(
+            reader.axes, dim_shape, scaler.compressors, level, preserve_axes, max_tiles
+        )
+
+        schema = get_schema(
+            dim_names,
+            axes_mapper.map_shape(dim_shape),
+            max_tiles,
+            reader.level_dtype(base_level),
+            compressors[base_level],
+        )
+        uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
+        if not created:
+            continue
+
+        levels_metadata["Axes"].append(
+            {
+                "OriginalAxes": [*reader.axes.dims],
+                "OriginalShape": dim_shape,
+                "StoredAxes": dim_names,
+                "StoredShape": axes_mapper.map_shape(dim_shape),
+                "AxesMapping": get_axes_translation(
+                    scaler.compressors[level], reader.axes.dims
+                ),
+            }
+        )
+
+        with open_bioimg(uri, mode="w") as out_array:
+            out_array.meta.update(level=level)
+            with open_bioimg(base_uri) as in_array:
+                scaler.apply(in_array, out_array, i, axes_mapper)
+
+        # if a non-progressive method is used, the input layer of the scaler
+        # is the base image layer else we use the previously generated layer
+        if scaler.progressive:
+            base_uri = uri
+
+    return scaler.compressors, scaler.level_shapes, levels_metadata

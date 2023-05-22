@@ -221,11 +221,11 @@ class Axes:
         dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
-    def mapper(self, other: Axes) -> AxesMapper:
+    def mapper(self, other: Axes) -> CompositeAxesMapper:
         """Return an AxesMapper from this axes to other"""
         return CompositeAxesMapper(list(_iter_axes_mappers(self.dims, other.dims)))
 
-    def webp_mapper(self, num_channels: int) -> AxesMapper:
+    def webp_mapper(self, num_channels: int) -> CompositeAxesMapper:
         """Return an AxesMapper from this 3D axes (YXC or a permutation) to 2D (YX)"""
         mappers = list(_iter_axes_mappers(self.dims, "YXC"))
         mappers.append(YXC_TO_YX(num_channels))

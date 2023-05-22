@@ -6,6 +6,7 @@ import tifffile
 
 from tiledb.cc import WebpInputFormat
 
+from ..helpers import get_rgba, iter_color, length_converter
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -138,6 +139,127 @@ class OMETiffReader(ImageReader):
         except KeyError:
             pass
         return default
+
+    @property
+    def image_metadata(self) -> Dict[str, Any]:
+        metadata: Dict[str, Any] = {}
+        color_generator = iter_color(np.dtype(np.uint8))
+
+        if self._metadata and self._tiff.is_ome:
+            if isinstance(self._metadata["OME"]["Image"], list):
+                image = self._metadata["OME"]["Image"][0]["Pixels"]
+            else:
+                image = self._metadata["OME"]["Image"]["Pixels"]
+
+            channels = []
+
+            for idx, channel in enumerate(
+                image["Channel"]
+                if isinstance(image["Channel"], list)
+                else [image["Channel"]]
+            ):
+                if "SamplesPerPixel" in channel and channel["SamplesPerPixel"] != 1:
+                    for i in range(channel["SamplesPerPixel"]):
+                        channel_metadata = {
+                            "ID": channel["ID"] if "ID" in channel else f"{idx}-{i}",
+                            "Name": channel["Name"]
+                            if "Name" in channel
+                            else f"Channel {idx}-{i}",
+                            "Color": next(color_generator),
+                        }
+
+                        channels.append(channel_metadata)
+                else:
+                    channel_metadata = {
+                        "ID": channel["ID"] if "ID" in channel else f"{idx}",
+                        "Name": channel["Name"]
+                        if "Name" in channel
+                        else f"Channel {idx}",
+                        "Color": get_rgba(channel["Color"])
+                        if "Color" in channel
+                        else next(color_generator),
+                    }
+                    if "EmissionWavelength" in channel:
+                        channel["EmissionWavelength"] = length_converter(
+                            channel["EmissionWavelength"],
+                            channel["EmissionWavelengthUnit"]
+                            if "EmissionWavelengthUnit" in channel
+                            else "nm",
+                            "nm",
+                        )
+
+                    channels.append(channel_metadata)
+
+            metadata["Channels"] = channels
+
+            for dim in ["X", "Y", "Z"]:
+                if f"PhysicalSize{dim}" in image:
+                    metadata[f"PhysicalSize{dim}"] = length_converter(
+                        image[f"PhysicalSize{dim}"],
+                        image[f"PhysicalSize{dim}Unit"]
+                        if f"PhysicalSize{dim}Unit" in image
+                        else "μm",
+                        "μm",
+                    )
+
+            if "TimeIncrement" in image:
+                metadata["TimeIncrement"] = image["TimeIncrement"]
+                metadata["TimeIncrementUnit"] = (
+                    image["TimeIncrementUnit"] if "TimeIncrementUnit" in image else "s"
+                )
+        else:
+            # If file is not OME we will try to extract metadata from the IFD.
+            # If you are ingesting a non-OME tiff file you may need to provide a custom metadata
+            # extraction method
+
+            page = self._tiff.pages.first
+
+            if page.photometric == tifffile.PHOTOMETRIC.RGB:
+                metadata["Channels"] = [
+                    {"ID": f"{idx}", "Name": f"{name}", "Color": next(color_generator)}
+                    for idx, name in enumerate(["Red", "Green", "Blue"])
+                ]
+            else:
+                num_channels, color_generator = (
+                    (self._series.shape[self.axes.dims.index("C")], color_generator)
+                    if "C" in self.axes.dims
+                    else (1, iter([]))
+                )
+
+                metadata["Channels"] = [
+                    {
+                        "ID": f"{idx}",
+                        "Name": f"Channel {idx}",
+                        "Color": next(
+                            color_generator, get_rgba(4294967295)
+                        ),  # decimal representation of white
+                    }
+                    for idx in range(num_channels)
+                ]
+
+            # Aperio .svs files have a description tag with metadata split by '|' https://openslide.org/formats/aperio/
+            if self._tiff.is_svs:
+                info = {}
+                for entry in page.description.split("\n")[1].split("|"):
+                    key, value = entry.split("=")
+                    info[key] = value
+
+                if "MPP" in info:
+                    metadata["PhysicalSizeX"] = info.get("MPP")
+                    metadata["PhysicalSizeΥ"] = info.get("MPP")
+
+        return metadata
+
+    @property
+    def original_metadata(self) -> Dict[str, Any]:
+        metadata = {}
+
+        if self._metadata and self._tiff.is_ome:
+            metadata["OME"] = self._metadata
+        elif self._tiff.is_svs:
+            metadata["SVS"] = self._tiff.pages.first.description
+
+        return metadata
 
 
 class OMETiffWriter(ImageWriter):

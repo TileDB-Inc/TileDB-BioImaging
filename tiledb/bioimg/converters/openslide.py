@@ -5,6 +5,7 @@ import openslide as osd
 
 from tiledb.cc import WebpInputFormat
 
+from ..helpers import iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader
 
@@ -74,6 +75,31 @@ class OpenSlideReader(ImageReader):
     @property
     def group_metadata(self) -> Dict[str, Any]:
         return {}
+
+    @property
+    def image_metadata(self) -> Dict[str, Any]:
+        metadata = {}
+        color_generator = iter_color(np.dtype(np.uint8))
+        properties = self._osd.properties
+
+        red_channel = {"ID": 0, "Name": "Red", "Color": next(color_generator)}
+        green_channel = {"ID": 1, "Name": "Green", "Color": next(color_generator)}
+        blue_channel = {"ID": 2, "Name": "Blue", "Color": next(color_generator)}
+
+        # We skip the alpha channel
+        metadata["Channels"] = [red_channel, green_channel, blue_channel]
+
+        if "aperio.MPP" in properties:
+            metadata["PhysicalSizeX"] = properties["aperio.MPP"]
+            metadata["PhysicalSizeY"] = properties["aperio.MPP"]
+
+        return metadata
+
+    @property
+    def original_metadata(self) -> Dict[str, Any]:
+        metadata = {"SVS": list(self._osd.properties.items())}
+
+        return metadata
 
 
 class OpenSlideConverter(ImageConverter):
