@@ -303,7 +303,7 @@ class ImageConverter:
             )
 
             metadata = reader.image_metadata
-            metadata["Axes"] = []
+            metadata["axes"] = []
 
             channel_min_max = []
 
@@ -319,7 +319,7 @@ class ImageConverter:
                 scaled_compressors, levels_meta = _create_image_pyramid(
                     reader,
                     rw_group,
-                    level_meta["Uri"],
+                    level_meta["uri"],
                     level_min,
                     max_tiles.copy(),
                     compressors,

@@ -170,7 +170,7 @@ class OMETiffReader(ImageReader):
                 else:
                     channel_metadata = {
                         "id": channel.get("ID", f"{idx}"),
-                        "name": channel.get("Name", f"Channel {idx}-{i}"),
+                        "name": channel.get("Name", f"Channel {idx}"),
                         "color": get_rgba(channel["Color"])
                         if "Color" in channel
                         else next(color_generator),
