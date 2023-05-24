@@ -161,52 +161,43 @@ class OMETiffReader(ImageReader):
                 if "SamplesPerPixel" in channel and channel["SamplesPerPixel"] != 1:
                     for i in range(channel["SamplesPerPixel"]):
                         channel_metadata = {
-                            "ID": channel["ID"] if "ID" in channel else f"{idx}-{i}",
-                            "Name": channel["Name"]
-                            if "Name" in channel
-                            else f"Channel {idx}-{i}",
-                            "Color": next(color_generator),
+                            "id": channel.get("ID", f"{idx}-{i}"),
+                            "name": channel.get("Name", f"Channel {idx}-{i}"),
+                            "color": next(color_generator),
                         }
 
                         channels.append(channel_metadata)
                 else:
                     channel_metadata = {
-                        "ID": channel["ID"] if "ID" in channel else f"{idx}",
-                        "Name": channel["Name"]
-                        if "Name" in channel
-                        else f"Channel {idx}",
-                        "Color": get_rgba(channel["Color"])
+                        "id": channel.get("ID", f"{idx}"),
+                        "name": channel.get("Name", f"Channel {idx}-{i}"),
+                        "color": get_rgba(channel["Color"])
                         if "Color" in channel
                         else next(color_generator),
                     }
                     if "EmissionWavelength" in channel:
-                        channel["EmissionWavelength"] = length_converter(
+                        channel_metadata["emissionWavelength"] = length_converter(
                             channel["EmissionWavelength"],
-                            channel["EmissionWavelengthUnit"]
-                            if "EmissionWavelengthUnit" in channel
-                            else "nm",
+                            channel.get("EmissionWavelengthUnit", "nm"),
                             "nm",
                         )
 
                     channels.append(channel_metadata)
 
-            metadata["Channels"] = channels
+            metadata["channels"] = channels
 
             for dim in ["X", "Y", "Z"]:
                 if f"PhysicalSize{dim}" in image:
-                    metadata[f"PhysicalSize{dim}"] = length_converter(
+                    metadata[f"physicalSize{dim}"] = length_converter(
                         image[f"PhysicalSize{dim}"],
-                        image[f"PhysicalSize{dim}Unit"]
-                        if f"PhysicalSize{dim}Unit" in image
-                        else "μm",
+                        image.get(f"PhysicalSize{dim}Unit", "μm"),
                         "μm",
                     )
 
             if "TimeIncrement" in image:
-                metadata["TimeIncrement"] = image["TimeIncrement"]
-                metadata["TimeIncrementUnit"] = (
-                    image["TimeIncrementUnit"] if "TimeIncrementUnit" in image else "s"
-                )
+                metadata["timeIncrement"] = image["TimeIncrement"]
+                metadata["timeIncrementUnit"] = image.get("TimeIncrementUnit", "s")
+
         else:
             # If file is not OME we will try to extract metadata from the IFD.
             # If you are ingesting a non-OME tiff file you may need to provide a custom metadata
@@ -215,9 +206,9 @@ class OMETiffReader(ImageReader):
             page = self._tiff.pages.first
 
             if page.photometric == tifffile.PHOTOMETRIC.RGB:
-                metadata["Channels"] = [
-                    {"ID": f"{idx}", "Name": f"{name}", "Color": next(color_generator)}
-                    for idx, name in enumerate(["Red", "Green", "Blue"])
+                metadata["channels"] = [
+                    {"id": f"{idx}", "name": f"{name}", "color": next(color_generator)}
+                    for idx, name in enumerate(["red", "green", "blue"])
                 ]
             else:
                 num_channels, color_generator = (
@@ -226,11 +217,11 @@ class OMETiffReader(ImageReader):
                     else (1, iter([]))
                 )
 
-                metadata["Channels"] = [
+                metadata["channels"] = [
                     {
-                        "ID": f"{idx}",
-                        "Name": f"Channel {idx}",
-                        "Color": next(
+                        "id": f"{idx}",
+                        "name": f"Channel {idx}",
+                        "color": next(
                             color_generator, get_rgba(4294967295)
                         ),  # decimal representation of white
                     }
@@ -245,8 +236,8 @@ class OMETiffReader(ImageReader):
                     info[key] = value
 
                 if "MPP" in info:
-                    metadata["PhysicalSizeX"] = info.get("MPP")
-                    metadata["PhysicalSizeΥ"] = info.get("MPP")
+                    metadata["physicalSizeX"] = info.get("MPP")
+                    metadata["physicalSizeΥ"] = info.get("MPP")
 
         return metadata
 

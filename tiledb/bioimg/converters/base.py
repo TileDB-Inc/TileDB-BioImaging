@@ -316,7 +316,7 @@ class ImageConverter:
                     )
                 level_meta = _convert_level_to_tiledb(level_min, **convert_kwargs)  # type: ignore
 
-                scaled_compressors, level_shapes, levels_meta = create_image_pyramid(
+                scaled_compressors, levels_meta = _create_image_pyramid(
                     reader,
                     rw_group,
                     level_meta["Uri"],
@@ -327,17 +327,17 @@ class ImageConverter:
                     pyramid_kwargs,
                 )
 
-                channel_min_max.append(level_meta["ChannelMinMax"])
-                metadata["Axes"] += levels_meta["Axes"]
+                channel_min_max.append(level_meta["channelMinMax"])
+                metadata["axes"] += levels_meta["axes"]
             else:
                 for level in range(level_min, reader.level_count):
                     level_meta = _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
-                    channel_min_max.append(level_meta["ChannelMinMax"])
-                    metadata["Axes"].append(level_meta["Axes"])
+                    channel_min_max.append(level_meta["channelMinMax"])
+                    metadata["axes"].append(level_meta["axes"])
 
-            for idx in range(len(metadata["Channels"])):
-                metadata["Channels"][idx]["Min"] = channel_min_max[0].item((idx, 0))
-                metadata["Channels"][idx]["Max"] = channel_min_max[0].item((idx, 1))
+            for idx in range(len(metadata["channels"])):
+                metadata["channels"][idx]["min"] = channel_min_max[0].item((idx, 0))
+                metadata["channels"][idx]["max"] = channel_min_max[0].item((idx, 1))
 
             original_metadata = reader.original_metadata
 
@@ -413,12 +413,12 @@ def _convert_level_to_tiledb(
         np.iinfo(reader.level_dtype(level)).min, channel_count
     )
 
-    level_metadata["Axes"] = {
-        "OriginalAxes": [*reader.axes.dims],
-        "OriginalShape": reader.level_shape(level),
-        "StoredAxes": dim_names,
-        "StoredShape": dim_shape,
-        "AxesMapping": get_axes_translation(
+    level_metadata["axes"] = {
+        "originalAxes": [*reader.axes.dims],
+        "originalShape": reader.level_shape(level),
+        "storedAxes": dim_names,
+        "storedShape": dim_shape,
+        "axesMapping": get_axes_translation(
             compressor.get(level, tiledb.ZstdFilter(level=0)), reader.axes.dims
         ),
     }
@@ -465,13 +465,13 @@ def _convert_level_to_tiledb(
                     np.amax(image, axis=min_max_indices),
                 )
 
-    level_metadata["Uri"] = uri
-    level_metadata["ChannelMinMax"] = channel_min_max
+    level_metadata["uri"] = uri
+    level_metadata["channelMinMax"] = channel_min_max
 
     return level_metadata
 
 
-def create_image_pyramid(
+def _create_image_pyramid(
     reader: ImageReader,
     rw_group: ReadWriteGroup,
     base_uri: str,
@@ -480,10 +480,10 @@ def create_image_pyramid(
     compressors: Mapping[int, tiledb.Filter],
     preserve_axes: bool,
     pyramid_kwargs: Mapping[str, Any],
-) -> Tuple[Mapping[int, tiledb.Filter], Sequence[Tuple[int, ...]], Mapping[str, Any]]:
+) -> Tuple[Mapping[int, tiledb.Filter], Mapping[str, Any]]:
     scaler = Scaler(reader.level_shape(base_level), reader.axes.dims, **pyramid_kwargs)
 
-    levels_metadata: MutableMapping[str, Any] = {"Axes": []}
+    levels_metadata: MutableMapping[str, Any] = {"axes": []}
 
     for i, dim_shape in enumerate(scaler.level_shapes):
         level = base_level + 1 + i
@@ -505,13 +505,13 @@ def create_image_pyramid(
         if not created:
             continue
 
-        levels_metadata["Axes"].append(
+        levels_metadata["axes"].append(
             {
-                "OriginalAxes": [*reader.axes.dims],
-                "OriginalShape": dim_shape,
-                "StoredAxes": dim_names,
-                "StoredShape": axes_mapper.map_shape(dim_shape),
-                "AxesMapping": get_axes_translation(
+                "originalAxes": [*reader.axes.dims],
+                "originalShape": dim_shape,
+                "storedAxes": dim_names,
+                "storedShape": axes_mapper.map_shape(dim_shape),
+                "axesMapping": get_axes_translation(
                     scaler.compressors[level], reader.axes.dims
                 ),
             }
@@ -527,4 +527,4 @@ def create_image_pyramid(
         if scaler.progressive:
             base_uri = uri
 
-    return scaler.compressors, scaler.level_shapes, levels_metadata
+    return scaler.compressors, levels_metadata

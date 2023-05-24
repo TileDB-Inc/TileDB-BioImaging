@@ -169,24 +169,13 @@ def get_axes_translation(
     return {axis: [axis] for axis in axes}
 
 
-LENGTH_UNITS = {
-    "m": 0,
-    "dm": -1,
-    "cm": -2,
-    "mm": -3,
-    unicodedata.normalize("NFKD", "μm"): -6,
-    "nm": -9,
-    "pm": -12,
-}
-
-
 def iter_color(attr_type: np.dtype) -> Iterator[Dict[str, int]]:
     min_val = np.iinfo(attr_type).min
     max_val = np.iinfo(attr_type).max
 
-    yield {"Red": max_val, "Green": min_val, "Blue": min_val, "Alpha": max_val}
-    yield {"Red": min_val, "Green": max_val, "Blue": min_val, "Alpha": max_val}
-    yield {"Red": min_val, "Green": min_val, "Blue": max_val, "Alpha": max_val}
+    yield {"red": max_val, "green": min_val, "blue": min_val, "alpha": max_val}
+    yield {"red": min_val, "green": max_val, "blue": min_val, "alpha": max_val}
+    yield {"red": min_val, "green": min_val, "blue": max_val, "alpha": max_val}
 
     while True:
         if np.issubdtype(attr_type, np.integer):
@@ -198,7 +187,7 @@ def iter_color(attr_type: np.dtype) -> Iterator[Dict[str, int]]:
             green = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
             blue = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
 
-        yield {"Red": red, "Green": green, "Blue": blue, "Alpha": max_val}
+        yield {"red": red, "green": green, "blue": blue, "alpha": max_val}
 
 
 def get_rgba(value: int) -> Dict[str, int]:

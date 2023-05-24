@@ -88,30 +88,30 @@ class OMEZarrReader(ImageReader):
         channels = []
         for idx in range(len(node_metadata.get("name"))):
             channel: Dict[str, Any] = {
-                "ID": f"{idx}",
-                "Name": node_metadata.get("name")[idx],
+                "id": f"{idx}",
+                "name": node_metadata.get("name")[idx],
             }
 
             if "colormap" in node_metadata:
-                channel["Color"] = {
+                channel["color"] = {
                     name: int(
                         node_metadata.get("colormap")[idx][1][idx]
                         * np.iinfo(self.level_dtype(0)).max
                     )
-                    for idx, name in enumerate(["Red", "Green", "Blue"])
+                    for idx, name in enumerate(["red", "green", "blue"])
                 }
-                channel["Color"]["Alpha"] = int(np.iinfo(self.level_dtype(0)).max)
+                channel["color"]["alpha"] = int(np.iinfo(self.level_dtype(0)).max)
 
             else:
-                channel["Color"] = next(color_generator)
+                channel["color"] = next(color_generator)
 
             if "contrast_limits" in node_metadata:
-                channel["Min"] = node_metadata["contrast_limits"][idx][0]
-                channel["Max"] = node_metadata["contrast_limits"][idx][1]
+                channel["min"] = node_metadata["contrast_limits"][idx][0]
+                channel["max"] = node_metadata["contrast_limits"][idx][1]
 
             channels.append(channel)
 
-        metadata["Channels"] = channels
+        metadata["channels"] = channels
 
         return metadata
 

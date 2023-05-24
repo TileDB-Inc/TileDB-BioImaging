@@ -138,8 +138,10 @@ class YXC_TO_YX(AxesMapper):
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
         y, x, c = tile
-        if c != slice(None):
-            raise ValueError(f"C dimension can cannot be sliced: {c} given")
+        if c != slice(0, self.c_size):
+            raise ValueError(
+                f"C dimension can cannot be sliced: {c} given - {slice(0, self.c_size)} expected"
+            )
         tile[1] = slice(x.start * self.c_size, x.stop * self.c_size)
         del tile[2]
 
@@ -163,7 +165,7 @@ class YX_TO_YXC(AxesMapper):
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
         c = self.c_size
         tile[1] = slice(tile[1].start // c, tile[1].stop // c)
-        tile.append(slice(None))
+        tile.append(slice(0, c))
 
 
 @dataclass(frozen=True)
@@ -221,11 +223,11 @@ class Axes:
         dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
-    def mapper(self, other: Axes) -> CompositeAxesMapper:
+    def mapper(self, other: Axes) -> AxesMapper:
         """Return an AxesMapper from this axes to other"""
         return CompositeAxesMapper(list(_iter_axes_mappers(self.dims, other.dims)))
 
-    def webp_mapper(self, num_channels: int) -> CompositeAxesMapper:
+    def webp_mapper(self, num_channels: int) -> AxesMapper:
         """Return an AxesMapper from this 3D axes (YXC or a permutation) to 2D (YX)"""
         mappers = list(_iter_axes_mappers(self.dims, "YXC"))
         mappers.append(YXC_TO_YX(num_channels))

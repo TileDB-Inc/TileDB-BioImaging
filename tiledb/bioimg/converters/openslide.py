@@ -82,16 +82,15 @@ class OpenSlideReader(ImageReader):
         color_generator = iter_color(np.dtype(np.uint8))
         properties = self._osd.properties
 
-        red_channel = {"ID": 0, "Name": "Red", "Color": next(color_generator)}
-        green_channel = {"ID": 1, "Name": "Green", "Color": next(color_generator)}
-        blue_channel = {"ID": 2, "Name": "Blue", "Color": next(color_generator)}
-
         # We skip the alpha channel
-        metadata["Channels"] = [red_channel, green_channel, blue_channel]
+        metadata["channels"] = [
+            {"id": f"{idx}", "name": f"{name}", "color": next(color_generator)}
+            for idx, name in enumerate(["red", "green", "blue"])
+        ]
 
         if "aperio.MPP" in properties:
-            metadata["PhysicalSizeX"] = properties["aperio.MPP"]
-            metadata["PhysicalSizeY"] = properties["aperio.MPP"]
+            metadata["physicalSizeX"] = properties["aperio.MPP"]
+            metadata["physicalSizeY"] = properties["aperio.MPP"]
 
         return metadata
 
