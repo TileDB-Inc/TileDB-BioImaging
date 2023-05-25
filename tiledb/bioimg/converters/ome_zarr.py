@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
+import numpy
 import numpy as np
 import zarr
 from numcodecs import Blosc
@@ -11,7 +12,7 @@ from ome_zarr.writer import write_multiscale
 
 from tiledb.cc import WebpInputFormat
 
-from ..helpers import iter_color
+from ..helpers import get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -82,36 +83,42 @@ class OMEZarrReader(ImageReader):
 
     @property
     def image_metadata(self) -> Dict[str, Any]:
+        # Based on information available at https://ngff.openmicroscopy.org/latest/#metadata
+        # The start and end values may differ from the channel min-max values as well as the
+        # min-max values of the metadata.
         metadata: Dict[str, Any] = {}
-        node_metadata = self._multiscales.node.metadata
-        color_generator = iter_color(np.dtype(np.uint8))
-        channels = []
-        for idx in range(len(node_metadata.get("name"))):
-            channel: Dict[str, Any] = {
-                "id": f"{idx}",
-                "name": node_metadata.get("name")[idx],
-            }
 
-            if "colormap" in node_metadata:
-                channel["color"] = {
-                    name: int(
-                        node_metadata.get("colormap")[idx][1][idx]
-                        * np.iinfo(self.level_dtype(0)).max
-                    )
-                    for idx, name in enumerate(["red", "green", "blue"])
+        base_type = self.level_dtype(0)
+        channel_min = (
+            np.iinfo(base_type).min
+            if np.issubdtype(base_type, numpy.integer)
+            else np.finfo(base_type).min
+        )
+        channel_max = (
+            np.iinfo(base_type).max
+            if np.issubdtype(base_type, np.integer)
+            else np.finfo(base_type).max
+        )
+
+        metadata["channels"] = []
+
+        omero_metadata = self._multiscales.lookup("omero", {})
+        for idx, channel in enumerate(omero_metadata.get("channels", [])):
+            metadata["channels"].append(
+                {
+                    "id": f"{idx}",
+                    "name": channel.get("label", f"Channel:{idx}"),
+                    "color": get_rgba(
+                        int(
+                            channel.get("color", hex(np.random.randint(0, 16777215)))
+                            + "FF",
+                            base=16,
+                        )
+                    ),
+                    "min": channel.get("window", {}).get("start", channel_min),
+                    "max": channel.get("window", {}).get("end", channel_max),
                 }
-                channel["color"]["alpha"] = int(np.iinfo(self.level_dtype(0)).max)
-
-            else:
-                channel["color"] = next(color_generator)
-
-            if "contrast_limits" in node_metadata:
-                channel["min"] = node_metadata["contrast_limits"][idx][0]
-                channel["max"] = node_metadata["contrast_limits"][idx][1]
-
-            channels.append(channel)
-
-        metadata["channels"] = channels
+            )
 
         return metadata
 

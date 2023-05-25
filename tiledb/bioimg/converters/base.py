@@ -295,7 +295,7 @@ class ImageConverter:
             convert_kwargs = dict(
                 reader=reader,
                 rw_group=rw_group,
-                max_tiles=max_tiles.copy(),
+                max_tiles=max_tiles,
                 preserve_axes=preserve_axes,
                 chunked=chunked,
                 max_workers=max_workers,
@@ -321,7 +321,7 @@ class ImageConverter:
                     rw_group,
                     level_meta["uri"],
                     level_min,
-                    max_tiles.copy(),
+                    max_tiles,
                     compressors,
                     preserve_axes,
                     pyramid_kwargs,
@@ -336,8 +336,14 @@ class ImageConverter:
                     metadata["axes"].append(level_meta["axes"])
 
             for idx in range(len(metadata["channels"])):
-                metadata["channels"][idx]["min"] = channel_min_max[0].item((idx, 0))
-                metadata["channels"][idx]["max"] = channel_min_max[0].item((idx, 1))
+                metadata["channels"][idx].setdefault(
+                    "min", channel_min_max[0].item((idx, 0))
+                )
+                metadata["channels"][idx].setdefault(
+                    "max", channel_min_max[0].item((idx, 1))
+                )
+
+            metadata["channels"] = {f"{ATTR_NAME}": metadata["channels"]}
 
             original_metadata = reader.original_metadata
 
@@ -398,13 +404,17 @@ def _convert_level_to_tiledb(
         compressor.get(level, tiledb.ZstdFilter(level=0)),
     )
 
+    # We need to calculate the min-max values per channel
+    # First find the indices of all axes except 'C' needed for numpy amin and amax
     min_max_indices = tuple(
         idx for idx, char in enumerate(source_axes.dims) if char != "C"
     )
 
+    # Find the number of channels
     channel_index = source_axes.dims.find("C")
     channel_count = source_shape[channel_index] if channel_index > -1 else 1
 
+    # Initialize a numpy 2D array to hold the min-max values per channel
     channel_min_max = np.empty((channel_count, 2))
     channel_min_max[:, 0] = np.repeat(
         np.iinfo(reader.level_dtype(level)).max, channel_count
@@ -439,6 +449,7 @@ def _convert_level_to_tiledb(
                     image = reader.level_image(level, source_tile)
                     out_array[level_tile] = axes_mapper.map_array(image)
 
+                    # return a tuple containing the min-max values of the tile
                     return np.amin(image, axis=min_max_indices), np.amax(
                         image, axis=min_max_indices
                     )
@@ -451,6 +462,7 @@ def _convert_level_to_tiledb(
                     total=num_tiles(out_array.domain),
                     unit="tiles",
                 ):
+                    # Find the global min-max values from all tiles
                     compute_channel_minmax(channel_min_max, tile_min, tile_max)
                     pass
                 if ex:

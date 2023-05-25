@@ -10,7 +10,7 @@ from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffReader
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter, OMEZarrReader
-from tiledb.bioimg.helpers import open_bioimg
+from tiledb.bioimg.helpers import iter_color, open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
@@ -211,3 +211,25 @@ def test_ome_zarr_converter_group_meta(tmp_path, series_idx, preserve_axes):
             if preserve_axes:
                 assert shape[level_axes.index("T")] == 1
                 assert shape[level_axes.index("Z")] == 1
+
+
+@pytest.mark.parametrize("series_idx", [0, 1, 2])
+@pytest.mark.parametrize("preserve_axes", [False, True])
+def test_ome_zarr_converter_channel_meta(tmp_path, series_idx, preserve_axes):
+    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
+
+    with TileDBOpenSlide(str(tmp_path)) as t:
+        group_properties = t.properties
+        assert "metadata" in group_properties
+
+        image_meta = json.loads(group_properties["metadata"])
+        color_generator = iter_color(np.dtype(np.uint8))
+
+        assert len(image_meta["channels"]) == 1
+        assert "intensity" in image_meta["channels"]
+        assert len(image_meta["channels"]["intensity"]) == 3
+        for channel in image_meta["channels"]["intensity"]:
+            assert channel["color"] == next(color_generator)
+            assert channel["min"] == 0
+            assert channel["max"] == 255

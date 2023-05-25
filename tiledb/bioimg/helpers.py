@@ -114,8 +114,9 @@ def get_axes_mapper(
     compressor: Mapping[int, tiledb.Filter],
     level: int,
     preserve_axes: bool,
-    max_tiles: MutableMapping[str, int],
+    max_tiles: Mapping[str, int],
 ) -> Tuple[AxesMapper, Tuple[str, ...], MutableMapping[str, int]]:
+    tiles = dict(max_tiles)
     pixel_depth = get_pixel_depth(compressor.get(level, tiledb.ZstdFilter(level=0)))
     if pixel_depth == 1:
         if preserve_axes:
@@ -125,11 +126,11 @@ def get_axes_mapper(
         axes_mapper = source_axes.mapper(target_axes)
         dim_names = tuple(target_axes.dims)
     else:
-        max_tiles["X"] *= pixel_depth
+        tiles["X"] *= pixel_depth
         axes_mapper = source_axes.webp_mapper(pixel_depth)
         dim_names = ("Y", "X")
 
-    return axes_mapper, dim_names, max_tiles
+    return axes_mapper, dim_names, tiles
 
 
 def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
