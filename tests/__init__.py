@@ -1,5 +1,3 @@
-import multiprocessing
-import os
 from pathlib import Path
 
 import numpy as np
@@ -8,10 +6,6 @@ from skimage.metrics import structural_similarity
 import tiledb
 from tiledb.bioimg import ATTR_NAME
 from tiledb.cc import WebpInputFormat
-
-if os.name == "posix":
-    multiprocessing.set_start_method("forkserver")
-
 
 DATA_DIR = Path(__file__).parent / "data"
 
