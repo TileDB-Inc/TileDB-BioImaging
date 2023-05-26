@@ -24,9 +24,10 @@ class OMEZarrReader(ImageReader):
 
         :param input_path: The path to the Zarr image
         """
-        root_node = next(Reader(ZarrLocation(input_path))())
-        self._multiscales = cast(Multiscales, root_node.load(Multiscales))
-        self._omero = cast(Optional[OMERO], root_node.load(OMERO))
+        self._root_node = next(Reader(ZarrLocation(input_path))())
+
+        self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
+        self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
     @property
     def axes(self) -> Axes:
@@ -124,10 +125,10 @@ class OMEZarrReader(ImageReader):
 
     @property
     def original_metadata(self) -> Dict[str, Any]:
-        metadata: Dict[str, Any] = {"ZARR": {}}
+        metadata: Dict[str, Dict[str, Any]] = {"ZARR": {}}
 
-        metadata["ZARR"]["MULTISCALE"] = self._multiscales
-        metadata["ZARR"]["OMERO"] = self._omero
+        for key, value in self._root_node.root.zarr.root_attrs.items():
+            metadata["ZARR"].setdefault(key, value)
 
         return metadata
 
