@@ -11,4 +11,5 @@ ignore_errors = true
 [tool.ruff]
 ignore = ["E501"]
 extend-select = ["I001"]
+exclude = ["__init__.py"]
 fix = true
