@@ -13,11 +13,8 @@ def from_bioimg(
     src: str, dest: str, converter: Converters = Converters.OMETIFF, **kwargs: Any
 ) -> Type[ImageConverter]:
     if converter is Converters.OMETIFF:
-        OMETiffConverter.to_tiledb(source=src, output_path=dest, **kwargs)
-        return OMETiffConverter
+        return OMETiffConverter.to_tiledb(source=src, output_path=dest, **kwargs)
     elif converter is Converters.OMEZARR:
-        OMEZarrConverter.to_tiledb(source=src, output_path=dest, **kwargs)
-        return OMEZarrConverter
+        return OMEZarrConverter.to_tiledb(source=src, output_path=dest, **kwargs)
     else:
-        OpenSlideConverter.to_tiledb(source=src, output_path=dest, **kwargs)
-        return OpenSlideConverter
+        return OpenSlideConverter.to_tiledb(source=src, output_path=dest, **kwargs)
