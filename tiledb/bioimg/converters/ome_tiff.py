@@ -183,7 +183,7 @@ class OMETiffReader(ImageReader):
                         channel_metadata["emissionWavelength"] = channel[
                             "EmissionWavelength"
                         ]
-                        channel_metadata["EmissionWavelengthUnit"] = channel.get(
+                        channel_metadata["emissionWavelengthUnit"] = channel.get(
                             "EmissionWavelengthUnit", "nm"
                         )
 
