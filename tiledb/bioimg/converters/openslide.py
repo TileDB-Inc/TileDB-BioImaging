@@ -78,7 +78,7 @@ class OpenSlideReader(ImageReader):
 
     @property
     def image_metadata(self) -> Dict[str, Any]:
-        metadata = {}
+        metadata: Dict[str, Any] = {}
         color_generator = iter_color(np.dtype(np.uint8))
         properties = self._osd.properties
 
@@ -89,16 +89,16 @@ class OpenSlideReader(ImageReader):
         ]
 
         if "aperio.MPP" in properties:
-            metadata["physicalSizeX"] = properties["aperio.MPP"]
-            metadata["physicalSizeY"] = properties["aperio.MPP"]
+            metadata["physicalSizeX"] = metadata["physicalSizeY"] = properties[
+                "aperio.MPP"
+            ]
+            metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
 
         return metadata
 
     @property
     def original_metadata(self) -> Dict[str, Any]:
-        metadata = {"SVS": list(self._osd.properties.items())}
-
-        return metadata
+        return {"SVS": list(self._osd.properties.items())}
 
 
 class OpenSlideConverter(ImageConverter):

@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import jsonpickle as json
@@ -6,7 +7,8 @@ import tifffile
 
 from tiledb.cc import WebpInputFormat
 
-from ..helpers import get_rgba, iter_color, length_converter
+from .. import WHITE_RGBA
+from ..helpers import get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -146,10 +148,12 @@ class OMETiffReader(ImageReader):
         color_generator = iter_color(np.dtype(np.uint8))
 
         if self._metadata and self._tiff.is_ome:
-            if isinstance(self._metadata["OME"]["Image"], list):
-                image = self._metadata["OME"]["Image"][0]["Pixels"]
-            else:
-                image = self._metadata["OME"]["Image"]["Pixels"]
+            image_meta = self._metadata["OME"]["Image"]
+            image = (
+                image_meta[0]["Pixels"]
+                if isinstance(image_meta, list)
+                else image_meta["Pixels"]
+            )
 
             channels = []
 
@@ -176,10 +180,11 @@ class OMETiffReader(ImageReader):
                         else next(color_generator),
                     }
                     if "EmissionWavelength" in channel:
-                        channel_metadata["emissionWavelength"] = length_converter(
-                            channel["EmissionWavelength"],
-                            channel.get("EmissionWavelengthUnit", "nm"),
-                            "nm",
+                        channel_metadata["emissionWavelength"] = channel[
+                            "EmissionWavelength"
+                        ]
+                        channel_metadata["EmissionWavelengthUnit"] = channel.get(
+                            "EmissionWavelengthUnit", "nm"
                         )
 
                     channels.append(channel_metadata)
@@ -188,10 +193,9 @@ class OMETiffReader(ImageReader):
 
             for dim in ["X", "Y", "Z"]:
                 if f"PhysicalSize{dim}" in image:
-                    metadata[f"physicalSize{dim}"] = length_converter(
-                        image[f"PhysicalSize{dim}"],
-                        image.get(f"PhysicalSize{dim}Unit", "μm"),
-                        "μm",
+                    metadata[f"physicalSize{dim}"] = image[f"PhysicalSize{dim}"]
+                    metadata[f"physicalSize{dim}Unit"] = image.get(
+                        f"PhysicalSize{dim}Unit", "μm"
                     )
 
             if "TimeIncrement" in image:
@@ -222,7 +226,7 @@ class OMETiffReader(ImageReader):
                         "id": f"{idx}",
                         "name": f"Channel {idx}",
                         "color": next(
-                            color_generator, get_rgba(4294967295)
+                            color_generator, get_rgba(WHITE_RGBA)
                         ),  # decimal representation of white
                     }
                     for idx in range(num_channels)
@@ -236,19 +240,27 @@ class OMETiffReader(ImageReader):
                     info[key] = value
 
                 if "MPP" in info:
-                    metadata["physicalSizeX"] = info.get("MPP")
-                    metadata["physicalSizeΥ"] = info.get("MPP")
+                    metadata["physicalSizeX"] = metadata["physicalSizeΥ"] = info.get(
+                        "MPP"
+                    )
+                    metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
 
         return metadata
 
     @property
     def original_metadata(self) -> Dict[str, Any]:
-        metadata = {}
+        metadata: Dict[str, Any] = {}
 
-        if self._metadata and self._tiff.is_ome:
-            metadata["OME"] = self._metadata
-        elif self._tiff.is_svs:
-            metadata["SVS"] = self._tiff.pages.first.description
+        for attr in dir(self._tiff):
+            try:
+                value = getattr(self._tiff, attr)
+                if attr.endswith("metadata") and value:
+                    metadata.setdefault(attr, value)
+            except IndexError:
+                warnings.warn(f"Failed to read {attr}")
+
+        if self._tiff.is_svs:
+            metadata.setdefault("svs_metadata", self._tiff.pages.first.description)
 
         return metadata
 

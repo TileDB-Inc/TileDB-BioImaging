@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import unicodedata
 from pathlib import Path
 from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
 from urllib.parse import urlparse
@@ -13,16 +12,6 @@ from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
-
-LENGTH_UNITS = {
-    "m": 0,
-    "dm": -1,
-    "cm": -2,
-    "mm": -3,
-    unicodedata.normalize("NFKD", "μm"): -6,
-    "nm": -9,
-    "pm": -12,
-}
 
 
 class ReadWriteGroup:
@@ -59,7 +48,7 @@ class ReadWriteGroup:
                 tiledb.Array.create(uri, schema)
                 create = True
             else:
-                # The array exists but it's not added as group member with the given name.
+                # The array exists, but it's not added as group member with the given name.
                 # It is possible though that it was added as an anonymous member.
                 # In this case we should remove the member, using as key either the uri
                 # (if added with relative=False) or the name (if added with relative=True).
@@ -200,14 +189,6 @@ def get_rgba(value: int) -> Dict[str, int]:
     }
 
     return color
-
-
-def length_converter(value: float, original_unit: str, requested_unit: str) -> float:
-    result = value * 10 ** (
-        LENGTH_UNITS[unicodedata.normalize("NFKD", original_unit)]
-        - LENGTH_UNITS[unicodedata.normalize("NFKD", requested_unit)]
-    )
-    return float(result)
 
 
 def compute_channel_minmax(

@@ -12,6 +12,7 @@ from ome_zarr.writer import write_multiscale
 
 from tiledb.cc import WebpInputFormat
 
+from .. import WHITE_RGB
 from ..helpers import get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
@@ -25,7 +26,6 @@ class OMEZarrReader(ImageReader):
         :param input_path: The path to the Zarr image
         """
         self._root_node = next(Reader(ZarrLocation(input_path))())
-
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
@@ -111,7 +111,7 @@ class OMEZarrReader(ImageReader):
                     "name": channel.get("label", f"Channel:{idx}"),
                     "color": get_rgba(
                         int(
-                            channel.get("color", hex(np.random.randint(0, 16777215)))
+                            channel.get("color", hex(np.random.randint(0, WHITE_RGB)))
                             + "FF",
                             base=16,
                         )
