@@ -416,12 +416,15 @@ def _convert_level_to_tiledb(
 
     # Initialize a numpy 2D array to hold the min-max values per channel
     channel_min_max = np.empty((channel_count, 2))
-    channel_min_max[:, 0] = np.repeat(
-        np.iinfo(reader.level_dtype(level)).max, channel_count
-    )
-    channel_min_max[:, 1] = np.repeat(
-        np.iinfo(reader.level_dtype(level)).min, channel_count
-    )
+
+    if np.issubdtype(reader.level_dtype(0), np.integer):
+        min_value = np.iinfo(reader.level_dtype(level)).min
+        max_value = np.iinfo(reader.level_dtype(level)).max
+    else:
+        min_value = np.finfo(reader.level_dtype(level)).min
+        max_value = np.finfo(reader.level_dtype(level)).max
+    channel_min_max[:, 0] = np.repeat(max_value, channel_count)
+    channel_min_max[:, 1] = np.repeat(min_value, channel_count)
 
     level_metadata["axes"] = {
         "originalAxes": [*reader.axes.dims],
