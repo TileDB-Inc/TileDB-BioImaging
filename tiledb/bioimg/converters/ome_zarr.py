@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
+import numpy
 import numpy as np
 import zarr
 from numcodecs import Blosc
@@ -11,6 +12,8 @@ from ome_zarr.writer import write_multiscale
 
 from tiledb.cc import WebpInputFormat
 
+from .. import WHITE_RGB
+from ..helpers import get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -22,9 +25,9 @@ class OMEZarrReader(ImageReader):
 
         :param input_path: The path to the Zarr image
         """
-        root_node = next(Reader(ZarrLocation(input_path))())
-        self._multiscales = cast(Multiscales, root_node.load(Multiscales))
-        self._omero = cast(Optional[OMERO], root_node.load(OMERO))
+        self._root_node = next(Reader(ZarrLocation(input_path))())
+        self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
+        self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
     @property
     def axes(self) -> Axes:
@@ -78,6 +81,56 @@ class OMEZarrReader(ImageReader):
             omero=self._omero.image_data if self._omero else None,
         )
         return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
+
+    @property
+    def image_metadata(self) -> Dict[str, Any]:
+        # Based on information available at https://ngff.openmicroscopy.org/latest/#metadata
+        # The start and end values may differ from the channel min-max values as well as the
+        # min-max values of the metadata.
+        metadata: Dict[str, Any] = {}
+
+        base_type = self.level_dtype(0)
+        channel_min = (
+            np.iinfo(base_type).min
+            if np.issubdtype(base_type, numpy.integer)
+            else np.finfo(base_type).min
+        )
+        channel_max = (
+            np.iinfo(base_type).max
+            if np.issubdtype(base_type, np.integer)
+            else np.finfo(base_type).max
+        )
+
+        metadata["channels"] = []
+
+        omero_metadata = self._multiscales.lookup("omero", {})
+        for idx, channel in enumerate(omero_metadata.get("channels", [])):
+            metadata["channels"].append(
+                {
+                    "id": f"{idx}",
+                    "name": channel.get("label", f"Channel:{idx}"),
+                    "color": get_rgba(
+                        int(
+                            channel.get("color", hex(np.random.randint(0, WHITE_RGB)))
+                            + "FF",
+                            base=16,
+                        )
+                    ),
+                    "min": channel.get("window", {}).get("start", channel_min),
+                    "max": channel.get("window", {}).get("end", channel_max),
+                }
+            )
+
+        return metadata
+
+    @property
+    def original_metadata(self) -> Dict[str, Any]:
+        metadata: Dict[str, Dict[str, Any]] = {"ZARR": {}}
+
+        for key, value in self._root_node.root.zarr.root_attrs.items():
+            metadata["ZARR"].setdefault(key, value)
+
+        return metadata
 
 
 class OMEZarrWriter(ImageWriter):

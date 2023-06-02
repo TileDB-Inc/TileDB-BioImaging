@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Tuple
+from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -11,7 +11,7 @@ import tiledb
 from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
-from .converters.scale import Scaler
+from .converters.axes import Axes, AxesMapper
 
 
 class ReadWriteGroup:
@@ -48,7 +48,7 @@ class ReadWriteGroup:
                 tiledb.Array.create(uri, schema)
                 create = True
             else:
-                # The array exists but it's not added as group member with the given name.
+                # The array exists, but it's not added as group member with the given name.
                 # It is possible though that it was added as an anonymous member.
                 # In this case we should remove the member, using as key either the uri
                 # (if added with relative=False) or the name (if added with relative=True).
@@ -97,45 +97,29 @@ def get_schema(
     return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
 
 
-def create_image_pyramid(
-    rw_group: ReadWriteGroup,
-    base_uri: str,
-    base_level: int,
+def get_axes_mapper(
+    source_axes: Axes,
+    source_shape: Tuple[int, ...],
+    compressor: Mapping[int, tiledb.Filter],
+    level: int,
+    preserve_axes: bool,
     max_tiles: Mapping[str, int],
-    compressors: Mapping[int, tiledb.Filter],
-    pyramid_kwargs: Mapping[str, Any],
-) -> Mapping[int, tiledb.Filter]:
-    with open_bioimg(base_uri) as a:
-        base_shape = a.shape
-        dim_names = tuple(dim.name for dim in a.domain)
-        dim_axes = "".join(dim_names)
-        attr_dtype = a.attr(0).dtype
+) -> Tuple[AxesMapper, Tuple[str, ...], MutableMapping[str, int]]:
+    tiles = dict(max_tiles)
+    pixel_depth = get_pixel_depth(compressor.get(level, tiledb.ZstdFilter(level=0)))
+    if pixel_depth == 1:
+        if preserve_axes:
+            target_axes = source_axes
+        else:
+            target_axes = source_axes.canonical(source_shape)
+        axes_mapper = source_axes.mapper(target_axes)
+        dim_names = tuple(target_axes.dims)
+    else:
+        tiles["X"] *= pixel_depth
+        axes_mapper = source_axes.webp_mapper(pixel_depth)
+        dim_names = ("Y", "X")
 
-    scaler = Scaler(base_shape, dim_axes, **pyramid_kwargs)
-
-    for i, dim_shape in enumerate(scaler.level_shapes):
-        level = base_level + 1 + i
-
-        # The compressor of level 0 is used for the newly created scaled levels
-        scaler.update_compressors(level, compressors[base_level])
-        schema = get_schema(
-            dim_names, dim_shape, max_tiles, attr_dtype, compressors[base_level]
-        )
-        uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
-        if not created:
-            continue
-
-        with open_bioimg(uri, mode="w") as out_array:
-            out_array.meta.update(level=level)
-            with open_bioimg(base_uri) as in_array:
-                scaler.apply(in_array, out_array, i)
-
-        # if a non-progressive method is used, the input layer of the scaler
-        # is the base image layer else we use the previously generated layer
-        if scaler.progressive:
-            base_uri = uri
-
-    return scaler.compressors
+    return axes_mapper, dim_names, tiles
 
 
 def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
@@ -164,3 +148,51 @@ def get_pixel_depth(compressor: tiledb.Filter) -> int:
     if webp_format in (WebpInputFormat.WEBP_RGBA, WebpInputFormat.WEBP_BGRA):
         return 4
     raise ValueError(f"Invalid WebpInputFormat: {compressor.input_format}")
+
+
+def get_axes_translation(
+    compressor: tiledb.Filter, axes: str
+) -> Mapping[str, Sequence[str]]:
+    if isinstance(compressor, tiledb.WebpFilter):
+        return {"Y": ["Y"], "X": ["X", "C"]}
+
+    return {axis: [axis] for axis in axes}
+
+
+def iter_color(attr_type: np.dtype) -> Iterator[Dict[str, int]]:
+    min_val = np.iinfo(attr_type).min
+    max_val = np.iinfo(attr_type).max
+
+    yield {"red": max_val, "green": min_val, "blue": min_val, "alpha": max_val}
+    yield {"red": min_val, "green": max_val, "blue": min_val, "alpha": max_val}
+    yield {"red": min_val, "green": min_val, "blue": max_val, "alpha": max_val}
+
+    while True:
+        if np.issubdtype(attr_type, np.integer):
+            red = np.random.randint(low=min_val, high=max_val, dtype=attr_type)
+            green = np.random.randint(low=min_val, high=max_val, dtype=attr_type)
+            blue = np.random.randint(low=min_val, high=max_val, dtype=attr_type)
+        else:
+            red = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
+            green = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
+            blue = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
+
+        yield {"red": red, "green": green, "blue": blue, "alpha": max_val}
+
+
+def get_rgba(value: int) -> Dict[str, int]:
+    color = {
+        "red": (value & 0xFF000000) // 2**24,
+        "green": (value & 0x00FF0000) // 2**16,
+        "blue": (value & 0x0000FF00) // 2**8,
+        "alpha": value & 0x000000FF,
+    }
+
+    return color
+
+
+def compute_channel_minmax(
+    min_max: np.ndarray, tile_min: np.ndarray, tile_max: np.ndarray
+) -> None:
+    min_max[:, 0] = np.minimum(min_max[:, 0], tile_min)
+    min_max[:, 1] = np.maximum(min_max[:, 1], tile_max)
