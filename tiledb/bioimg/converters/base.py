@@ -205,7 +205,7 @@ class ImageConverter:
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
         reader_kwargs: Mapping[str, Any] = {},
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
-    ) -> None:
+    ) -> Type[ImageConverter]:
         """
         Convert an image to a TileDB Group of Arrays, one per level.
 
@@ -366,6 +366,7 @@ class ImageConverter:
                 metadata=jsonpickle.encode(metadata, unpicklable=False),
                 original_metadata=jsonpickle.encode(original_metadata),
             )
+        return cls
 
 
 def _convert_level_to_tiledb(
