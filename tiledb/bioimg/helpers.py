@@ -169,9 +169,9 @@ def iter_color(attr_type: np.dtype) -> Iterator[Dict[str, int]]:
 
     while True:
         if np.issubdtype(attr_type, np.integer):
-            red = np.random.randint(low=min_val, high=max_val, dtype=attr_type)
-            green = np.random.randint(low=min_val, high=max_val, dtype=attr_type)
-            blue = np.random.randint(low=min_val, high=max_val, dtype=attr_type)
+            red = np.random.randint(low=min_val, high=max_val, dtype=attr_type).item(0)
+            green = np.random.randint(low=min_val, high=max_val, dtype=attr_type).item(0)
+            blue = np.random.randint(low=min_val, high=max_val, dtype=attr_type).item(0)
         else:
             red = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
             green = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
