@@ -16,7 +16,7 @@ def qpi_original_meta(file: TiffFile) -> List[Dict[str, Any]]:
 def qpi_image_meta(baseline: TiffPageSeries) -> Dict[str, Any]:
     # https://downloads.openmicroscopy.org/images/Vectra-QPTIFF/perkinelmer/PKI_Image%20Format.docx
     # Read the channel information from the tiff pages
-    metadata: Dict[str, Any] = {"colors": []}
+    metadata: Dict[str, Any] = {"channels": []}
 
     metadata["physicalSizeX"] = metadata["physicalSizeΥ"] = (
         1 / baseline.keyframe.resolution[0]
