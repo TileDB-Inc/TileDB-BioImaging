@@ -28,18 +28,8 @@ def qpi_image_meta(baseline: TiffPageSeries) -> Dict[str, Any]:
         )
         if page.photometric == tifffile.PHOTOMETRIC.RGB:
             pass
-
         else:
-            print(
-                {
-                    name: value
-                    for name, value in zip(
-                        ["red", "green", "blue"],
-                        page_metadata.get("Color", "255,255,255").split(","),
-                    )
-                }
-            )
-            metadata["colors"].append(
+            metadata["channels"].append(
                 {
                     "name": page_metadata.get("Name", f"Channel {idx}"),
                     "id": f"{idx}",
