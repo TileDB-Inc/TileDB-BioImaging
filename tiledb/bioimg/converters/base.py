@@ -262,8 +262,9 @@ class ImageConverter:
         else:
             raise NotImplementedError(f"{cls} does not support importing")
 
-        max_tiles = cls._DEFAULT_TILES.copy()
-        max_tiles.update(tiles)
+        max_tiles = cls._DEFAULT_TILES
+        if tiles:
+            max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
 
