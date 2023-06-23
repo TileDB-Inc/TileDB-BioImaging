@@ -167,7 +167,7 @@ class ImageConverter:
         *,
         level_min: int = 0,
         attr: str = ATTR_NAME,
-        config: Union[tiledb.Config, Mapping[str, Any]] = None
+        config: Union[tiledb.Config, Mapping[str, Any]] = None,
     ) -> None:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level
@@ -181,11 +181,14 @@ class ImageConverter:
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        destination_uri = output_path
         if config is not None:
-            cfg = tiledb.Config(params = config) if isinstance(config, Mapping) else config
+            cfg = (
+                tiledb.Config(params=config) if isinstance(config, Mapping) else config
+            )
             vfs = tiledb.VFS(config=cfg)
-            destination_uri = vfs.open(output_path, 'wb')
+            destination_uri = vfs.open(output_path, "wb")
+        else:
+            destination_uri = output_path
 
         slide = TileDBOpenSlide(input_path, attr=attr)
         writer = cls._ImageWriterType(destination_uri)
