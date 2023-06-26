@@ -181,32 +181,28 @@ class ImageConverter:
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        vfs_use = output_path.startswith("s3://")
-        if vfs_use:
-            cfg = (
-                tiledb.Config(params=dict(config))
-                if isinstance(config, Mapping)
-                else config
-            )
-            vfs = tiledb.VFS(config=cfg)
-            destination_uri = vfs.open(output_path, "wb")
-        else:
-            destination_uri = output_path
+        with tiledb.scope_ctx(config):
+            vfs_use = output_path.startswith("s3://")
+            if vfs_use:
+                vfs = tiledb.VFS()
+                destination_uri = vfs.open(output_path, "wb")
+            else:
+                destination_uri = output_path
 
-        slide = TileDBOpenSlide(input_path, attr=attr)
-        writer = cls._ImageWriterType(destination_uri)
+            slide = TileDBOpenSlide(input_path, attr=attr)
+            writer = cls._ImageWriterType(destination_uri)
 
-        with slide, writer:
-            writer.write_group_metadata(slide.properties)
-            for level in slide.levels:
-                if level < level_min:
-                    continue
-                level_image = slide.read_level(level, to_original_axes=True)
-                level_metadata = slide.level_properties(level)
-                writer.write_level_image(level, level_image, level_metadata)
+            with slide, writer:
+                writer.write_group_metadata(slide.properties)
+                for level in slide.levels:
+                    if level < level_min:
+                        continue
+                    level_image = slide.read_level(level, to_original_axes=True)
+                    level_metadata = slide.level_properties(level)
+                    writer.write_level_image(level, level_image, level_metadata)
 
-        if vfs_use:
-            destination_uri.close()
+            if vfs_use:
+                destination_uri.close()
 
     @classmethod
     def to_tiledb(
