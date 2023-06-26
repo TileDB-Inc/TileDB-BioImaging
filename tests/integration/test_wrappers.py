@@ -29,6 +29,8 @@ def test_from_bioimg_wrapper(tmp_path, converter, file_path):
     elif converter == Converters.OSD:
         rtype = from_bioimg(input_path, output_path, converter=converter)
         assert rtype == OpenSlideConverter
+        with pytest.raises(NotImplementedError):
+            to_bioimg(output_path, output_path_round, converter=converter)
     else:
         input_path = input_path / str(0)
         rfromtype = from_bioimg(input_path, output_path, converter=converter)
