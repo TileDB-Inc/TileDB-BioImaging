@@ -31,7 +31,7 @@ def from_bioimg(
 
 def to_bioimg(
     src: str, dest: str, converter: Converters = Converters.OMETIFF, **kwargs: Any
-) -> None:
+) -> Type[ImageConverter]:
     """
     This function is a wrapper and serves as an all-inclusive API for encapsulating the
     exportation of TileDB ingested bio-images back into different file formats

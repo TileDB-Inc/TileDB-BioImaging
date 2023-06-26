@@ -168,7 +168,7 @@ class ImageConverter:
         level_min: int = 0,
         attr: str = ATTR_NAME,
         config: Union[tiledb.Config, Mapping[str, Any]] = None,
-    ) -> None:
+    ) -> Type[ImageConverter]:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level
         :param input_path: path to the TileDB group of arrays
@@ -203,6 +203,8 @@ class ImageConverter:
 
             if vfs_use:
                 destination_uri.close()
+
+        return cls
 
     @classmethod
     def to_tiledb(
@@ -262,9 +264,8 @@ class ImageConverter:
         else:
             raise NotImplementedError(f"{cls} does not support importing")
 
-        max_tiles = cls._DEFAULT_TILES
-        if tiles:
-            max_tiles.update(tiles)
+        max_tiles = cls._DEFAULT_TILES.copy()
+        max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
 
