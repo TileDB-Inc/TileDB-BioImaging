@@ -181,9 +181,12 @@ class ImageConverter:
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        if config is not None:
+        vfs_use = output_path.startswith("s3://")
+        if vfs_use:
             cfg = (
-                tiledb.Config(params=config) if isinstance(config, Mapping) else config
+                tiledb.Config(params=dict(config))
+                if isinstance(config, Mapping)
+                else config
             )
             vfs = tiledb.VFS(config=cfg)
             destination_uri = vfs.open(output_path, "wb")
@@ -202,7 +205,7 @@ class ImageConverter:
                 level_metadata = slide.level_properties(level)
                 writer.write_level_image(level, level_image, level_metadata)
 
-        if config:
+        if vfs_use:
             destination_uri.close()
 
     @classmethod
