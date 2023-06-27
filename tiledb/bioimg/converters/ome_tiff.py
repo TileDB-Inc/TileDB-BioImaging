@@ -271,8 +271,9 @@ class OMETiffWriter(ImageWriter):
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
+        tiffwriter_kwargs.pop("append")
         self._writer = tifffile.TiffWriter(
-            self._output_path, shaped=False, **tiffwriter_kwargs
+            self._output_path, shaped=False, append=False, **tiffwriter_kwargs
         )
 
     def write_level_image(

@@ -119,7 +119,7 @@ def test_ome_zarr_converter_rountrip(
         compressor=compressor,
     )
     # Store it back to NGFF Zarr
-    OMEZarrConverter.from_tiledb(str(tiledb_path), output_path)
+    OMEZarrConverter.from_tiledb(str(tiledb_path), str(output_path))
 
     # Same number of levels
     input_group = zarr.open_group(input_path, mode="r")

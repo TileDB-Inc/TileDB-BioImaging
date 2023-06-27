@@ -167,29 +167,42 @@ class ImageConverter:
         *,
         level_min: int = 0,
         attr: str = ATTR_NAME,
+        config: Union[tiledb.Config, Mapping[str, Any]] = None,
     ) -> None:
         """
-        Convert a TileDB Group of Arrays back to other format images, one per level.
-
+        Convert a TileDB Group of Arrays back to other format images, one per level
         :param input_path: path to the TileDB group of arrays
         :param output_path: path to the image
         :param level_min: minimum level of the image to be converted. By default set to 0
-            to convert all levels.
+            to convert all levels
         :param attr: attribute name for backwards compatiblity support
+        :param config: tiledb configuration either a dict or a tiledb.Config
         """
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        slide = TileDBOpenSlide(input_path, attr=attr)
-        writer = cls._ImageWriterType(output_path)
-        with slide, writer:
-            writer.write_group_metadata(slide.properties)
-            for level in slide.levels:
-                if level < level_min:
-                    continue
-                level_image = slide.read_level(level, to_original_axes=True)
-                level_metadata = slide.level_properties(level)
-                writer.write_level_image(level, level_image, level_metadata)
+        with tiledb.scope_ctx(config):
+            vfs_use = output_path.startswith("s3://")
+            if vfs_use:
+                vfs = tiledb.VFS()
+                destination_uri = vfs.open(output_path, "wb")
+            else:
+                destination_uri = output_path
+
+            slide = TileDBOpenSlide(input_path, attr=attr)
+            writer = cls._ImageWriterType(destination_uri)
+
+            with slide, writer:
+                writer.write_group_metadata(slide.properties)
+                for level in slide.levels:
+                    if level < level_min:
+                        continue
+                    level_image = slide.read_level(level, to_original_axes=True)
+                    level_metadata = slide.level_properties(level)
+                    writer.write_level_image(level, level_image, level_metadata)
+
+            if vfs_use:
+                destination_uri.close()
 
     @classmethod
     def to_tiledb(
