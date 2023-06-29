@@ -183,20 +183,21 @@ class ImageConverter:
 
         with tiledb.scope_ctx(config):
             vfs = tiledb.VFS()
-            with vfs.open(output_path, "wb") as destination:
-                slide = TileDBOpenSlide(input_path, attr=attr)
-                writer = cls._ImageWriterType(destination)
+            destination_uri = vfs.open(output_path, "wb")
+            slide = TileDBOpenSlide(input_path, attr=attr)
+            writer = cls._ImageWriterType(destination_uri)
 
-                with slide, writer:
-                    writer.write_group_metadata(slide.properties)
-                    for level in slide.levels:
-                        if level < level_min:
-                            continue
-                        level_image = slide.read_level(level, to_original_axes=True)
-                        level_metadata = slide.level_properties(level)
-                        writer.write_level_image(level, level_image, level_metadata)
+            with slide, writer:
+                writer.write_group_metadata(slide.properties)
+                for level in slide.levels:
+                    if level < level_min:
+                        continue
+                    level_image = slide.read_level(level, to_original_axes=True)
+                    level_metadata = slide.level_properties(level)
+                    writer.write_level_image(level, level_image, level_metadata)
 
-        return cls
+            if destination_uri.closed:
+                destination_uri._fh._close()
 
     @classmethod
     def to_tiledb(
