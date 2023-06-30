@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os.path
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
@@ -182,8 +183,10 @@ class ImageConverter:
             raise NotImplementedError(f"{cls} does not support exporting")
 
         with tiledb.scope_ctx(config):
-            vfs = tiledb.VFS()
-            destination_uri = vfs.open(output_path, "wb")
+            vfs_use = output_path.startswith("s3://")
+            destination_uri = (
+                f"/dev/shm/{os.path.basename(output_path)}" if vfs_use else output_path
+            )
             slide = TileDBOpenSlide(input_path, attr=attr)
             writer = cls._ImageWriterType(destination_uri)
 
@@ -196,8 +199,12 @@ class ImageConverter:
                     level_metadata = slide.level_properties(level)
                     writer.write_level_image(level, level_image, level_metadata)
 
-            if destination_uri.closed:
-                destination_uri._fh._close()
+            if vfs_use:
+                with open(destination_uri, "rb") as data:
+                    vfs = tiledb.VFS()
+                    with vfs.open(output_path, "wb") as dest:
+                        dest.write(data.read())
+        return cls
 
     @classmethod
     def to_tiledb(
