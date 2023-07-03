@@ -1,14 +1,16 @@
 import warnings
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
+import jsonpickle
 import jsonpickle as json
 import numpy as np
 import tifffile
+import decimal
 
 from tiledb.cc import WebpInputFormat
 
 from .. import WHITE_RGBA
-from ..helpers import get_rgba, iter_color
+from ..helpers import get_decimal, get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .metadata import qpi_image_meta, qpi_original_meta
@@ -192,7 +194,7 @@ class OMETiffReader(ImageReader):
 
             metadata["channels"] = channels
 
-            for dim in ["X", "Y", "Z"]:
+            for dim in ['X', 'Y', 'Z']:
                 if f"PhysicalSize{dim}" in image:
                     metadata[f"physicalSize{dim}"] = image[f"PhysicalSize{dim}"]
                     metadata[f"physicalSize{dim}Unit"] = image.get(
@@ -242,10 +244,10 @@ class OMETiffReader(ImageReader):
                     info[key] = value
 
                 if "MPP" in info:
-                    metadata["physicalSizeX"] = metadata["physicalSizeΥ"] = info.get(
+                    metadata["physicalSizeX"] = metadata["physicalSizeY"] = info.get(
                         "MPP"
                     )
-                    metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
+                    metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "μm"
 
         return metadata
 
@@ -274,16 +276,92 @@ class OMETiffWriter(ImageWriter):
         self._output_path = output_path
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
-        tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
+        # tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
         self._writer = tifffile.TiffWriter(
-            self._output_path, shaped=False, **tiffwriter_kwargs
+            self._output_path, shaped=False, bigtiff=True, append=False, ome=True
         )
 
     def write_level_image(
-        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+        self,
+        level: int,
+        num_levels: int,
+        image: np.ndarray,
+        metadata: Mapping[str, Any],
     ) -> None:
-        write_kwargs = json.loads(metadata["json_write_kwargs"])
+        axes_metadata = metadata.get("axes", {})
+        channel_metadata = metadata.get("channels", [])
+        axes = "".join(axes_metadata.get("originalAxes"))
+
+        write_kwargs: Dict[str, Any] = {}
+        if level == 0:
+            write_kwargs["subifds"] = num_levels - 1 if num_levels > 1 else None
+        else:
+            write_kwargs["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
+
+        write_kwargs["tile"] = (256, 256)
+        write_kwargs["photometric"] = metadata.get('json_write_kwargs').get('photometric')
+
+        if len(channel_metadata) == 3:
+            write_kwargs["compression"] = metadata.get('json_write_kwargs').get('compression', tifffile.COMPRESSION.JPEG)
+            write_kwargs["metadata"] = {
+                "axes": "".join(axes_metadata.get("originalAxes")),
+                "Channel": {
+                    "Name": [
+                        name
+                        for name in ['red', 'green', 'blue']
+                    ],
+                    "Color": [
+                        str(get_decimal(channel.get("color", WHITE_RGBA)))
+                        for channel in channel_metadata
+                    ],
+                },
+            }
+        else:
+            write_kwargs["compression"] = tifffile.COMPRESSION.ADOBE_DEFLATE
+            write_kwargs["metadata"] = {
+                "axes": "".join(axes_metadata.get("originalAxes")),
+                "Channel": {
+                    "Name": [
+                        channel.get("name", f"Channel {idx}")
+                        for idx, channel in enumerate(channel_metadata)
+                    ],
+                    "Color": [
+                        str(get_decimal(channel.get("color", WHITE_RGBA)))
+                        for channel in channel_metadata
+                    ],
+                },
+            }
+
+        ctx = decimal.Context()
+        ctx.prec = 32
+
+        for dim in ['X', 'Y', 'Z']:
+            if dim in axes:
+                write_kwargs["metadata"][f'PhysicalSize{dim}'] = format(ctx.create_decimal(repr(metadata.get(f"physicalSize{dim}", 1))), 'f')
+                write_kwargs["metadata"][f'PhysicalSize{dim}Unit'] = metadata.get(f"physicalSize{dim}Unit", 'µm')
+
+        if 'T' in axes:
+            write_kwargs["metadata"]['TimeIncrement'] = format(ctx.create_decimal(repr(metadata.get("timeIncrement", 1))), 'f')
+            write_kwargs["metadata"]['TimeIncrementUnit'] = metadata.get("timeIncrementUnit", 's')
+
+        # dims = []
+        # for idx, axis in enumerate(metadata.get('originalAxes')):
+        #     if axis in {'X', 'Y'}:
+        #         dims.append([slice(None)])
+        #     else:
+        #         dims.append([slice(index, index + 1) for index in range(metadata.get('originalShape')[idx])])
+        #
+        # for sl in itertools.product(*dims):
+        print(write_kwargs)
         self._writer.write(image, **write_kwargs)
+
+        # write_kwargs2 = json.loads(metadata["json_write_kwargs"])
+        # write_kwargs = jsonpickle.loads(metadata["json_write_kwargs"])
+        # write_kwargs['subifds'] = 3 if level == 1 else None
+        # write_kwargs['subfiletype'] = None if level == 1 else 0
+
+        # print(write_kwargs)
+        # self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._writer.close()
