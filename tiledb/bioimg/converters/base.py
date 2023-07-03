@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import os.path
+import os
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
@@ -39,15 +39,19 @@ from ..helpers import (
     get_axes_mapper,
     get_axes_translation,
     get_schema,
+    is_local_path,
     iter_levels_meta,
     iter_pixel_depths_meta,
     open_bioimg,
+    resolve_path,
 )
 from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
 from . import DATASET_TYPE, FMT_VERSION
 from .axes import Axes
 from .tiles import iter_tiles, num_tiles
+
+DEFAULT_SCRATCH_SPACE = "/dev/shm"
 
 
 class ImageReader(ABC):
@@ -169,6 +173,7 @@ class ImageConverter:
         level_min: int = 0,
         attr: str = ATTR_NAME,
         config: Union[tiledb.Config, Mapping[str, Any]] = None,
+        scratch_space: str = DEFAULT_SCRATCH_SPACE,
     ) -> Type[ImageConverter]:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level
@@ -178,14 +183,20 @@ class ImageConverter:
             to convert all levels
         :param attr: attribute name for backwards compatiblity support
         :param config: tiledb configuration either a dict or a tiledb.Config
+        :param scratch_space: shared memory or cache space for cloud random access export support
         """
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
         with tiledb.scope_ctx(config):
-            vfs_use = output_path.startswith("s3://")
+            out_uri_res, scheme = resolve_path(output_path)
+            vfs_use = False if is_local_path(scheme) else True
+
+            # OS specific
             destination_uri = (
-                f"/dev/shm/{os.path.basename(output_path)}" if vfs_use else output_path
+                os.path.join(scratch_space, os.path.basename(out_uri_res))
+                if vfs_use
+                else out_uri_res
             )
             slide = TileDBOpenSlide(input_path, attr=attr)
             writer = cls._ImageWriterType(destination_uri)
@@ -200,6 +211,7 @@ class ImageConverter:
                     writer.write_level_image(level, level_image, level_metadata)
 
             if vfs_use:
+                # Flush to remote
                 with open(destination_uri, "rb") as data:
                     vfs = tiledb.VFS()
                     with vfs.open(output_path, "wb") as dest:
