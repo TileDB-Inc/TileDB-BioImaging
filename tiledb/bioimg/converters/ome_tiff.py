@@ -4,11 +4,12 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 import jsonpickle as json
 import numpy as np
 import tifffile
+import decimal
 
 from tiledb.cc import WebpInputFormat
 
 from .. import WHITE_RGBA
-from ..helpers import get_rgba, iter_color
+from ..helpers import get_decimal, get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .metadata import qpi_image_meta, qpi_original_meta
@@ -192,7 +193,7 @@ class OMETiffReader(ImageReader):
 
             metadata["channels"] = channels
 
-            for dim in ["X", "Y", "Z"]:
+            for dim in ['X', 'Y', 'Z']:
                 if f"PhysicalSize{dim}" in image:
                     metadata[f"physicalSize{dim}"] = image[f"PhysicalSize{dim}"]
                     metadata[f"physicalSize{dim}Unit"] = image.get(
@@ -242,10 +243,10 @@ class OMETiffReader(ImageReader):
                     info[key] = value
 
                 if "MPP" in info:
-                    metadata["physicalSizeX"] = metadata["physicalSizeΥ"] = info.get(
+                    metadata["physicalSizeX"] = metadata["physicalSizeY"] = info.get(
                         "MPP"
                     )
-                    metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
+                    metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "μm"
 
         return metadata
 
