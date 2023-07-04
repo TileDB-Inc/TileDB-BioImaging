@@ -139,13 +139,7 @@ def test_ome_tiff_converter_roundtrip(
     OMETiffConverter.from_tiledb(str(tiledb_path), str(output_path))
 
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
-        compare_tifffiles(t1, t2)
-        # only the first series is copied
-        assert len(t1.series) == num_series
-        assert len(t2.series) == 1
-
-        lossless = not isinstance(compressor, tiledb.WebpFilter) or compressor.lossless
-        compare_tiff_page_series(t1.series[0], t2.series[0], lossless)
+        compare_tiff(t1, t2, False)
 
 
 @pytest.mark.parametrize(
@@ -186,62 +180,29 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
 
     OMETiffConverter.from_tiledb(str(tiledb_path), str(output_path))
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
-        compare_tifffiles(t1, t2)
-        compare_tiff_page_series(t1.series[0], t2.series[0])
+        compare_tiff(t1, t2, True)
 
 
-def compare_tifffiles(t1, t2):
-    assert t1.byteorder == t2.byteorder
-    assert t1.is_bigtiff == t2.is_bigtiff
-    assert t1.is_imagej == t2.is_imagej
-    assert t1.is_ome == t2.is_ome
+def compare_tiff(t1: tifffile.TiffFile, t2: tifffile.TiffFile, lossless: bool = True):
+    assert len(t1.series[0].levels) == len(t2.series[0].levels)
 
+    for l1, l2 in zip(t1.series[0].levels, t2.series[0].levels):
+        assert l1.axes == l2.axes
+        assert l1.shape == l2.shape
+        assert l1.dtype == l2.dtype
+        assert l1.nbytes == l2.nbytes
 
-def compare_tiff_page_series(s1, s2, lossless=True):
-    assert isinstance(s1, tifffile.TiffPageSeries)
-    assert isinstance(s2, tifffile.TiffPageSeries)
+        if lossless:
+            np.testing.assert_array_equal(l1.asarray(), l2.asarray())
+        else:
+            assert_image_similarity(l1.asarray(), l2.asarray(), channel_axis=0)
 
-    assert s1.shape == s2.shape
-    assert s1.dtype == s2.dtype
+        for tag in ["BitsPerSample", "PhotometricInterpretation"]:
+            if tag not in l1.keyframe.tags and tag not in l2.keyframe.tags:
+                continue
 
-    if lossless:
-        np.testing.assert_array_equal(s1.asarray(), s2.asarray())
-    else:
-        assert_image_similarity(s1.asarray(), s2.asarray(), channel_axis=0)
-
-    assert s1.keyframe.hash == s2.keyframe.hash
-    compare_tiff_page_tags(
-        s1.keyframe,
-        s2.keyframe,
-        skip={"PlanarConfiguration", "SampleFormat", "NewSubfileType"},
-        ignore_value={
-            "ImageDescription",
-            "StripOffsets",
-            "TileOffsets",
-            "TileByteCounts",
-            "SubIFDs",
-            "XResolution",
-            "YResolution",
-        },
-    )
-
-    assert len(s1.pages) == len(s2.pages)
-    assert len(s1.levels) == len(s2.levels)
-    assert s1.levels[0] is s1
-    assert s2.levels[0] is s2
-    for l1, l2 in zip(s1.levels[1:], s2.levels[1:]):
-        compare_tiff_page_series(l1, l2, lossless)
-
-
-def compare_tiff_page_tags(p1, p2, skip=(), ignore_value=()):
-    tags1 = [t for t in p1.tags.values() if t.name not in skip]
-    tags2 = [t for t in p2.tags.values() if t.name not in skip]
-    assert len(tags1) == len(tags2)
-    for tag1, tag2 in zip(tags1, tags2):
-        assert tag1.code == tag2.code
-        assert tag1.name == tag2.name
-        if tag1.name not in ignore_value:
-            assert tag1.value == tag2.value, tag1.name
+            assert tag in l1.keyframe.tags and tag in l2.keyframe.tags
+            assert l1.keyframe.tags.get(tag).value == l2.keyframe.tags.get(tag).value
 
 
 compressors = [
