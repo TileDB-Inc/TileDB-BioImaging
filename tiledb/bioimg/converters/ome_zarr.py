@@ -151,7 +151,12 @@ class OMEZarrWriter(ImageWriter):
         self._group_metadata = json.loads(metadata["json_zarrwriter_kwargs"])
 
     def write_level_image(
-        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+        self,
+        level: int,
+        baseline: bool,
+        num_levels: int,
+        image: np.ndarray,
+        metadata: Mapping[str, Any],
     ) -> None:
         # store the image to be written at __exit__
         self._pyramid.append(image)

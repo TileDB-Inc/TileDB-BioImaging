@@ -159,13 +159,16 @@ def get_axes_translation(
     return {axis: [axis] for axis in axes}
 
 
-def iter_color(attr_type: np.dtype) -> Iterator[Dict[str, int]]:
+def iter_color(attr_type: np.dtype, channel_num: int = 3) -> Iterator[Dict[str, int]]:
     min_val = np.iinfo(attr_type).min
     max_val = np.iinfo(attr_type).max
 
-    yield {"red": max_val, "green": min_val, "blue": min_val, "alpha": max_val}
-    yield {"red": min_val, "green": max_val, "blue": min_val, "alpha": max_val}
-    yield {"red": min_val, "green": min_val, "blue": max_val, "alpha": max_val}
+    if channel_num == 1:
+        yield {"red": max_val, "green": max_val, "blue": max_val, "alpha": max_val}
+    elif channel_num == 3:
+        yield {"red": max_val, "green": min_val, "blue": min_val, "alpha": max_val}
+        yield {"red": min_val, "green": max_val, "blue": min_val, "alpha": max_val}
+        yield {"red": min_val, "green": min_val, "blue": max_val, "alpha": max_val}
 
     while True:
         if np.issubdtype(attr_type, np.integer):
@@ -191,6 +194,20 @@ def get_rgba(value: int) -> Dict[str, int]:
     }
 
     return color
+
+
+def get_decimal_from_rgba(color: Mapping[str, int]) -> int:
+    decimal_color = (
+        (color["red"] << 24)
+        + (color["green"] << 16)
+        + (color["blue"] << 8)
+        + (color["alpha"])
+    )
+
+    if decimal_color >> 31 == 1:
+        return -((~decimal_color & 0xFFFFFFFF) + 1)
+    else:
+        return decimal_color
 
 
 def compute_channel_minmax(

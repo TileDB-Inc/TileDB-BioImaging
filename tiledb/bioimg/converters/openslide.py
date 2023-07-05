@@ -89,10 +89,10 @@ class OpenSlideReader(ImageReader):
         ]
 
         if "aperio.MPP" in properties:
-            metadata["physicalSizeX"] = metadata["physicalSizeY"] = properties[
-                "aperio.MPP"
-            ]
-            metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
+            metadata["physicalSizeX"] = metadata["physicalSizeY"] = float(
+                properties["aperio.MPP"]
+            )
+            metadata["physicalSizeYUnit"] = metadata["physicalSizeYUnit"] = "µm"
 
         return metadata
 
