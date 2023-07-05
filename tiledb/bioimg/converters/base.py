@@ -172,6 +172,7 @@ class ImageConverter:
         *,
         level_min: int = 0,
         attr: str = ATTR_NAME,
+        config: Union[tiledb.Config, Mapping[str, Any]] = None,
     ) -> None:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level.
@@ -185,59 +186,70 @@ class ImageConverter:
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        writer = cls._ImageWriterType(output_path)
-        input_group = tiledb.Group(input_path)
+        with tiledb.scope_ctx(config):
+            vfs_use = output_path.startswith("s3://")
+            if vfs_use:
+                vfs = tiledb.VFS()
+                destination_uri = vfs.open(output_path, "wb")
+            else:
+                destination_uri = output_path
 
-        with input_group, writer:
-            raw_group_meta = dict(input_group.meta)
-            assert raw_group_meta == input_group.meta
-            metadata = jsonpickle.loads(input_group.meta["metadata"])
-            writer.write_group_metadata(raw_group_meta)
-            for idx, (member, axes_metadata) in enumerate(
-                zip(input_group, metadata.get("axes", []))
-            ):
-                if idx < level_min:
-                    continue
+            writer = cls._ImageWriterType(destination_uri)
+            input_group = tiledb.Group(input_path)
 
-                with tiledb.open(member.uri, mode="r") as array:
-                    attr_filter = array.attr(attr).filters[0]
-                    raw_array_meta = dict(array.meta)
+            with input_group, writer:
+                raw_group_meta = dict(input_group.meta)
+                assert raw_group_meta == input_group.meta
+                metadata = jsonpickle.loads(input_group.meta["metadata"])
+                writer.write_group_metadata(raw_group_meta)
+                for idx, (member, axes_metadata) in enumerate(
+                    zip(input_group, metadata.get("axes", []))
+                ):
+                    if idx < level_min:
+                        continue
 
-                    if isinstance(attr_filter, tiledb.WebpFilter):
-                        if (
-                            attr_filter.input_format
-                            == tiledb.cc.WebpInputFormat.WEBP_RGB
-                            or attr_filter.input_format
-                            == tiledb.cc.WebpInputFormat.WEBP_BGR
-                        ):
-                            axes_mapper = (
-                                Axes("".join(axes_metadata.get("originalAxes")))
-                                .webp_mapper(3)
-                                .inverse
-                            )
+                    with tiledb.open(member.uri, mode="r") as array:
+                        attr_filter = array.attr(attr).filters[0]
+                        raw_array_meta = dict(array.meta)
+
+                        if isinstance(attr_filter, tiledb.WebpFilter):
+                            if (
+                                attr_filter.input_format
+                                == tiledb.cc.WebpInputFormat.WEBP_RGB
+                                or attr_filter.input_format
+                                == tiledb.cc.WebpInputFormat.WEBP_BGR
+                            ):
+                                axes_mapper = (
+                                    Axes("".join(axes_metadata.get("originalAxes")))
+                                    .webp_mapper(3)
+                                    .inverse
+                                )
+                            else:
+                                axes_mapper = (
+                                    Axes("".join(axes_metadata.get("originalAxes")))
+                                    .webp_mapper(4)
+                                    .inverse
+                                )
                         else:
-                            axes_mapper = (
-                                Axes("".join(axes_metadata.get("originalAxes")))
-                                .webp_mapper(4)
-                                .inverse
-                            )
-                    else:
-                        axes_mapper = Axes(
-                            "".join(axes_metadata.get("storedAxes"))
-                        ).mapper(Axes("".join(axes_metadata.get("originalAxes"))))
+                            axes_mapper = Axes(
+                                "".join(axes_metadata.get("storedAxes"))
+                            ).mapper(Axes("".join(axes_metadata.get("originalAxes"))))
 
-                dask_array = dask.array.from_tiledb(member.uri, attribute=attr)
-                writer.write_level_image(
-                    idx - level_min,
-                    len(input_group) - level_min,
-                    axes_mapper.map_array(dask_array),
-                    dict(
-                        metadata,
-                        axes=axes_metadata,
-                        channels=metadata.get("channels", {}).get("intensity", {}),
-                        raw_meta=raw_array_meta,
-                    ),
-                )
+                    dask_array = dask.array.from_tiledb(member.uri, attribute=attr)
+                    writer.write_level_image(
+                        idx - level_min,
+                        len(input_group) - level_min,
+                        axes_mapper.map_array(dask_array),
+                        dict(
+                            metadata,
+                            axes=axes_metadata,
+                            channels=metadata.get("channels", {}).get("intensity", {}),
+                            raw_meta=raw_array_meta,
+                        ),
+                    )
+
+            if vfs_use:
+                destination_uri.close()
 
     @classmethod
     def to_tiledb(
