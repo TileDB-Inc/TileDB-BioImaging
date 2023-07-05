@@ -136,7 +136,7 @@ def test_ome_tiff_converter_roundtrip(
         ),
     )
     # Store it back to NGFF Zarr
-    OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
+    OMETiffConverter.from_tiledb(str(tiledb_path), str(output_path))
 
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
         compare_tifffiles(t1, t2)
@@ -184,7 +184,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
         if A.domain.has_dim("T"):
             assert A.dim("T").tile == tiles.get("T", 1)
 
-    OMETiffConverter.from_tiledb(str(tiledb_path), output_path)
+    OMETiffConverter.from_tiledb(str(tiledb_path), str(output_path))
     with tifffile.TiffFile(input_path) as t1, tifffile.TiffFile(output_path) as t2:
         compare_tifffiles(t1, t2)
         compare_tiff_page_series(t1.series[0], t2.series[0])
