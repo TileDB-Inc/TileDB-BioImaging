@@ -215,3 +215,23 @@ def compute_channel_minmax(
 ) -> None:
     min_max[:, 0] = np.minimum(min_max[:, 0], tile_min)
     min_max[:, 1] = np.maximum(min_max[:, 1], tile_max)
+
+
+def resolve_path(uri: str) -> Tuple[str, str]:
+    parsed_uri = urlparse(uri)
+    # normalize uri if it's a local path (e.g. ../..foo/bar)
+
+    # Windows paths produce single letter scheme matching the drive letter
+    # Unix absolute path produce an empty scheme
+    resolved_uri = parsed_uri.path
+    if is_win_path(parsed_uri.scheme):
+        resolved_uri = str(Path(parsed_uri.path).resolve()).replace("\\", "/")
+    return resolved_uri, parsed_uri.scheme
+
+
+def is_win_path(scheme: str) -> bool:
+    return len(scheme) < 2 or scheme == "file"
+
+
+def is_local_path(scheme: str) -> bool:
+    return True if is_win_path(scheme) or scheme == "" else False

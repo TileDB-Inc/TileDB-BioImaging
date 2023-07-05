@@ -22,8 +22,9 @@ def qpi_image_meta(baseline: TiffPageSeries) -> Dict[str, Any]:
     metadata: Dict[str, Any] = {
         "channels": [],
         "physicalSizeX": (1 / baseline.keyframe.resolution[0]),
-        "physicalSizeY": (1 / baseline.keyframe.resolution[0]),
-        "physicalSizeYUnit": "cm",
+        "physicalSizeΥ": (1 / baseline.keyframe.resolution[0]),
+        "physicalSizeΧUnit": "cm",
+        "physicalSizeΥUnit": "cm",
     }
 
     for idx, page in enumerate(baseline._pages):
