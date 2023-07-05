@@ -79,7 +79,7 @@ class OpenSlideReader(ImageReader):
     @property
     def image_metadata(self) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {}
-        color_generator = iter_color(np.dtype(np.uint8))
+        color_generator = iter_color(np.dtype(np.uint8), 3)
         properties = self._osd.properties
 
         # We skip the alpha channel

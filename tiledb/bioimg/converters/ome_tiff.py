@@ -147,7 +147,6 @@ class OMETiffReader(ImageReader):
     @property
     def image_metadata(self) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {}
-        color_generator = iter_color(np.dtype(np.uint8))
 
         if self._metadata and self._tiff.is_ome:
             image_meta = self._metadata["OME"]["Image"]
@@ -158,13 +157,18 @@ class OMETiffReader(ImageReader):
             )
 
             channels = []
-
-            for idx, channel in enumerate(
+            image_channels = (
                 image["Channel"]
                 if isinstance(image["Channel"], list)
                 else [image["Channel"]]
-            ):
+            )
+            color_generator = iter_color(np.dtype(np.uint8), len(image_channels))
+
+            for idx, channel in enumerate(image_channels):
                 if "SamplesPerPixel" in channel and channel["SamplesPerPixel"] != 1:
+                    color_generator = iter_color(
+                        np.dtype(np.uint8), channel["SamplesPerPixel"]
+                    )
                     for i in range(channel["SamplesPerPixel"]):
                         channel_metadata = {
                             "id": channel.get("ID", f"{idx}-{i}"),
@@ -213,15 +217,22 @@ class OMETiffReader(ImageReader):
             page = self._tiff.pages.first
 
             if page.photometric == tifffile.PHOTOMETRIC.RGB:
+                color_generator = iter_color(np.dtype(np.uint8), 3)
                 metadata["channels"] = [
                     {"id": f"{idx}", "name": f"{name}", "color": next(color_generator)}
                     for idx, name in enumerate(["red", "green", "blue"])
                 ]
             else:
                 num_channels, color_generator = (
-                    (self._series.shape[self.axes.dims.index("C")], color_generator)
+                    (
+                        self._series.shape[self.axes.dims.index("C")],
+                        iter_color(
+                            np.dtype(np.uint8),
+                            self._series.shape[self.axes.dims.index("C")],
+                        ),
+                    )
                     if "C" in self.axes.dims
-                    else (1, iter([]))
+                    else (1, iter_color(np.dtype(np.uint8), 1))
                 )
 
                 metadata["channels"] = [

@@ -207,7 +207,7 @@ class ImageConverter:
                 for idx, _ in enumerate(slide.levels):
                     if idx < level_min:
                         continue
-                    level_image = slide.read_level(idx, to_original_axes=False)
+                    level_image = slide.read_level(idx, to_original_axes=True)
                     level_metadata = {
                         "group_metadata": group_metadata,
                         "writer_metadata": slide.level_properties(idx),
