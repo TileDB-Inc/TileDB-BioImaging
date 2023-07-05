@@ -31,9 +31,8 @@ def qpi_image_meta(baseline: TiffPageSeries) -> Dict[str, Any]:
         page_metadata = tifffile.xml2dict(page.description).get(
             "PerkinElmer-QPI-ImageDescription", {}
         )
-
         if page.photometric == tifffile.PHOTOMETRIC.RGB:
-            color_generator = iter_color(np.dtype(np.uint8), 3)
+            color_generator = iter_color(np.dtype(np.uint8))
 
             metadata["channels"] = [
                 {"id": f"{idx}", "name": f"{name}", "color": next(color_generator)}

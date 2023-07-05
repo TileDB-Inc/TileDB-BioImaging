@@ -189,55 +189,53 @@ class ImageConverter:
         input_group = tiledb.Group(input_path)
 
         with input_group, writer:
-            raw_group_meta = dict(input_group.meta)
-            assert raw_group_meta == input_group.meta
             metadata = jsonpickle.loads(input_group.meta["metadata"])
-            writer.write_group_metadata(raw_group_meta)
+            writer.write_group_metadata(metadata)
             for idx, (member, axes_metadata) in enumerate(
                 zip(input_group, metadata.get("axes", []))
             ):
                 if idx < level_min:
                     continue
 
-                with tiledb.open(member.uri, mode="r") as array:
+                with tiledb.open(member.uri, mode='r') as array:
                     attr_filter = array.attr(attr).filters[0]
-                    raw_array_meta = dict(array.meta)
+                    json_write_kwargs = jsonpickle.loads(array.meta['json_write_kwargs'])
 
                     if isinstance(attr_filter, tiledb.WebpFilter):
-                        if (
-                            attr_filter.input_format
-                            == tiledb.cc.WebpInputFormat.WEBP_RGB
-                            or attr_filter.input_format
-                            == tiledb.cc.WebpInputFormat.WEBP_BGR
-                        ):
-                            axes_mapper = (
-                                Axes("".join(axes_metadata.get("originalAxes")))
-                                .webp_mapper(3)
-                                .inverse
-                            )
+                        if attr_filter.input_format == tiledb.cc.WebpInputFormat.WEBP_RGB or attr_filter.input_format == tiledb.cc.WebpInputFormat.WEBP_BGR:
+                            axes_mapper = Axes("".join(axes_metadata.get("originalAxes"))).webp_mapper(3).inverse
                         else:
-                            axes_mapper = (
-                                Axes("".join(axes_metadata.get("originalAxes")))
-                                .webp_mapper(4)
-                                .inverse
-                            )
+                            axes_mapper = Axes("".join(axes_metadata.get("originalAxes"))).webp_mapper(4).inverse
                     else:
-                        axes_mapper = Axes(
-                            "".join(axes_metadata.get("storedAxes"))
-                        ).mapper(Axes("".join(axes_metadata.get("originalAxes"))))
+                        axes_mapper = Axes("".join(axes_metadata.get("storedAxes"))).mapper(
+                            Axes("".join(axes_metadata.get("originalAxes")))
+                        )
 
                 dask_array = dask.array.from_tiledb(member.uri, attribute=attr)
+
                 writer.write_level_image(
                     idx - level_min,
                     len(input_group) - level_min,
                     axes_mapper.map_array(dask_array),
-                    dict(
-                        metadata,
-                        axes=axes_metadata,
-                        channels=metadata.get("channels", {}).get("intensity", {}),
-                        raw_meta=raw_array_meta,
-                    ),
+                    dict(metadata, axes=axes_metadata, channels=metadata.get("channels", {}).get("intensity", {}), json_write_kwargs=json_write_kwargs),
                 )
+
+        # slide = TileDBOpenSlide(input_path, attr=attr)
+        # writer = cls._ImageWriterType(output_path)
+        # with slide, writer:
+        #     writer.write_group_metadata(slide.properties)
+        #     for idx, level in enumerate(slide.levels):
+        #         # if level < level_min:
+        #         #     continue
+        #         # level_image = slide.read_level(level - slide.levels[0], to_original_axes=True)
+        #         # level_metadata = slide.level_properties(level - slide.levels[0])
+        #         # writer.write_level_image(level - slide.levels[0], level_image, level_metadata)
+        #
+        #         if idx < level_min:
+        #             continue
+        #         level_image = slide.read_level(idx, to_original_axes=True)
+        #         level_metadata = slide.level_properties(idx)
+        #         writer.write_level_image(idx - level_min, len(slide.levels) - level_min, level_image, level_metadata)
 
     @classmethod
     def to_tiledb(

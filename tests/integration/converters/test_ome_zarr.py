@@ -143,9 +143,10 @@ def test_ome_zarr_converter_rountrip(
     for i in range(len(input_group)):
         # Compare the .zarray files
         with open(input_path / str(i) / ".zarray") as f:
-            json.load(f)
+            input_zarray = json.load(f)
         with open(output_path / str(i) / ".zarray") as f:
-            json.load(f)
+            output_zarray = json.load(f)
+        assert input_zarray == output_zarray
 
         # Compare the actual data
         input_array = zarr.open(input_path / str(i))[:]

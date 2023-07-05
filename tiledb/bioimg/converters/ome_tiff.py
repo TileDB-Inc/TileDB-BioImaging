@@ -1,4 +1,3 @@
-import decimal
 import warnings
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
@@ -6,6 +5,7 @@ import jsonpickle
 import jsonpickle as json
 import numpy as np
 import tifffile
+import decimal
 
 from tiledb.cc import WebpInputFormat
 
@@ -148,6 +148,7 @@ class OMETiffReader(ImageReader):
     @property
     def image_metadata(self) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {}
+        color_generator = iter_color(np.dtype(np.uint8))
 
         if self._metadata and self._tiff.is_ome:
             image_meta = self._metadata["OME"]["Image"]
@@ -158,18 +159,13 @@ class OMETiffReader(ImageReader):
             )
 
             channels = []
-            image_channels = (
+
+            for idx, channel in enumerate(
                 image["Channel"]
                 if isinstance(image["Channel"], list)
                 else [image["Channel"]]
-            )
-            color_generator = iter_color(np.dtype(np.uint8), len(image_channels))
-
-            for idx, channel in enumerate(image_channels):
+            ):
                 if "SamplesPerPixel" in channel and channel["SamplesPerPixel"] != 1:
-                    color_generator = iter_color(
-                        np.dtype(np.uint8), channel["SamplesPerPixel"]
-                    )
                     for i in range(channel["SamplesPerPixel"]):
                         channel_metadata = {
                             "id": channel.get("ID", f"{idx}-{i}"),
@@ -198,11 +194,11 @@ class OMETiffReader(ImageReader):
 
             metadata["channels"] = channels
 
-            for dim in ["X", "Y", "Z"]:
+            for dim in ['X', 'Y', 'Z']:
                 if f"PhysicalSize{dim}" in image:
                     metadata[f"physicalSize{dim}"] = image[f"PhysicalSize{dim}"]
                     metadata[f"physicalSize{dim}Unit"] = image.get(
-                        f"PhysicalSize{dim}Unit", "µm"
+                        f"PhysicalSize{dim}Unit", "μm"
                     )
 
             if "TimeIncrement" in image:
@@ -218,22 +214,15 @@ class OMETiffReader(ImageReader):
             page = self._tiff.pages.first
 
             if page.photometric == tifffile.PHOTOMETRIC.RGB:
-                color_generator = iter_color(np.dtype(np.uint8), 3)
                 metadata["channels"] = [
                     {"id": f"{idx}", "name": f"{name}", "color": next(color_generator)}
                     for idx, name in enumerate(["red", "green", "blue"])
                 ]
             else:
                 num_channels, color_generator = (
-                    (
-                        self._series.shape[self.axes.dims.index("C")],
-                        iter_color(
-                            np.dtype(np.uint8),
-                            self._series.shape[self.axes.dims.index("C")],
-                        ),
-                    )
+                    (self._series.shape[self.axes.dims.index("C")], color_generator)
                     if "C" in self.axes.dims
-                    else (1, iter_color(np.dtype(np.uint8), 1))
+                    else (1, iter([]))
                 )
 
                 metadata["channels"] = [
@@ -251,14 +240,14 @@ class OMETiffReader(ImageReader):
             if self._tiff.is_svs:
                 info = {}
                 for entry in page.description.split("\n")[1].split("|"):
-                    key, value = list(map(str.strip, entry.split("=")))
+                    key, value = entry.split("=")
                     info[key] = value
 
                 if "MPP" in info:
-                    metadata["physicalSizeX"] = metadata["physicalSizeY"] = float(
-                        info.get("MPP", "1")
+                    metadata["physicalSizeX"] = metadata["physicalSizeY"] = info.get(
+                        "MPP"
                     )
-                    metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "µm"
+                    metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "μm"
 
         return metadata
 
@@ -287,6 +276,7 @@ class OMETiffWriter(ImageWriter):
         self._output_path = output_path
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        # tiffwriter_kwargs = json.loads(metadata["json_tiffwriter_kwargs"])
         self._writer = tifffile.TiffWriter(
             self._output_path, shaped=False, bigtiff=True, append=False, ome=True
         )
@@ -298,9 +288,6 @@ class OMETiffWriter(ImageWriter):
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
-        tiffwriter_metadata = jsonpickle.loads(
-            metadata.get("raw_meta", {}).get("json_write_kwargs", "{}")
-        )
         axes_metadata = metadata.get("axes", {})
         channel_metadata = metadata.get("channels", [])
         axes = "".join(axes_metadata.get("originalAxes"))
@@ -312,58 +299,69 @@ class OMETiffWriter(ImageWriter):
             write_kwargs["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
 
         write_kwargs["tile"] = (256, 256)
-        write_kwargs["metadata"] = {
-            "axes": "".join(axes_metadata.get("originalAxes")),
-            "Channel": {
-                "Name": [
-                    channel.get("name", f"Channel {idx}")
-                    for idx, channel in enumerate(channel_metadata)
-                ],
-                "Color": [
-                    str(get_decimal(channel.get("color", WHITE_RGBA)))
-                    for channel in channel_metadata
-                ],
-            },
-        }
+        write_kwargs["photometric"] = metadata.get('json_write_kwargs').get('photometric')
+
+        if len(channel_metadata) == 3:
+            write_kwargs["compression"] = metadata.get('json_write_kwargs').get('compression', tifffile.COMPRESSION.JPEG)
+            write_kwargs["metadata"] = {
+                "axes": "".join(axes_metadata.get("originalAxes")),
+                "Channel": {
+                    "Name": [
+                        name
+                        for name in ['red', 'green', 'blue']
+                    ],
+                    "Color": [
+                        str(get_decimal(channel.get("color", WHITE_RGBA)))
+                        for channel in channel_metadata
+                    ],
+                },
+            }
+        else:
+            write_kwargs["compression"] = tifffile.COMPRESSION.ADOBE_DEFLATE
+            write_kwargs["metadata"] = {
+                "axes": "".join(axes_metadata.get("originalAxes")),
+                "Channel": {
+                    "Name": [
+                        channel.get("name", f"Channel {idx}")
+                        for idx, channel in enumerate(channel_metadata)
+                    ],
+                    "Color": [
+                        str(get_decimal(channel.get("color", WHITE_RGBA)))
+                        for channel in channel_metadata
+                    ],
+                },
+            }
 
         ctx = decimal.Context()
         ctx.prec = 32
 
-        for dim in ["X", "Y", "Z"]:
+        for dim in ['X', 'Y', 'Z']:
             if dim in axes:
-                write_kwargs["metadata"][f"PhysicalSize{dim}"] = format(
-                    ctx.create_decimal(repr(metadata.get(f"physicalSize{dim}", 1))), "f"
-                )
-                write_kwargs["metadata"][f"PhysicalSize{dim}Unit"] = metadata.get(
-                    f"physicalSize{dim}Unit", "µm"
-                )
+                write_kwargs["metadata"][f'PhysicalSize{dim}'] = format(ctx.create_decimal(repr(metadata.get(f"physicalSize{dim}", 1))), 'f')
+                write_kwargs["metadata"][f'PhysicalSize{dim}Unit'] = metadata.get(f"physicalSize{dim}Unit", 'µm')
 
-        if "T" in axes:
-            write_kwargs["metadata"]["TimeIncrement"] = format(
-                ctx.create_decimal(repr(metadata.get("timeIncrement", 1))), "f"
-            )
-            write_kwargs["metadata"]["TimeIncrementUnit"] = metadata.get(
-                "timeIncrementUnit", "s"
-            )
+        if 'T' in axes:
+            write_kwargs["metadata"]['TimeIncrement'] = format(ctx.create_decimal(repr(metadata.get("timeIncrement", 1))), 'f')
+            write_kwargs["metadata"]['TimeIncrementUnit'] = metadata.get("timeIncrementUnit", 's')
 
-        mask = []
-        for _ in axes:
-            mask.append(slice(None))
+        # dims = []
+        # for idx, axis in enumerate(metadata.get('originalAxes')):
+        #     if axis in {'X', 'Y'}:
+        #         dims.append([slice(None)])
+        #     else:
+        #         dims.append([slice(index, index + 1) for index in range(metadata.get('originalShape')[idx])])
+        #
+        # for sl in itertools.product(*dims):
+        print(write_kwargs)
+        self._writer.write(image, **write_kwargs)
 
-        if len(channel_metadata) == 3 and image.dtype == np.dtype(np.uint8):
-            write_kwargs["compression"] = tifffile.COMPRESSION.JPEG
-            write_kwargs["compressionargs"] = {"level": 70}
-            write_kwargs["photometric"] = tiffwriter_metadata.get(
-                "photometric", tifffile.PHOTOMETRIC.RGB
-            )
-            mask[axes.index("C")] = slice(0, 3)
-        else:
-            write_kwargs["compression"] = tifffile.COMPRESSION.ADOBE_DEFLATE
-            write_kwargs["photometric"] = tiffwriter_metadata.get(
-                "photometric", tifffile.PHOTOMETRIC.MINISBLACK
-            )
+        # write_kwargs2 = json.loads(metadata["json_write_kwargs"])
+        # write_kwargs = jsonpickle.loads(metadata["json_write_kwargs"])
+        # write_kwargs['subifds'] = 3 if level == 1 else None
+        # write_kwargs['subfiletype'] = None if level == 1 else 0
 
-        self._writer.write(image[tuple(mask)], **write_kwargs)
+        # print(write_kwargs)
+        # self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._writer.close()
