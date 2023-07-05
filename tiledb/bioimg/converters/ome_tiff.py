@@ -11,6 +11,7 @@ from .. import WHITE_RGBA
 from ..helpers import get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
+from .metadata import qpi_image_meta, qpi_original_meta
 
 
 class OMETiffReader(ImageReader):
@@ -201,7 +202,8 @@ class OMETiffReader(ImageReader):
             if "TimeIncrement" in image:
                 metadata["timeIncrement"] = image["TimeIncrement"]
                 metadata["timeIncrementUnit"] = image.get("TimeIncrementUnit", "s")
-
+        elif self._tiff.is_qpi:
+            metadata = qpi_image_meta(self._tiff.series[0])
         else:
             # If file is not OME we will try to extract metadata from the IFD.
             # If you are ingesting a non-OME tiff file you may need to provide a custom metadata
@@ -240,10 +242,10 @@ class OMETiffReader(ImageReader):
                     info[key] = value
 
                 if "MPP" in info:
-                    metadata["physicalSizeX"] = metadata["physicalSizeΥ"] = info.get(
+                    metadata["physicalSizeX"] = metadata["physicalSizeY"] = info.get(
                         "MPP"
                     )
-                    metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
+                    metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "μm"
 
         return metadata
 
@@ -261,6 +263,8 @@ class OMETiffReader(ImageReader):
 
         if self._tiff.is_svs:
             metadata.setdefault("svs_metadata", self._tiff.pages.first.description)
+        elif self._tiff.is_qpi:
+            metadata.setdefault("qpi_metadata", qpi_original_meta(self._tiff))
 
         return metadata
 
