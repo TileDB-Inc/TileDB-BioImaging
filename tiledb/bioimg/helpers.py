@@ -193,17 +193,6 @@ def get_rgba(value: int) -> Dict[str, int]:
     return color
 
 
-def get_decimal(color: Mapping[str, int]) -> int:
-
-    decimal_color = (color["red"] << 24) + (color["green"] << 16) + (color["blue"] << 8) + (color["alpha"])
-
-    if decimal_color >> 31 == 1:
-        return -((~decimal_color & 0xFFFFFFFF) + 1)
-    else:
-        return decimal_color
-
-
-
 def compute_channel_minmax(
     min_max: np.ndarray, tile_min: np.ndarray, tile_max: np.ndarray
 ) -> None:
