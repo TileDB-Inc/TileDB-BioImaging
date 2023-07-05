@@ -92,7 +92,7 @@ class OpenSlideReader(ImageReader):
             metadata["physicalSizeX"] = metadata["physicalSizeY"] = properties[
                 "aperio.MPP"
             ]
-            metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "μm"
+            metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
 
         return metadata
 
