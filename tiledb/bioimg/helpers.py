@@ -197,6 +197,16 @@ def get_rgba(value: int) -> Dict[str, int]:
 
 
 def get_decimal_from_rgba(color: Mapping[str, int]) -> int:
+    """
+    Convert an 8-bit RGBA color to a single signed integer value
+    :param color: The color dictionary to convert.
+        Each component should be between 0 and 255 inclusive (8-bit unsigned integer)
+    :returns: A 32-bit signed integer in 2's complement representing the RGBA color
+    """
+
+    # Shift each 8-bit color component to the appropriate position
+    # |  red   | green  |  blue  | alpha  |
+    # |00000000|00000000|00000000|00000000| -> 32-bit integer
     decimal_color = (
         (color["red"] << 24)
         + (color["green"] << 16)
@@ -204,7 +214,9 @@ def get_decimal_from_rgba(color: Mapping[str, int]) -> int:
         + (color["alpha"])
     )
 
+    # If the first bit is 1 then the binary representation in 2's complement should represent a negative value in decimal
     if decimal_color >> 31 == 1:
+        # https://math.stackexchange.com/questions/285459/how-can-i-convert-2s-complement-to-decimal
         return -((~decimal_color & 0xFFFFFFFF) + 1)
     else:
         return decimal_color
