@@ -187,7 +187,7 @@ def compare_tiff(t1: tifffile.TiffFile, t2: tifffile.TiffFile, lossless: bool = 
     assert len(t1.series[0].levels) == len(t2.series[0].levels)
 
     for l1, l2 in zip(t1.series[0].levels, t2.series[0].levels):
-        assert l1.axes == l2.axes
+        assert l1.axes.replace("S", "C") == l2.axes.replace("S", "C")
         assert l1.shape == l2.shape
         assert l1.dtype == l2.dtype
         assert l1.nbytes == l2.nbytes
@@ -196,13 +196,6 @@ def compare_tiff(t1: tifffile.TiffFile, t2: tifffile.TiffFile, lossless: bool = 
             np.testing.assert_array_equal(l1.asarray(), l2.asarray())
         else:
             assert_image_similarity(l1.asarray(), l2.asarray(), channel_axis=0)
-
-        for tag in ["BitsPerSample", "PhotometricInterpretation"]:
-            if tag not in l1.keyframe.tags and tag not in l2.keyframe.tags:
-                continue
-
-            assert tag in l1.keyframe.tags and tag in l2.keyframe.tags
-            assert l1.keyframe.tags.get(tag).value == l2.keyframe.tags.get(tag).value
 
 
 compressors = [

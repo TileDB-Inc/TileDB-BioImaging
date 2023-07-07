@@ -8,7 +8,7 @@ import tifffile
 
 from tiledb.cc import WebpInputFormat
 
-from .. import ATTR_NAME, WHITE_RGBA
+from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
@@ -310,7 +310,7 @@ class OMETiffWriter(ImageWriter):
         else:
             writer_metadata["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
 
-        writer_metadata["tile"] = (256, 256)
+        writer_metadata["tile"] = (EXPORT_TILE_SIZE, EXPORT_TILE_SIZE)
 
         if self._ome:
             channel_metadata = group_metadata.get("channels", {}).get(ATTR_NAME, [])
@@ -362,12 +362,7 @@ class OMETiffWriter(ImageWriter):
             ):
                 writer_metadata.setdefault("compression", tifffile.COMPRESSION.JPEG)
                 writer_metadata.setdefault("compressionargs", {"level": 70})
-                writer_metadata.setdefault(
-                    "photometric",
-                    json.loads(array_metadata.get("json_write_kwargs", "{}")).get(
-                        "photometric", tifffile.PHOTOMETRIC.RGB
-                    ),
-                )
+                writer_metadata.setdefault("photometric", tifffile.PHOTOMETRIC.RGB)
             else:
                 writer_metadata.setdefault(
                     "compression", tifffile.COMPRESSION.ADOBE_DEFLATE
