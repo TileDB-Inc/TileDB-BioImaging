@@ -79,7 +79,7 @@ class OpenSlideReader(ImageReader):
     @property
     def image_metadata(self) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {}
-        color_generator = iter_color(np.dtype(np.uint8))
+        color_generator = iter_color(np.dtype(np.uint8), 3)
         properties = self._osd.properties
 
         # We skip the alpha channel
@@ -89,10 +89,10 @@ class OpenSlideReader(ImageReader):
         ]
 
         if "aperio.MPP" in properties:
-            metadata["physicalSizeX"] = metadata["physicalSizeY"] = properties[
-                "aperio.MPP"
-            ]
-            metadata["physicalSizeΧUnit"] = metadata["physicalSizeΥUnit"] = "μm"
+            metadata["physicalSizeX"] = metadata["physicalSizeY"] = float(
+                properties["aperio.MPP"]
+            )
+            metadata["physicalSizeYUnit"] = metadata["physicalSizeYUnit"] = "µm"
 
         return metadata
 

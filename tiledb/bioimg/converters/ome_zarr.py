@@ -151,16 +151,29 @@ class OMEZarrWriter(ImageWriter):
         self._group_metadata = json.loads(metadata["json_zarrwriter_kwargs"])
 
     def write_level_image(
-        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+        self,
+        image: np.ndarray,
+        metadata: Mapping[str, Any],
     ) -> None:
         # store the image to be written at __exit__
         self._pyramid.append(image)
         # store the zarray metadata to be written at __exit__
-        zarray = json.loads(metadata["json_zarray"])
+        zarray = dict(metadata)
         compressor = zarray["compressor"]
         del compressor["id"]
         zarray["compressor"] = Blosc.from_config(compressor)
         self._storage_options.append(zarray)
+
+    def compute_level_metadata(
+        self,
+        baseline: bool,
+        num_levels: int,
+        image_dtype: np.dtype,
+        group_metadata: Mapping[str, Any],
+        array_metadata: Mapping[str, Any],
+        **writer_kwargs: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        return dict(json.loads(array_metadata.get("json_zarray", "{}")))
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         group_metadata = self._group_metadata

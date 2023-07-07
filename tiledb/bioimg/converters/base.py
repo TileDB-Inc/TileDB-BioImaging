@@ -146,15 +146,37 @@ class ImageWriter(ABC):
         """Write metadata for the whole multi-resolution image."""
 
     @abstractmethod
+    def compute_level_metadata(
+        self,
+        baseline: bool,
+        num_levels: int,
+        image_dtype: np.dtype,
+        group_metadata: Mapping[str, Any],
+        array_metadata: Mapping[str, Any],
+        **writer_kwargs: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        """Compute the necessary metadata for the current level
+
+        :param baseline: Sets current image as the baseline for the pyramid
+        :param image_dtype: THe data type of the image to be stored
+        :param group_metadata: The TileDB group pyramid metadata
+        :param array_metadata: The TileDB array level metadata
+        """
+
+    @abstractmethod
     def write_level_image(
-        self, level: int, image: np.ndarray, metadata: Mapping[str, Any]
+        self,
+        image: np.ndarray,
+        metadata: Mapping[str, Any],
     ) -> None:
         """
         Write the image for the given level.
 
-        :param level: Number corresponding to a level
+        :param baseline: Sets current image as the baseline for the pyramid
+        :param num_levels: The total number of reduced resolution images
         :param image: Image for the given level as numpy array
         :param metadata: Metadata for the given level
+        :param image_mask: Mask the original image depending on export format requirements
         """
 
 
@@ -174,6 +196,7 @@ class ImageConverter:
         attr: str = ATTR_NAME,
         config: Union[tiledb.Config, Mapping[str, Any]] = None,
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
+        **writer_kwargs: Mapping[str, Any],
     ) -> Type[ImageConverter]:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level
@@ -203,12 +226,25 @@ class ImageConverter:
 
             with slide, writer:
                 writer.write_group_metadata(slide.properties)
-                for level in slide.levels:
-                    if level < level_min:
+                group_metadata = jsonpickle.loads(
+                    slide.properties.get("metadata", "{}")
+                )
+                for idx, _ in enumerate(slide.levels):
+                    if idx < level_min:
                         continue
-                    level_image = slide.read_level(level, to_original_axes=True)
-                    level_metadata = slide.level_properties(level)
-                    writer.write_level_image(level, level_image, level_metadata)
+                    level_image = slide.read_level(idx, to_original_axes=True)
+                    level_metadata = writer.compute_level_metadata(
+                        idx == level_min,
+                        len(slide.levels) - level_min,
+                        level_image.dtype,
+                        group_metadata,
+                        slide.level_properties(idx),
+                        **writer_kwargs,
+                    )
+                    writer.write_level_image(
+                        level_image,
+                        level_metadata,
+                    )
 
             if vfs_use:
                 # Flush to remote
