@@ -282,90 +282,113 @@ class OMETiffReader(ImageReader):
 
 
 class OMETiffWriter(ImageWriter):
-    def __init__(self, output_path: str):
+    def __init__(self, output_path: str, ome: bool = True):
         self._output_path = output_path
+        self._ome = ome
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         self._writer = tifffile.TiffWriter(
-            self._output_path, shaped=False, bigtiff=True, append=False, ome=True
+            self._output_path, shaped=False, bigtiff=True, append=False, ome=self._ome
         )
+
+    def compute_level_metadata(
+        self,
+        baseline: bool,
+        image_dtype: np.dtype,
+        group_metadata: Mapping[str, Any],
+        array_metadata: Mapping[str, Any],
+        **writer_kwargs: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        original_axes = "".join(group_metadata.get("axes", [])[0].get("originalAxes"))
+        original_shape = group_metadata.get("axes", [])[0].get("originalShape")
+
+        writer_metadata: Dict[str, Any] = {}
+
+        if self._ome:
+            channel_metadata = group_metadata.get("channels", {}).get(ATTR_NAME, [])
+
+            writer_metadata["metadata"] = {
+                "axes": original_axes,
+                "Channel": {
+                    "Name": [
+                        channel.get("name", f"Channel {idx}")
+                        for idx, channel in enumerate(channel_metadata)
+                    ],
+                    "Color": [
+                        str(get_decimal_from_rgba(channel.get("color")))
+                        for channel in channel_metadata
+                    ],
+                },
+            }
+
+            ctx = decimal.Context()
+            ctx.prec = 32
+
+            for dim in ["X", "Y", "Z"]:
+                if dim in original_axes:
+                    writer_metadata["metadata"][f"PhysicalSize{dim}"] = format(
+                        ctx.create_decimal(
+                            repr(group_metadata.get(f"physicalSize{dim}", 1))
+                        ),
+                        "f",
+                    )
+                    writer_metadata["metadata"][
+                        f"PhysicalSize{dim}Unit"
+                    ] = group_metadata.get(f"physicalSize{dim}Unit", "µm")
+
+            if "T" in original_axes:
+                writer_metadata["metadata"]["TimeIncrement"] = format(
+                    ctx.create_decimal(repr(group_metadata.get("timeIncrement", 1))),
+                    "f",
+                )
+                writer_metadata["metadata"]["TimeIncrementUnit"] = group_metadata.get(
+                    "timeIncrementUnit", "s"
+                )
+
+            writer_metadata.update(writer_kwargs.get("tiff_options", {}))
+
+            if (
+                "C" in original_axes
+                and original_shape[original_axes.index("C")] == 3
+                and image_dtype == np.dtype(np.uint8)
+            ):
+                writer_metadata.setdefault("compression", tifffile.COMPRESSION.JPEG)
+                writer_metadata.setdefault("compressionargs", {"level": 70})
+                writer_metadata.setdefault(
+                    "photometric",
+                    json.loads(array_metadata.get("json_write_kwargs", "{}")).get(
+                        "photometric", tifffile.PHOTOMETRIC.RGB
+                    ),
+                )
+            else:
+                writer_metadata.setdefault(
+                    "compression", tifffile.COMPRESSION.ADOBE_DEFLATE
+                )
+                writer_metadata.setdefault(
+                    "photometric",
+                    json.loads(array_metadata.get("json_write_kwargs", "{}")).get(
+                        "photometric", tifffile.PHOTOMETRIC.MINISBLACK
+                    ),
+                )
+
+        return writer_metadata
 
     def write_level_image(
         self,
-        level: int,
-        baseline: bool,
         num_levels: int,
+        baseline: bool,
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
-        tiffwriter_metadata = json.loads(
-            metadata.get("writer_metadata", {}).get("json_write_kwargs", "{}")
-        )
-        axes_metadata = metadata.get("group_metadata", {}).get("axes", [])[level]
-        channel_metadata = (
-            metadata.get("group_metadata", {}).get("channels", {}).get(ATTR_NAME, [])
-        )
-        original_axes = "".join(axes_metadata.get("originalAxes"))
-
-        write_kwargs: Dict[str, Any] = {}
+        write_kwargs: Dict[str, Any] = dict(metadata)
         if baseline:
             write_kwargs["subifds"] = num_levels - 1 if num_levels > 1 else None
         else:
             write_kwargs["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
 
         write_kwargs["tile"] = (256, 256)
-        write_kwargs["metadata"] = {
-            "axes": original_axes,
-            "Channel": {
-                "Name": [
-                    channel.get("name", f"Channel {idx}")
-                    for idx, channel in enumerate(channel_metadata)
-                ],
-                "Color": [
-                    str(get_decimal_from_rgba(channel.get("color")))
-                    for channel in channel_metadata
-                ],
-            },
-        }
 
-        ctx = decimal.Context()
-        ctx.prec = 32
-
-        for dim in ["X", "Y", "Z"]:
-            if dim in original_axes:
-                write_kwargs["metadata"][f"PhysicalSize{dim}"] = format(
-                    ctx.create_decimal(repr(metadata.get(f"physicalSize{dim}", 1))), "f"
-                )
-                write_kwargs["metadata"][f"PhysicalSize{dim}Unit"] = metadata.get(
-                    f"physicalSize{dim}Unit", "µm"
-                )
-
-        if "T" in original_axes:
-            write_kwargs["metadata"]["TimeIncrement"] = format(
-                ctx.create_decimal(repr(metadata.get("timeIncrement", 1))), "f"
-            )
-            write_kwargs["metadata"]["TimeIncrementUnit"] = metadata.get(
-                "timeIncrementUnit", "s"
-            )
-
-        mask = []
-        for _ in original_axes:
-            mask.append(slice(None))
-
-        if len(channel_metadata) == 3 and image.dtype == np.dtype(np.uint8):
-            write_kwargs["compression"] = tifffile.COMPRESSION.JPEG
-            write_kwargs["compressionargs"] = {"level": 70}
-            write_kwargs["photometric"] = tiffwriter_metadata.get(
-                "photometric", tifffile.PHOTOMETRIC.RGB
-            )
-            mask[original_axes.index("C")] = slice(0, 3)  # Drop alpha channel
-        else:
-            write_kwargs["compression"] = tifffile.COMPRESSION.ADOBE_DEFLATE
-            write_kwargs["photometric"] = tiffwriter_metadata.get(
-                "photometric", tifffile.PHOTOMETRIC.MINISBLACK
-            )
-
-        self._writer.write(image[tuple(mask)], **write_kwargs)
+        self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._writer.close()
