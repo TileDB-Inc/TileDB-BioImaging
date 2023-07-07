@@ -149,6 +149,7 @@ class ImageWriter(ABC):
     def compute_level_metadata(
         self,
         baseline: bool,
+        num_levels: int,
         image_dtype: np.dtype,
         group_metadata: Mapping[str, Any],
         array_metadata: Mapping[str, Any],
@@ -165,8 +166,6 @@ class ImageWriter(ABC):
     @abstractmethod
     def write_level_image(
         self,
-        num_levels: int,
-        baseline: bool,
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
@@ -236,14 +235,13 @@ class ImageConverter:
                     level_image = slide.read_level(idx, to_original_axes=True)
                     level_metadata = writer.compute_level_metadata(
                         idx == level_min,
+                        len(slide.levels) - level_min,
                         level_image.dtype,
                         group_metadata,
                         slide.level_properties(idx),
                         **writer_kwargs,
                     )
                     writer.write_level_image(
-                        len(slide.levels) - level_min,
-                        idx == level_min,
                         level_image,
                         level_metadata,
                     )

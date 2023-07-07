@@ -294,6 +294,7 @@ class OMETiffWriter(ImageWriter):
     def compute_level_metadata(
         self,
         baseline: bool,
+        num_levels: int,
         image_dtype: np.dtype,
         group_metadata: Mapping[str, Any],
         array_metadata: Mapping[str, Any],
@@ -303,6 +304,13 @@ class OMETiffWriter(ImageWriter):
         original_shape = group_metadata.get("axes", [])[0].get("originalShape")
 
         writer_metadata: Dict[str, Any] = {}
+
+        if baseline:
+            writer_metadata["subifds"] = num_levels - 1 if num_levels > 1 else None
+        else:
+            writer_metadata["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
+
+        writer_metadata["tile"] = (256, 256)
 
         if self._ome:
             channel_metadata = group_metadata.get("channels", {}).get(ATTR_NAME, [])
@@ -375,19 +383,10 @@ class OMETiffWriter(ImageWriter):
 
     def write_level_image(
         self,
-        num_levels: int,
-        baseline: bool,
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
         write_kwargs: Dict[str, Any] = dict(metadata)
-        if baseline:
-            write_kwargs["subifds"] = num_levels - 1 if num_levels > 1 else None
-        else:
-            write_kwargs["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
-
-        write_kwargs["tile"] = (256, 256)
-
         self._writer.write(image, **write_kwargs)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

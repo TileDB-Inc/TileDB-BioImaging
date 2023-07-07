@@ -152,8 +152,6 @@ class OMEZarrWriter(ImageWriter):
 
     def write_level_image(
         self,
-        num_levels: int,
-        baseline: bool,
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
@@ -169,6 +167,7 @@ class OMEZarrWriter(ImageWriter):
     def compute_level_metadata(
         self,
         baseline: bool,
+        num_levels: int,
         image_dtype: np.dtype,
         group_metadata: Mapping[str, Any],
         array_metadata: Mapping[str, Any],
