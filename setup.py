@@ -13,7 +13,13 @@ setuptools.setup(
         "local_scheme": "dirty-tag",
         "write_to": "tiledb/bioimg/version.py",
     },
-    install_requires=["pyeditdistance", "tiledb>=0.19", "tqdm", "scikit-image"],
+    install_requires=[
+        "pyeditdistance",
+        "tiledb>=0.19",
+        "tqdm",
+        "tifffile==2022.10.10",
+        "scikit-image",
+    ],
     extras_require={
         "zarr": zarr,
         "openslide": openslide,
