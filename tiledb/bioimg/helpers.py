@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import numpy as np
 
 import tiledb
+from tiledb import Config
 from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
@@ -73,8 +74,12 @@ class ReadWriteGroup:
         return uri, create
 
 
-def open_bioimg(uri: str, mode: str = "r", attr: str = ATTR_NAME) -> tiledb.Array:
-    return tiledb.open(uri, mode=mode, attr=attr if mode == "r" else None)
+def open_bioimg(
+    uri: str, mode: str = "r", attr: str = ATTR_NAME, config: Config = None
+) -> tiledb.Array:
+    return tiledb.open(
+        uri, mode=mode, attr=attr if mode == "r" else None, config=config
+    )
 
 
 def get_schema(

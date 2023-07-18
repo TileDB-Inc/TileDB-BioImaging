@@ -194,7 +194,8 @@ class ImageConverter:
         *,
         level_min: int = 0,
         attr: str = ATTR_NAME,
-        config: Union[tiledb.Config, Mapping[str, Any]] = None,
+        in_config: Union[tiledb.Config, Mapping[str, Any]] = None,
+        out_config: Union[tiledb.Config, Mapping[str, Any]] = None,
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
         **writer_kwargs: Mapping[str, Any],
     ) -> Type[ImageConverter]:
@@ -205,51 +206,50 @@ class ImageConverter:
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels
         :param attr: attribute name for backwards compatiblity support
-        :param config: tiledb configuration either a dict or a tiledb.Config
+        :param in_config: tiledb configuration either a dict or a tiledb.Config of source
+        :param out_config: tiledb configuration either a dict or a tiledb.Config of destination
         :param scratch_space: shared memory or cache space for cloud random access export support
         """
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
-        with tiledb.scope_ctx(config):
-            out_uri_res, scheme = resolve_path(output_path)
-            vfs_use = False if is_local_path(scheme) else True
+        out_uri_res, scheme = resolve_path(output_path)
+        vfs_use = False if is_local_path(scheme) else True
 
-            # OS specific
-            destination_uri = (
-                os.path.join(scratch_space, os.path.basename(out_uri_res))
-                if vfs_use
-                else out_uri_res
-            )
-            slide = TileDBOpenSlide(input_path, attr=attr)
-            writer = cls._ImageWriterType(destination_uri)
+        # OS specific
+        destination_uri = (
+            os.path.join(scratch_space, os.path.basename(out_uri_res))
+            if vfs_use
+            else out_uri_res
+        )
 
-            with slide, writer:
-                writer.write_group_metadata(slide.properties)
-                group_metadata = jsonpickle.loads(
-                    slide.properties.get("metadata", "{}")
+        slide = TileDBOpenSlide(input_path, attr=attr, config=in_config)
+        writer = cls._ImageWriterType(destination_uri)
+
+        with slide, writer:
+            writer.write_group_metadata(slide.properties)
+            group_metadata = jsonpickle.loads(slide.properties.get("metadata", "{}"))
+            for idx, _ in enumerate(slide.levels):
+                if idx < level_min:
+                    continue
+                level_image = slide.read_level(idx, to_original_axes=True)
+                level_metadata = writer.compute_level_metadata(
+                    idx == level_min,
+                    len(slide.levels) - level_min,
+                    level_image.dtype,
+                    group_metadata,
+                    slide.level_properties(idx),
+                    **writer_kwargs,
                 )
-                for idx, _ in enumerate(slide.levels):
-                    if idx < level_min:
-                        continue
-                    level_image = slide.read_level(idx, to_original_axes=True)
-                    level_metadata = writer.compute_level_metadata(
-                        idx == level_min,
-                        len(slide.levels) - level_min,
-                        level_image.dtype,
-                        group_metadata,
-                        slide.level_properties(idx),
-                        **writer_kwargs,
-                    )
-                    writer.write_level_image(
-                        level_image,
-                        level_metadata,
-                    )
+                writer.write_level_image(
+                    level_image,
+                    level_metadata,
+                )
 
             if vfs_use:
                 # Flush to remote
                 with open(destination_uri, "rb") as data:
-                    vfs = tiledb.VFS()
+                    vfs = tiledb.VFS(config=out_config)
                     with vfs.open(output_path, "wb") as dest:
                         dest.write(data.read())
         return cls
