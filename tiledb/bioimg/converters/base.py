@@ -261,12 +261,12 @@ class ImageConverter:
         output_path: str,
         *,
         level_min: int = 0,
-        tiles: Mapping[str, int] = {},
+        tiles: Optional[Mapping[str, int]] = None,
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
-        reader_kwargs: Mapping[str, Any] = {},
+        reader_kwargs: Optional[Mapping[str, Any]] = None,
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> Type[ImageConverter]:
         """
@@ -308,12 +308,15 @@ class ImageConverter:
                 raise ValueError("Image reader should match converter on source format")
             reader = source
         elif cls._ImageReaderType is not None:
-            reader = cls._ImageReaderType(source, **reader_kwargs)
+            reader = cls._ImageReaderType(
+                source, **reader_kwargs if reader_kwargs else {}
+            )
         else:
             raise NotImplementedError(f"{cls} does not support importing")
 
         max_tiles = cls._DEFAULT_TILES.copy()
-        max_tiles.update(tiles)
+        if tiles:
+            max_tiles.update(tiles)
 
         rw_group = ReadWriteGroup(output_path)
 
