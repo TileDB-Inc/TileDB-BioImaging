@@ -1,5 +1,5 @@
 # Biomedical Imaging Unified Data Model
-### <span style="color:green">VERSION:</span>  **FMT_VERSION = 1**
+### <span style="color:green">VERSION:</span>  **FMT_VERSION = 2**
 
 ## Description
 Biomedical imaging encompasses a wide range of imaging types and applications. 
@@ -123,19 +123,116 @@ As mentioned above, there are various kinds of metadata associated with any Biom
 For the Biomedical images converted in TileDB from the aforementioned formats the metadata of the images are stored in 
 
 - `TileDB Group Metadata`
-```json 
+``` 
 {
-    'axes': 'YXC', 
-    'channels': '["RED", "GREEN", "BLUE", "ALPHA"]',
-    'dataset_type': 'BIOIMG', 
-    'fmt_version': 1, 
-    'levels': '[
-        {"level": 0, "name": "l_0.tdb", "axes": "YXC", "shape": [26340, 99599, 4]},
-        {"level": 1, "name": "l_1.tdb", "axes": "YXC", "shape": [6585, 24899, 4]}, 
-        {"level": 2, "name": "l_2.tdb", "axes": "YXC", "shape": [1646, 6224, 4]}, 
-        {"level": 3, "name": "l_3.tdb", "axes": "YXC", "shape": [823, 3112, 4]}]', 
-    'pixel_depth': 1, 
-    'pkg_version': '0.2.1'
+'axes': 'YXC', 
+'channels': '[]', 
+'dataset_type': 'BIOIMG', 
+'fmt_version': 2, 
+'json_tiffwriter_kwargs': 
+    '{
+      "bigtiff": false, 
+      "byteorder": "<", 
+      "append": true, 
+      "imagej": false, 
+      "ome": false
+    }', 
+'levels': 
+    '
+      [
+        {
+          "level": 0, 
+          "name": "l_0.tdb", 
+          "axes": "CYX", 
+          "shape": [3, 53760, 183808]
+        }, 
+
+        {
+          "level": 1, 
+          "name": "l_1.tdb", 
+          "axes": "CYX", 
+          "shape": [3, 26880, 91904]
+        }, 
+
+        {
+          "level": 2, 
+          "name": "l_2.tdb", 
+          "axes": "CYX", 
+          "shape": [3, 13440, 45952]
+        }, 
+
+        ... ,
+
+'metadata': 
+  '
+    {
+      "channels": 
+        {
+          "intensity": 
+            [
+              {
+                "id": "0", 
+                "name": "Channel 0", 
+                "color": {"red": 255, "green": 0, "blue": 0, "alpha": 255}, 
+                "min": 0.0, 
+                "max": 255.0
+              }, 
+
+              {
+                "id": "1", 
+                "name": "Channel 1", 
+                "color": {"red": 0, "green": 255, "blue": 0, "alpha": 255}, 
+                "min": 0.0, 
+                "max": 255.0
+              }, 
+
+              {
+                "id": "2", 
+                "name": "Channel 2", 
+                "color": {"red": 0, "green": 0, "blue": 255, "alpha": 255}, 
+                "min": 0.0, 
+                "max": 255.0
+              }
+            ]
+        }
+      ,
+      "axes": 
+        [
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [53760, 183808, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 53760, 183808], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}}, 
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [26880, 91904, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 26880, 91904], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [13440, 45952, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 13440, 45952], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [6720, 22976, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 6720, 22976], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [3360, 11488, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 3360, 11488], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [1680, 5744, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 1680, 5744], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [840, 2872, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 840, 2872], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [420, 1436, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 420, 1436], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [210, 718, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 210, 718], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}},
+          {"originalAxes": ["Y", "X", "C"], "originalShape": [105, 359, 3], "storedAxes": ["C", "Y", "X"], "storedShape": [3, 105, 359], "axesMapping": {"Y": ["Y"], "X": ["X"], "C": ["C"]}}
+        ]
+    }
+  ', 
+'original_metadata': 
+  '
+    {
+      "philips_metadata": "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\" ?>\\n<DataObject ObjectType=\\"DPUfsImport\\">\\n\\t<Attribute Name=\\"DICOM_ACQUISITION_DATETIME\\"......
+    }
+  '
+'pixel_depth':
+  '
+    {
+      "0": 1,
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1,
+      "5": 1,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 1
+    }
+  ',
+'pkg_version': '0.2.4.dev33+dirty'
 }
 ```
 In the example above we can find in metadata some TileDB's imputed metadata like: 
@@ -180,6 +277,84 @@ And some source format specifics like:
     datetime
     resolution
     resolutionunit
+    ```
+    e.g.
+    ```json
+    {
+        "subifds": 9,
+        "metadata": {
+        "axes": "YXS"
+        },
+        "extratags": [],
+        "photometric": {
+        "py/reduce": [
+          {
+          "py/type": "tifffile.tifffile.PHOTOMETRIC"
+          },
+          {
+          "py/tuple": [
+            6
+          ]
+          }
+        ]
+        },
+        "planarconfig": {
+        "py/reduce": [
+          {
+          "py/type": "tifffile.tifffile.PLANARCONFIG"
+          },
+          {
+          "py/tuple": [
+            1
+          ]
+          }
+        ]
+        },
+        "extrasamples": {
+        "py/tuple": []
+        },
+        "rowsperstrip": 0,
+        "bitspersample": 8,
+        "compression": {
+        "py/reduce": [
+          {
+          "py/type": "tifffile.tifffile.COMPRESSION"
+          },
+          {
+          "py/tuple": [
+            7
+          ]
+          }
+        ]
+        },
+        "predictor": 1,
+        "subsampling": {
+        "py/tuple": [
+          2,
+          2
+        ]
+        },
+        "jpegtables": {
+        "py/b64": "/9j/2wBDAAIBAQEBAQIBAQECAgICAgQDAgICAgUEBAMEBgUGBgYFBgYGBwk...=="
+        },
+        "colormap": null,
+        "subfiletype": 0,
+        "software": "Philips DP v1.0",
+        "tile": {
+        "py/tuple": [
+          512,
+          512
+        ]
+        },
+        "datetime": null,
+        "resolution": {
+        "py/tuple": [
+          1,
+          1
+        ]
+        },
+        "resolutionunit": 2
+    }
     ```
   - `Zarr`
       
