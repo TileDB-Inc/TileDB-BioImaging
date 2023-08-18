@@ -324,12 +324,14 @@ class ImageConverter:
         original_metadata = {}
 
         with rw_group, reader:
-            stored_pkg_version = rw_group.r_group.meta.get("pkg_version")
-            if stored_pkg_version not in (None, PKG_VERSION):
-                raise RuntimeError(
+            stored_fmt_version = rw_group.r_group.meta.get("fmt_version")
+            if stored_fmt_version not in (None, FMT_VERSION):
+                warnings.warn(
                     "Incremental ingestion is not supported for different versions: "
-                    f"current version is {PKG_VERSION}, stored version is {stored_pkg_version}"
+                    f"current version is {FMT_VERSION}, stored version is {stored_fmt_version} - "
+                    f"Default Fallback: No changes will apply to already ingested image"
                 )
+                return cls
 
             # Check if compressor Mapping has 1-1 correspondance
             if isinstance(compressor, Mapping):
