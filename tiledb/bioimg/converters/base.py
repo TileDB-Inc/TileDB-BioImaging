@@ -223,6 +223,9 @@ class ImageConverter:
             else out_uri_res
         )
 
+        if not output_config and vfs_use:
+            output_config = config
+
         slide = TileDBOpenSlide(input_path, attr=attr, config=config)
         writer = cls._ImageWriterType(destination_uri)
 
