@@ -194,8 +194,8 @@ class ImageConverter:
         *,
         level_min: int = 0,
         attr: str = ATTR_NAME,
-        in_config: Union[tiledb.Config, Mapping[str, Any]] = None,
-        out_config: Union[tiledb.Config, Mapping[str, Any]] = None,
+        config: Union[tiledb.Config, Mapping[str, Any]] = None,
+        output_config: Union[tiledb.Config, Mapping[str, Any]] = None,
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
         **writer_kwargs: Mapping[str, Any],
     ) -> Type[ImageConverter]:
@@ -206,8 +206,8 @@ class ImageConverter:
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels
         :param attr: attribute name for backwards compatiblity support
-        :param in_config: tiledb configuration either a dict or a tiledb.Config of source
-        :param out_config: tiledb configuration either a dict or a tiledb.Config of destination
+        :param config: tiledb configuration either a dict or a tiledb.Config of source
+        :param output_config: tiledb configuration either a dict or a tiledb.Config of destination
         :param scratch_space: shared memory or cache space for cloud random access export support
         """
         if cls._ImageWriterType is None:
@@ -223,7 +223,7 @@ class ImageConverter:
             else out_uri_res
         )
 
-        slide = TileDBOpenSlide(input_path, attr=attr, config=in_config)
+        slide = TileDBOpenSlide(input_path, attr=attr, config=config)
         writer = cls._ImageWriterType(destination_uri)
 
         with slide, writer:
@@ -249,7 +249,7 @@ class ImageConverter:
             if vfs_use:
                 # Flush to remote
                 with open(destination_uri, "rb") as data:
-                    vfs = tiledb.VFS(config=out_config)
+                    vfs = tiledb.VFS(config=output_config)
                     with vfs.open(output_path, "wb") as dest:
                         dest.write(data.read())
         return cls
