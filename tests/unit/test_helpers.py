@@ -1,6 +1,13 @@
 import numpy as np
+import pytest
 
-from tiledb.bioimg.helpers import get_decimal_from_rgba, get_rgba, iter_color
+import tiledb
+from tiledb.bioimg.helpers import (
+    get_decimal_from_rgba,
+    get_pixel_depth,
+    get_rgba,
+    iter_color,
+)
 
 
 def test_color_iterator():
@@ -23,3 +30,17 @@ def test_color_iterator():
 
     for _, color in zip(range(5), generator_random):
         assert color == get_rgba(get_decimal_from_rgba(color))
+
+    with pytest.raises(NotImplementedError):
+        generator_non_float = iter_color(np.dtype(float), 5)
+        for _, color in zip(range(5), generator_non_float):
+            pass
+
+
+def test_get_pixel_depth():
+    webp_filter = tiledb.WebpFilter()
+    # Test that for some reason input_format gets a random value not supported
+    webp_filter._input_format = 6
+    with pytest.raises(ValueError) as err:
+        get_pixel_depth(webp_filter)
+        assert "Invalid WebpInputFormat" in str(err)

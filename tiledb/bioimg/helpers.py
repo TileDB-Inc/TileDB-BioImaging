@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
 from urllib.parse import urlparse
@@ -160,8 +161,16 @@ def get_axes_translation(
 
 
 def iter_color(attr_type: np.dtype, channel_num: int = 3) -> Iterator[Dict[str, int]]:
-    min_val = np.iinfo(attr_type).min
-    max_val = np.iinfo(attr_type).max
+    min_val = (
+        np.iinfo(attr_type).min
+        if np.issubdtype(attr_type, np.integer)
+        else sys.float_info.min
+    )
+    max_val = (
+        np.iinfo(attr_type).max
+        if np.issubdtype(attr_type, np.integer)
+        else sys.float_info.max
+    )
 
     if channel_num == 1:
         yield {"red": max_val, "green": max_val, "blue": max_val, "alpha": max_val}
@@ -178,9 +187,13 @@ def iter_color(attr_type: np.dtype, channel_num: int = 3) -> Iterator[Dict[str, 
             )
             blue = np.random.randint(low=min_val, high=max_val, dtype=attr_type).item(0)
         else:
-            red = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
-            green = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
-            blue = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
+            raise NotImplementedError(
+                "RGB-Float and RGB-1-0 formats are not yet supported for this iterator"
+            )
+            # get_decimal_from_rgba is not support for floats
+            # red = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
+            # green = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
+            # blue = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
 
         yield {"red": red, "green": green, "blue": blue, "alpha": max_val}
 
