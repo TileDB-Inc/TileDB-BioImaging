@@ -190,11 +190,6 @@ def iter_color(attr_type: np.dtype, channel_num: int = 3) -> Iterator[Dict[str, 
             raise NotImplementedError(
                 "RGB-Float and RGB-1-0 formats are not yet supported for this iterator"
             )
-            # get_decimal_from_rgba is not support for floats
-            # red = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
-            # green = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
-            # blue = np.random.uniform(low=min_val, high=max_val).astype(attr_type)
-
         yield {"red": red, "green": green, "blue": blue, "alpha": max_val}
 
 
