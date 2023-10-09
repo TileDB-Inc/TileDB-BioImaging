@@ -17,6 +17,7 @@ from .converters.axes import Axes, AxesMapper
 
 
 class ReadWriteGroup:
+    """ """
     def __init__(self, uri: str):
         parsed_uri = urlparse(uri)
         # normalize uri if it's a local path (e.g. ../..foo/bar)
@@ -40,6 +41,19 @@ class ReadWriteGroup:
         self.w_group.close()
 
     def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
+        """
+
+        Parameters
+        ----------
+        name: str :
+            
+        schema: tiledb.ArraySchema :
+            
+
+        Returns
+        -------
+
+        """
         create = False
         if name in self.r_group:
             uri = self.r_group[name].uri
@@ -78,6 +92,23 @@ class ReadWriteGroup:
 def open_bioimg(
     uri: str, mode: str = "r", attr: str = ATTR_NAME, config: Config = None
 ) -> tiledb.Array:
+    """
+
+    Parameters
+    ----------
+    uri: str :
+        
+    mode: str :
+         (Default value = "r")
+    attr: str :
+         (Default value = ATTR_NAME)
+    config: Config :
+         (Default value = None)
+
+    Returns
+    -------
+
+    """
     return tiledb.open(
         uri, mode=mode, attr=attr if mode == "r" else None, config=config
     )
@@ -90,6 +121,29 @@ def get_schema(
     attr_dtype: np.dtype,
     compressor: tiledb.Filter,
 ) -> tiledb.ArraySchema:
+    """
+
+    Parameters
+    ----------
+    dim_names: Tuple[str :
+        
+    ...] :
+        
+    dim_shape: Tuple[int :
+        
+    max_tiles: Mapping[str :
+        
+    int] :
+        
+    attr_dtype: np.dtype :
+        
+    compressor: tiledb.Filter :
+        
+
+    Returns
+    -------
+
+    """
     # find the smallest dtype that can hold `np.prod(dim_shape)` values
     dim_dtype = np.min_scalar_type(np.prod(dim_shape))
 
@@ -111,6 +165,33 @@ def get_axes_mapper(
     preserve_axes: bool,
     max_tiles: Mapping[str, int],
 ) -> Tuple[AxesMapper, Tuple[str, ...], MutableMapping[str, int]]:
+    """
+
+    Parameters
+    ----------
+    source_axes: Axes :
+        
+    source_shape: Tuple[int :
+        
+    ...] :
+        
+    compressor: Mapping[int :
+        
+    tiledb.Filter] :
+        
+    level: int :
+        
+    preserve_axes: bool :
+        
+    max_tiles: Mapping[str :
+        
+    int] :
+        
+
+    Returns
+    -------
+
+    """
     tiles = dict(max_tiles)
     pixel_depth = get_pixel_depth(compressor.get(level, tiledb.ZstdFilter(level=0)))
     if pixel_depth == 1:
@@ -129,6 +210,17 @@ def get_axes_mapper(
 
 
 def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
+    """
+
+    Parameters
+    ----------
+    group: tiledb.Group :
+        
+
+    Returns
+    -------
+
+    """
     for o in group:
         with open_bioimg(o.uri) as array:
             level = array.meta["level"]
@@ -140,12 +232,36 @@ def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
 def iter_pixel_depths_meta(
     compressors: Mapping[int, tiledb.Filter]
 ) -> Iterator[Tuple[int, int]]:
+    """
+
+    Parameters
+    ----------
+    compressors: Mapping[int :
+        
+    tiledb.Filter] :
+        
+
+    Returns
+    -------
+
+    """
     for comp_level, compressor in compressors.items():
         level_pixel_depth = get_pixel_depth(compressor)
         yield (comp_level, level_pixel_depth)
 
 
 def get_pixel_depth(compressor: tiledb.Filter) -> int:
+    """
+
+    Parameters
+    ----------
+    compressor: tiledb.Filter :
+        
+
+    Returns
+    -------
+
+    """
     if not isinstance(compressor, tiledb.WebpFilter):
         return 1
     webp_format = compressor.input_format
@@ -159,6 +275,19 @@ def get_pixel_depth(compressor: tiledb.Filter) -> int:
 def get_axes_translation(
     compressor: tiledb.Filter, axes: str
 ) -> Mapping[str, Sequence[str]]:
+    """
+
+    Parameters
+    ----------
+    compressor: tiledb.Filter :
+        
+    axes: str :
+        
+
+    Returns
+    -------
+
+    """
     if isinstance(compressor, tiledb.WebpFilter):
         return {"Y": ["Y"], "X": ["X", "C"]}
 
@@ -166,6 +295,19 @@ def get_axes_translation(
 
 
 def iter_color(attr_type: np.dtype, channel_num: int = 3) -> Iterator[Dict[str, int]]:
+    """
+
+    Parameters
+    ----------
+    attr_type: np.dtype :
+        
+    channel_num: int :
+         (Default value = 3)
+
+    Returns
+    -------
+
+    """
     min_val = (
         np.iinfo(attr_type).min
         if np.issubdtype(attr_type, np.integer)
@@ -199,6 +341,17 @@ def iter_color(attr_type: np.dtype, channel_num: int = 3) -> Iterator[Dict[str, 
 
 
 def get_rgba(value: int) -> Dict[str, int]:
+    """
+
+    Parameters
+    ----------
+    value: int :
+        
+
+    Returns
+    -------
+
+    """
     color = {
         "red": (value & 0xFF000000) // 2**24,
         "green": (value & 0x00FF0000) // 2**16,
@@ -210,11 +363,23 @@ def get_rgba(value: int) -> Dict[str, int]:
 
 
 def get_decimal_from_rgba(color: Mapping[str, int]) -> int:
-    """
-    Convert an 8-bit RGBA color to a single signed integer value
-    :param color: The color dictionary to convert.
+    """Convert an 8-bit RGBA color to a single signed integer value
+
+    Parameters
+    ----------
+    color :
+        The color dictionary to convert.
         Each component should be between 0 and 255 inclusive (8-bit unsigned integer)
-    :returns: A 32-bit signed integer in 2's complement representing the RGBA color
+    color: Mapping[str :
+        
+    int] :
+        
+
+    Returns
+    -------
+    type
+        A 32-bit signed integer in 2's complement representing the RGBA color
+
     """
 
     # Shift each 8-bit color component to the appropriate position
@@ -238,11 +403,37 @@ def get_decimal_from_rgba(color: Mapping[str, int]) -> int:
 def compute_channel_minmax(
     min_max: np.ndarray, tile_min: np.ndarray, tile_max: np.ndarray
 ) -> None:
+    """
+
+    Parameters
+    ----------
+    min_max: np.ndarray :
+        
+    tile_min: np.ndarray :
+        
+    tile_max: np.ndarray :
+        
+
+    Returns
+    -------
+
+    """
     min_max[:, 0] = np.minimum(min_max[:, 0], tile_min)
     min_max[:, 1] = np.maximum(min_max[:, 1], tile_max)
 
 
 def resolve_path(uri: str) -> Tuple[str, str]:
+    """
+
+    Parameters
+    ----------
+    uri: str :
+        
+
+    Returns
+    -------
+
+    """
     parsed_uri = urlparse(uri)
     # normalize uri if it's a local path (e.g. ../..foo/bar)
 
@@ -255,8 +446,30 @@ def resolve_path(uri: str) -> Tuple[str, str]:
 
 
 def is_win_path(scheme: str) -> bool:
+    """
+
+    Parameters
+    ----------
+    scheme: str :
+        
+
+    Returns
+    -------
+
+    """
     return len(scheme) < 2 or scheme == "file"
 
 
 def is_local_path(scheme: str) -> bool:
+    """
+
+    Parameters
+    ----------
+    scheme: str :
+        
+
+    Returns
+    -------
+
+    """
     return True if is_win_path(scheme) or scheme == "" else False

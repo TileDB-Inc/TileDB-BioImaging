@@ -9,6 +9,7 @@ from pyeditdistance.distance import levenshtein
 
 
 class AxesMapper(ABC):
+    """ """
     @property
     @abstractmethod
     def inverse(self) -> AxesMapper:
@@ -16,30 +17,100 @@ class AxesMapper(ABC):
 
     @abstractmethod
     def map_array(self, a: np.ndarray) -> np.ndarray:
-        """Return the transformed Numpy array"""
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
 
     def map_shape(self, shape: Tuple[int, ...]) -> Tuple[int, ...]:
-        """Return the shape of the transformed Numpy array."""
+        """
+
+        Parameters
+        ----------
+        shape: Tuple[int :
+            
+        ...] :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
         mapped_shape = list(shape)
         self.transform_shape(mapped_shape)
         return tuple(mapped_shape)
 
     def map_tile(self, tile: Tuple[slice, ...]) -> Tuple[slice, ...]:
-        """Return the tile for slicing the transformed Numpy array"""
+        """
+
+        Parameters
+        ----------
+        tile: Tuple[slice :
+            
+        ...] :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
         mapped_tile = list(tile)
         self.transform_tile(mapped_tile)
         return tuple(mapped_tile)
 
     def transform_shape(self, shape: MutableSequence[int]) -> None:
-        """Transform the given shape in place"""
+        """Transform the given shape in place
+
+        Parameters
+        ----------
+        shape: MutableSequence[int] :
+            
+
+        Returns
+        -------
+
+        """
         self.transform_sequence(shape)
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
-        """Transform the given tile in place"""
+        """Transform the given tile in place
+
+        Parameters
+        ----------
+        tile: MutableSequence[slice] :
+            
+
+        Returns
+        -------
+
+        """
         self.transform_sequence(tile)
 
     def transform_sequence(self, s: MutableSequence[Any]) -> None:
-        """Transform the given mutable sequence in place"""
+        """Transform the given mutable sequence in place
+
+        Parameters
+        ----------
+        s: MutableSequence[Any] :
+            
+
+        Returns
+        -------
+
+        """
         # intentionally not decorated as @abstractmethod: subclasses may override
         # transform_shape and transform_tile instead
         raise NotImplementedError
@@ -47,89 +118,233 @@ class AxesMapper(ABC):
 
 @dataclass(frozen=True)
 class Swap(AxesMapper):
+    """ """
     i: int
     j: int
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return self
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         return np.swapaxes(a, self.i, self.j)
 
     def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        """
+
+        Parameters
+        ----------
+        s: MutableSequence[Any] :
+            
+
+        Returns
+        -------
+
+        """
         i, j = self.i, self.j
         s[i], s[j] = s[j], s[i]
 
 
 @dataclass(frozen=True)
 class Move(AxesMapper):
+    """ """
     i: int
     j: int
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return Move(self.j, self.i)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         return np.moveaxis(a, self.i, self.j)
 
     def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        """
+
+        Parameters
+        ----------
+        s: MutableSequence[Any] :
+            
+
+        Returns
+        -------
+
+        """
         s.insert(self.j, s.pop(self.i))
 
 
 @dataclass(frozen=True)
 class Squeeze(AxesMapper):
+    """ """
     idxs: Tuple[int, ...]
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return Unsqueeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         return np.squeeze(a, self.idxs)
 
     def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        """
+
+        Parameters
+        ----------
+        s: MutableSequence[Any] :
+            
+
+        Returns
+        -------
+
+        """
         for i in sorted(self.idxs, reverse=True):
             del s[i]
 
 
 @dataclass(frozen=True)
 class Unsqueeze(AxesMapper):
+    """ """
     idxs: Tuple[int, ...]
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return Squeeze(self.idxs)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         return np.expand_dims(a, self.idxs)
 
     def transform_shape(self, shape: MutableSequence[int]) -> None:
+        """
+
+        Parameters
+        ----------
+        shape: MutableSequence[int] :
+            
+
+        Returns
+        -------
+
+        """
         self.transform_sequence(shape, fill_value=1)
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        """
+
+        Parameters
+        ----------
+        tile: MutableSequence[slice] :
+            
+
+        Returns
+        -------
+
+        """
         self.transform_sequence(tile, fill_value=slice(None))
 
     def transform_sequence(
         self, sequence: MutableSequence[Any], fill_value: Any = None
     ) -> None:
+        """
+
+        Parameters
+        ----------
+        sequence: MutableSequence[Any] :
+            
+        fill_value: Any :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         for i in sorted(self.idxs):
             sequence.insert(i, fill_value)
 
 
 @dataclass(frozen=True)
 class YXC_TO_YX(AxesMapper):
+    """ """
     c_size: int
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return YX_TO_YXC(self.c_size)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         return a.reshape(self.map_shape(a.shape))
 
     def transform_shape(self, shape: MutableSequence[int]) -> None:
+        """
+
+        Parameters
+        ----------
+        shape: MutableSequence[int] :
+            
+
+        Returns
+        -------
+
+        """
         y, x, c = shape
         if c != self.c_size:
             raise ValueError(f"C dimension must have size {self.c_size}: {c} given")
@@ -137,6 +352,17 @@ class YXC_TO_YX(AxesMapper):
         del shape[2]
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        """
+
+        Parameters
+        ----------
+        tile: MutableSequence[slice] :
+            
+
+        Returns
+        -------
+
+        """
         y, x, c = tile
         if c != slice(0, self.c_size):
             raise ValueError(
@@ -148,21 +374,56 @@ class YXC_TO_YX(AxesMapper):
 
 @dataclass(frozen=True)
 class YX_TO_YXC(AxesMapper):
+    """ """
     c_size: int
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return YXC_TO_YX(self.c_size)
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         return a.reshape(self.map_shape(a.shape))
 
     def transform_shape(self, shape: MutableSequence[int]) -> None:
+        """
+
+        Parameters
+        ----------
+        shape: MutableSequence[int] :
+            
+
+        Returns
+        -------
+
+        """
         c = self.c_size
         shape[1] //= c
         shape.append(c)
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        """
+
+        Parameters
+        ----------
+        tile: MutableSequence[slice] :
+            
+
+        Returns
+        -------
+
+        """
         c = self.c_size
         tile[1] = slice(tile[1].start // c, tile[1].stop // c)
         tile.append(slice(0, c))
@@ -170,32 +431,79 @@ class YX_TO_YXC(AxesMapper):
 
 @dataclass(frozen=True)
 class CompositeAxesMapper(AxesMapper):
+    """ """
     mappers: Sequence[AxesMapper]
 
     @property
     def inverse(self) -> AxesMapper:
+        """ """
         return CompositeAxesMapper([t.inverse for t in reversed(self.mappers)])
 
     def map_array(self, a: np.ndarray) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        a: np.ndarray :
+            
+
+        Returns
+        -------
+
+        """
         for mapper in self.mappers:
             a = mapper.map_array(a)
         return a
 
     def transform_shape(self, shape: MutableSequence[int]) -> None:
+        """
+
+        Parameters
+        ----------
+        shape: MutableSequence[int] :
+            
+
+        Returns
+        -------
+
+        """
         for mapper in self.mappers:
             mapper.transform_shape(shape)
 
     def transform_tile(self, tile: MutableSequence[slice]) -> None:
+        """
+
+        Parameters
+        ----------
+        tile: MutableSequence[slice] :
+            
+
+        Returns
+        -------
+
+        """
         for mapper in self.mappers:
             mapper.transform_tile(tile)
 
     def transform_sequence(self, s: MutableSequence[Any]) -> None:
+        """
+
+        Parameters
+        ----------
+        s: MutableSequence[Any] :
+            
+
+        Returns
+        -------
+
+        """
         for mapper in self.mappers:
             mapper.transform_sequence(s)
 
 
 @dataclass(frozen=True)
 class Axes:
+    """ """
     dims: str
     __slots__ = ("dims",)
     CANONICAL_DIMS = "TCZYX"
@@ -216,25 +524,73 @@ class Axes:
 
     def canonical(self, shape: Tuple[int, ...]) -> Axes:
         """
-        Return a new Axes instance with the dimensions of this axes whose size in `shape`
-        are greater than 1 and ordered in canonical order (TCZYX)
+
+        Parameters
+        ----------
+        shape: Tuple[int :
+            
+        ...] :
+            
+
+        Returns
+        -------
+        type
+            are greater than 1 and ordered in canonical order (TCZYX)
+
         """
         assert len(self.dims) == len(shape)
         dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
         return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
 
     def mapper(self, other: Axes) -> AxesMapper:
-        """Return an AxesMapper from this axes to other"""
+        """
+
+        Parameters
+        ----------
+        other: Axes :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
         return CompositeAxesMapper(list(_iter_axes_mappers(self.dims, other.dims)))
 
     def webp_mapper(self, num_channels: int) -> AxesMapper:
-        """Return an AxesMapper from this 3D axes (YXC or a permutation) to 2D (YX)"""
+        """
+
+        Parameters
+        ----------
+        num_channels: int :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
         mappers = list(_iter_axes_mappers(self.dims, "YXC"))
         mappers.append(YXC_TO_YX(num_channels))
         return CompositeAxesMapper(mappers)
 
 
 def _iter_axes_mappers(s: str, t: str) -> Iterator[AxesMapper]:
+    """
+
+    Parameters
+    ----------
+    s: str :
+        
+    t: str :
+        
+
+    Returns
+    -------
+
+    """
     s_set = frozenset(s)
     assert len(s_set) == len(s), f"{s!r} contains duplicates"
     t_set = frozenset(t)
@@ -278,6 +634,17 @@ def _iter_axes_mappers(s: str, t: str) -> Iterator[AxesMapper]:
 
 
 def _iter_transpositions(n: int) -> Iterator[AxesMapper]:
+    """
+
+    Parameters
+    ----------
+    n: int :
+        
+
+    Returns
+    -------
+
+    """
     for i in range(n):
         for j in range(i + 1, n):
             yield Swap(i, j)

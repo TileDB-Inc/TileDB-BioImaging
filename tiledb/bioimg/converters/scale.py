@@ -10,6 +10,7 @@ from .tiles import iter_tiles
 
 
 class Scaler(object):
+    """ """
     def __init__(
         self,
         base_shape: Tuple[int, ...],
@@ -54,21 +55,38 @@ class Scaler(object):
 
     @property
     def level_shapes(self) -> Sequence[Tuple[int, ...]]:
+        """ """
         return self._level_shapes
 
     @property
     def chunked(self) -> bool:
+        """ """
         return self._chunked
 
     @property
     def progressive(self) -> bool:
+        """ """
         return self._progressive
 
     @property
     def compressors(self) -> Mapping[int, tiledb.Filter]:
+        """ """
         return self._scale_compressors
 
     def update_compressors(self, level: int, lvl_filter: tiledb.Filter) -> None:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+        lvl_filter: tiledb.Filter :
+            
+
+        Returns
+        -------
+
+        """
         self._scale_compressors[level] = lvl_filter
 
     def apply(
@@ -78,6 +96,23 @@ class Scaler(object):
         level: int,
         axes_mapper: AxesMapper,
     ) -> None:
+        """
+
+        Parameters
+        ----------
+        in_array: tiledb.Array :
+            
+        out_array: tiledb.Array :
+            
+        level: int :
+            
+        axes_mapper: AxesMapper :
+            
+
+        Returns
+        -------
+
+        """
         scale_kwargs = dict(
             in_array=in_array,
             out_array=out_array,
@@ -107,6 +142,29 @@ def _scale(
     scale_factors: Sequence[float] = (),
     **resize_kwargs: Any,
 ) -> None:
+    """
+
+    Parameters
+    ----------
+    in_array: tiledb.Array :
+        
+    out_array: tiledb.Array :
+        
+    axes_mapper: AxesMapper :
+        
+    tile: Optional[Tuple[slice :
+        
+    ...]] :
+         (Default value = None)
+    scale_factors: Sequence[float] :
+         (Default value = ())
+    **resize_kwargs: Any :
+        
+
+    Returns
+    -------
+
+    """
     if tile is None:
         tile = axes_mapper.inverse.map_tile(
             tuple(slice(0, size) for size in out_array.shape)

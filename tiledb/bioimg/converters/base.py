@@ -55,6 +55,7 @@ DEFAULT_SCRATCH_SPACE = "/dev/shm"
 
 
 class ImageReader(ABC):
+    """ """
     @abstractmethod
     def __init__(self, input_path: str, **kwargs: Any):
         """Initialize this ImageReader"""
@@ -83,54 +84,109 @@ class ImageReader(ABC):
     @property
     @abstractmethod
     def level_count(self) -> int:
-        """
-        The number of levels for this multi-resolution image.
-
+        """The number of levels for this multi-resolution image.
+        
         Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
         """
 
     @abstractmethod
     def level_dtype(self, level: int) -> np.dtype:
-        """Return the dtype of the image for the given level."""
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
 
     @abstractmethod
     def level_shape(self, level: int) -> Tuple[int, ...]:
-        """Return the shape of the image for the given level."""
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
 
     @abstractmethod
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
     ) -> np.ndarray:
-        """
-        Return the image for the given level as numpy array.
-
+        """Return the image for the given level as numpy array.
+        
         The axes of the array are specified by the `axes` property.
 
-        :param tile: If not None, a tuple of slices (one per each axes) that specify the
+        Parameters
+        ----------
+        tile :
+            If not None, a tuple of slices (one per each axes) that specify the
             subregion of the image to return.
+        level: int :
+            
+        tile: Optional[Tuple[slice :
+            
+        ...]] :
+             (Default value = None)
+
+        Returns
+        -------
+
         """
 
     @abstractmethod
     def level_metadata(self, level: int) -> Dict[str, Any]:
-        """Return the metadata for the given level."""
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+        type
+            
+
+        """
 
     @property
     @abstractmethod
     def group_metadata(self) -> Dict[str, Any]:
-        """Return the metadata for the whole multi-resolution image."""
+        """ """
 
     @property
     @abstractmethod
     def image_metadata(self) -> Dict[str, Any]:
-        """Return the metadata for the whole multi-resolution image."""
+        """ """
 
     @property
     @abstractmethod
     def original_metadata(self) -> Dict[str, Any]:
-        """Return the metadata of the original file."""
+        """ """
 
 
 class ImageWriter(ABC):
+    """ """
     @abstractmethod
     def __init__(self, output_path: str):
         """Initialize this ImageWriter"""
@@ -143,7 +199,19 @@ class ImageWriter(ABC):
 
     @abstractmethod
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
-        """Write metadata for the whole multi-resolution image."""
+        """Write metadata for the whole multi-resolution image.
+
+        Parameters
+        ----------
+        metadata: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
+        """
 
     @abstractmethod
     def compute_level_metadata(
@@ -157,10 +225,34 @@ class ImageWriter(ABC):
     ) -> Mapping[str, Any]:
         """Compute the necessary metadata for the current level
 
-        :param baseline: Sets current image as the baseline for the pyramid
-        :param image_dtype: THe data type of the image to be stored
-        :param group_metadata: The TileDB group pyramid metadata
-        :param array_metadata: The TileDB array level metadata
+        Parameters
+        ----------
+        baseline :
+            Sets current image as the baseline for the pyramid
+        image_dtype :
+            THe data type of the image to be stored
+        group_metadata :
+            The TileDB group pyramid metadata
+        array_metadata :
+            The TileDB array level metadata
+        baseline: bool :
+            
+        num_levels: int :
+            
+        image_dtype: np.dtype :
+            
+        group_metadata: Mapping[str :
+            
+        Any] :
+            
+        array_metadata: Mapping[str :
+            
+        **writer_kwargs: Mapping[str :
+            
+
+        Returns
+        -------
+
         """
 
     @abstractmethod
@@ -169,18 +261,35 @@ class ImageWriter(ABC):
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
-        """
-        Write the image for the given level.
+        """Write the image for the given level.
 
-        :param baseline: Sets current image as the baseline for the pyramid
-        :param num_levels: The total number of reduced resolution images
-        :param image: Image for the given level as numpy array
-        :param metadata: Metadata for the given level
-        :param image_mask: Mask the original image depending on export format requirements
+        Parameters
+        ----------
+        baseline :
+            Sets current image as the baseline for the pyramid
+        num_levels :
+            The total number of reduced resolution images
+        image :
+            Image for the given level as numpy array
+        metadata :
+            Metadata for the given level
+        image_mask :
+            Mask the original image depending on export format requirements
+        image: np.ndarray :
+            
+        metadata: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
         """
 
 
 class ImageConverter:
+    """ """
     # setting a tile to "infinite" effectively makes it equal to the dimension size
     _DEFAULT_TILES = {"T": 1, "C": np.inf, "Z": 1, "Y": 1024, "X": 1024}
     _ImageReaderType: Optional[Type[ImageReader]] = None
@@ -199,16 +308,53 @@ class ImageConverter:
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
         **writer_kwargs: Mapping[str, Any],
     ) -> Type[ImageConverter]:
-        """
-        Convert a TileDB Group of Arrays back to other format images, one per level
-        :param input_path: path to the TileDB group of arrays
-        :param output_path: path to the image
-        :param level_min: minimum level of the image to be converted. By default set to 0
+        """Convert a TileDB Group of Arrays back to other format images, one per level
+
+        Parameters
+        ----------
+        input_path :
+            path to the TileDB group of arrays
+        output_path :
+            path to the image
+        level_min :
+            minimum level of the image to be converted. By default set to 0
             to convert all levels
-        :param attr: attribute name for backwards compatiblity support
-        :param config: tiledb configuration either a dict or a tiledb.Config of source
-        :param output_config: tiledb configuration either a dict or a tiledb.Config of destination
-        :param scratch_space: shared memory or cache space for cloud random access export support
+        attr :
+            attribute name for backwards compatiblity support
+        config :
+            tiledb configuration either a dict or a tiledb.Config of source
+        output_config :
+            tiledb configuration either a dict or a tiledb.Config of destination
+        scratch_space :
+            shared memory or cache space for cloud random access export support
+        input_path: str :
+            
+        output_path: str :
+            
+        * :
+            
+        level_min: int :
+             (Default value = 0)
+        attr: str :
+             (Default value = ATTR_NAME)
+        config: Union[tiledb.Config :
+            
+        Mapping[str :
+            
+        Any]] :
+             (Default value = None)
+        output_config: Union[tiledb.Config :
+            
+        scratch_space: str :
+             (Default value = DEFAULT_SCRATCH_SPACE)
+        **writer_kwargs: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
         """
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
@@ -272,39 +418,84 @@ class ImageConverter:
         reader_kwargs: Optional[Mapping[str, Any]] = None,
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> Type[ImageConverter]:
-        """
-        Convert an image to a TileDB Group of Arrays, one per level.
+        """Convert an image to a TileDB Group of Arrays, one per level.
 
-        :param source: path to the input image or ImageReader object
-        :param output_path: path to the TileDB group of arrays
-        :param level_min: minimum level of the image to be converted. By default set to 0
+        Parameters
+        ----------
+        source :
+            path to the input image or ImageReader object
+        output_path :
+            path to the TileDB group of arrays
+        level_min :
+            minimum level of the image to be converted. By default set to 0
             to convert all levels.
-        :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
+        tiles :
+            A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
-        :param preserve_axes: If true, preserve the axes order of the original image.
-        :param chunked: If true, convert one tile at a time instead of the whole image.
+        preserve_axes :
+            If true, preserve the axes order of the original image.
+        chunked :
+            If true, convert one tile at a time instead of the whole image.
             **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
             for levels>0, even though the converted images look visually identical to the
             original ones.
-        :param max_workers: Maximum number of threads that can be used for conversion.
+        max_workers :
+            Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
-        :param compressor: TileDB compression filter mapping for each level
-        :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
-        :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
+        compressor :
+            TileDB compression filter mapping for each level
+        reader_kwargs :
+            Keyword arguments passed to the _ImageReaderType constructor.
+        pyramid_kwargs :
+            Keyword arguments passed to the scaler constructor for
             generating downsampled versions of the base level. Valid keyword arguments are:
             scale_factors (Required): The downsampling factor for each level
             scale_axes (Optional): Default "XY". The axes which will be downsampled
             chunked (Optional): Default False. If true the image is split into chunks and
-                each one is independently downsampled. If false the entire image is
-                downsampled at once, but it requires more memory.
+            each one is independently downsampled. If false the entire image is
+            downsampled at once, but it requires more memory.
             progressive (Optional): Default False. If true each downsampled image is
-                generated using the previous level. If false for every downsampled image
-                the level_min is used, but it requires more memory.
+            generated using the previous level. If false for every downsampled image
+            the level_min is used, but it requires more memory.
             order (Optional): Default 1. The order of the spline interpolation. The order
-                has to be in the range 0-5. See `skimage.transform.warp` for detail.
+            has to be in the range 0-5. See `skimage.transform.warp` for detail.
             max_workers (Optional): Default None. The maximum number of workers for
-                chunked downsampling. If None, it will default to the number of processors
-                on the machine, multiplied by 5.
+            chunked downsampling. If None, it will default to the number of processors
+            on the machine, multiplied by 5.
+        source: Union[str :
+            
+        ImageReader] :
+            
+        output_path: str :
+            
+        * :
+            
+        level_min: int :
+             (Default value = 0)
+        tiles: Optional[Mapping[str :
+            
+        int]] :
+             (Default value = None)
+        preserve_axes: bool :
+             (Default value = False)
+        chunked: bool :
+             (Default value = False)
+        max_workers: int :
+             (Default value = 0)
+        compressor: Optional[Union[Mapping[int :
+            
+        Any] :
+            
+        Any]] :
+             (Default value = None)
+        reader_kwargs: Optional[Mapping[str :
+            
+        pyramid_kwargs: Optional[Mapping[str :
+            
+
+        Returns
+        -------
+
         """
         if isinstance(source, ImageReader):
             if cls._ImageReaderType != source.__class__:
@@ -451,6 +642,37 @@ def _convert_level_to_tiledb(
     max_workers: int,
     compressor: Mapping[int, tiledb.Filter],
 ) -> Mapping[str, Any]:
+    """
+
+    Parameters
+    ----------
+    level: int :
+        
+    * :
+        
+    reader: ImageReader :
+        
+    rw_group: ReadWriteGroup :
+        
+    max_tiles: MutableMapping[str :
+        
+    int] :
+        
+    preserve_axes: bool :
+        
+    chunked: bool :
+        
+    max_workers: int :
+        
+    compressor: Mapping[int :
+        
+    tiledb.Filter] :
+        
+
+    Returns
+    -------
+
+    """
     level_metadata: MutableMapping[str, Any] = {}
 
     # create mapper from source to target axes
@@ -520,6 +742,19 @@ def _convert_level_to_tiledb(
                 def tile_to_tiledb(
                     level_tile: Tuple[slice, ...]
                 ) -> Tuple[np.ndarray, ...]:
+                    """
+
+                    Parameters
+                    ----------
+                    level_tile: Tuple[slice :
+                        
+                    ...] :
+                        
+
+                    Returns
+                    -------
+
+                    """
                     source_tile = inv_axes_mapper.map_tile(level_tile)
                     image = reader.level_image(level, source_tile)
                     out_array[level_tile] = axes_mapper.map_array(image)
@@ -568,6 +803,37 @@ def _create_image_pyramid(
     preserve_axes: bool,
     pyramid_kwargs: Mapping[str, Any],
 ) -> Tuple[Mapping[int, tiledb.Filter], Mapping[str, Any]]:
+    """
+
+    Parameters
+    ----------
+    reader: ImageReader :
+        
+    rw_group: ReadWriteGroup :
+        
+    base_uri: str :
+        
+    base_level: int :
+        
+    max_tiles: MutableMapping[str :
+        
+    int] :
+        
+    compressors: Mapping[int :
+        
+    tiledb.Filter] :
+        
+    preserve_axes: bool :
+        
+    pyramid_kwargs: Mapping[str :
+        
+    Any] :
+        
+
+    Returns
+    -------
+
+    """
     scaler = Scaler(reader.level_shape(base_level), reader.axes.dims, **pyramid_kwargs)
 
     levels_metadata: MutableMapping[str, Any] = {"axes": []}

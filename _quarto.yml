@@ -1,0 +1,74 @@
+# Cloned from https://github.com/TileDB-Inc/tiledb-quarto-template
+project:
+  type: website
+  output-dir: docs
+
+format:
+  html:
+    toc: true
+    theme:
+      light: [flatly, "quarto-materials/tiledb.scss"]
+    mainfont: Helvetica
+    fontsize: 1rem
+    linkcolor: "#4d9fff"
+    code-copy: true
+    code-overflow: wrap
+    css: "quarto-materials/tiledb.css"
+
+website:
+  favicon: "images/favicon.ico"
+  site-url: https://tiledb-inc.github.io/tiledb-quarto-template/
+  repo-url: https://github.com/TileDB-Inc/tiledb-quarto-template
+  # You may want one or both of these, or neither:
+  repo-actions: [edit, issue]
+  page-navigation: true
+  navbar:
+    background: light
+    logo: "quarto-materials/tiledb-logo.png"
+    collapse-below: lg
+    left:
+      - text: "Home page"
+        href: "https://tiledb.com"
+      - text: "Login"
+        href: "https://cloud.tiledb.com/auth/login"
+      - text: "Contact us"
+        href: "https://tiledb.com/contact"
+      - text: "Repo"
+        href: "https://github.com/TileDB-Inc/tiledb-quarto-template"
+
+
+    sidebar:
+      style: "floating"
+      collapse-level: 3
+      align: left
+      contents:
+        - href: "reference/index.qmd"
+
+#    - style: "floating"
+#      collapse-level: 3
+#      align: left
+#      contents:
+#        - href: "README.md"
+#        - section: "API Reference"
+#            contents:
+#              - reference/index.qmd
+#        - section: "Wrappers"
+#            contents:
+#              - reference/bioimg.wrappers.from_bioimg.qmd
+#              - reference/bioimg.wrappers.to_bioimg.qmd
+#        - section: "Types"
+#            contents:
+#              - reference/bioimg.types.Converters.qmd
+
+quartodoc:
+  # the name used to import the package you want to create reference docs for
+  package: tiledb
+  # write sidebar data to this file
+  sections:
+    - title: API
+      desc: Functions to inspect docstrings.
+      contents:
+        - bioimg.wrappers.from_bioimg
+        - bioimg.wrappers.to_bioimg
+        - bioimg.openslide.TileDBOpenSlide
+        - bioimg.types.Converters

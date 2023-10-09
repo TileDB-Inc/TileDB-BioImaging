@@ -20,10 +20,16 @@ from .base import ImageConverter, ImageReader, ImageWriter
 
 class OMEZarrReader(ImageReader):
     def __init__(self, input_path: str):
-        """
-        OME-Zarr image reader
+        """OME-Zarr image reader
 
-        :param input_path: The path to the Zarr image
+        Parameters
+        ----------
+        input_path :
+            The path to the Zarr image
+
+        Returns
+        -------
+
         """
         self._root_node = next(Reader(ZarrLocation(input_path))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
@@ -31,14 +37,17 @@ class OMEZarrReader(ImageReader):
 
     @property
     def axes(self) -> Axes:
+        """ """
         return Axes(a["name"].upper() for a in self._multiscales.node.metadata["axes"])
 
     @property
     def channels(self) -> Sequence[str]:
+        """ """
         return tuple(self._omero.node.metadata.get("name", ())) if self._omero else ()
 
     @property
     def webp_format(self) -> WebpInputFormat:
+        """ """
         channels = self._omero.image_data.get("channels", ()) if self._omero else ()
         colors = tuple(channel.get("color") for channel in channels)
         if colors == ("FF0000", "00FF00", "0000FF"):
@@ -47,29 +56,79 @@ class OMEZarrReader(ImageReader):
 
     @property
     def level_count(self) -> int:
+        """ """
         return len(self._multiscales.datasets)
 
     def level_dtype(self, level: int) -> np.dtype:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+
+        """
         return self._multiscales.node.data[level].dtype
 
     def level_shape(self, level: int) -> Tuple[int, ...]:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+
+        """
         return cast(Tuple[int, ...], self._multiscales.node.data[level].shape)
 
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
     ) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+        tile: Optional[Tuple[slice :
+            
+        ...]] :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         dask_array = self._multiscales.node.data[level]
         if tile is not None:
             dask_array = dask_array[tile]
         return np.asarray(dask_array)
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+
+        """
         dataset = self._multiscales.datasets[level]
         location = ZarrLocation(self._multiscales.zarr.subpath(dataset))
         return {"json_zarray": json.dumps(location.zarray)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
+        """ """
         multiscale = self._multiscales.lookup("multiscales", [])[0]
         writer_kwargs = dict(
             axes=multiscale.get("axes"),
@@ -84,6 +143,7 @@ class OMEZarrReader(ImageReader):
 
     @property
     def image_metadata(self) -> Dict[str, Any]:
+        """ """
         # Based on information available at https://ngff.openmicroscopy.org/latest/#metadata
         # The start and end values may differ from the channel min-max values as well as the
         # min-max values of the metadata.
@@ -125,6 +185,7 @@ class OMEZarrReader(ImageReader):
 
     @property
     def original_metadata(self) -> Dict[str, Any]:
+        """ """
         metadata: Dict[str, Dict[str, Any]] = {"ZARR": {}}
 
         for key, value in self._root_node.root.zarr.root_attrs.items():
@@ -135,10 +196,16 @@ class OMEZarrReader(ImageReader):
 
 class OMEZarrWriter(ImageWriter):
     def __init__(self, output_path: str):
-        """
-        OME-Zarr image writer from TileDB
+        """OME-Zarr image writer from TileDB
 
-        :param output_path: The path to the Zarr image
+        Parameters
+        ----------
+        output_path :
+            The path to the Zarr image
+
+        Returns
+        -------
+
         """
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
@@ -148,6 +215,19 @@ class OMEZarrWriter(ImageWriter):
         self._group_metadata: Dict[str, Any] = {}
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        """
+
+        Parameters
+        ----------
+        metadata: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
+        """
         self._group_metadata = json.loads(metadata["json_zarrwriter_kwargs"])
 
     def write_level_image(
@@ -155,6 +235,21 @@ class OMEZarrWriter(ImageWriter):
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
+        """
+
+        Parameters
+        ----------
+        image: np.ndarray :
+            
+        metadata: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
+        """
         # store the image to be written at __exit__
         self._pyramid.append(image)
         # store the zarray metadata to be written at __exit__
@@ -173,6 +268,29 @@ class OMEZarrWriter(ImageWriter):
         array_metadata: Mapping[str, Any],
         **writer_kwargs: Mapping[str, Any],
     ) -> Mapping[str, Any]:
+        """
+
+        Parameters
+        ----------
+        baseline: bool :
+            
+        num_levels: int :
+            
+        image_dtype: np.dtype :
+            
+        group_metadata: Mapping[str :
+            
+        Any] :
+            
+        array_metadata: Mapping[str :
+            
+        **writer_kwargs: Mapping[str :
+            
+
+        Returns
+        -------
+
+        """
         return dict(json.loads(array_metadata.get("json_zarray", "{}")))
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

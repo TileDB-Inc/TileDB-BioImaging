@@ -17,11 +17,18 @@ from .metadata import qpi_image_meta, qpi_original_meta
 
 class OMETiffReader(ImageReader):
     def __init__(self, input_path: str, extra_tags: Sequence[Union[str, int]] = ()):
-        """
-        OME-TIFF image reader
+        """OME-TIFF image reader
 
-        :param input_path: The path to the TIFF image
-        :param extra_tags: Extra tags to read, specified either by name or by int code.
+        Parameters
+        ----------
+        input_path :
+            The path to the TIFF image
+        extra_tags :
+            Extra tags to read, specified either by name or by int code.
+
+        Returns
+        -------
+
         """
         self._extra_tags = extra_tags
         self._tiff = tifffile.TiffFile(input_path)
@@ -35,10 +42,12 @@ class OMETiffReader(ImageReader):
 
     @property
     def axes(self) -> Axes:
+        """ """
         return Axes(self._series.axes.replace("S", "C"))
 
     @property
     def channels(self) -> Sequence[str]:
+        """ """
         # channel names are fixed if this is an RGB image
         if self.webp_format is WebpInputFormat.WEBP_RGB:
             return "RED", "GREEN", "BLUE"
@@ -54,6 +63,7 @@ class OMETiffReader(ImageReader):
 
     @property
     def webp_format(self) -> WebpInputFormat:
+        """ """
         if self._series.keyframe.photometric == tifffile.PHOTOMETRIC.RGB:
             return WebpInputFormat.WEBP_RGB
         # XXX: it is possible that instead of a single RGB channel (samplesperpixel==3)
@@ -65,17 +75,55 @@ class OMETiffReader(ImageReader):
 
     @property
     def level_count(self) -> int:
+        """ """
         return len(self._series.levels)
 
     def level_dtype(self, level: int) -> np.dtype:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+
+        """
         return self._series.levels[level].dtype
 
     def level_shape(self, level: int) -> Tuple[int, ...]:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+
+        """
         return cast(Tuple[int, ...], self._series.levels[level].shape)
 
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
     ) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+        tile: Optional[Tuple[slice :
+            
+        ...]] :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         if tile is None:
             return self._series.levels[level].asarray()
         try:
@@ -88,6 +136,17 @@ class OMETiffReader(ImageReader):
         return np.asarray(self._zarr_group[level][tile])
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
+        """
+
+        Parameters
+        ----------
+        level: int :
+            
+
+        Returns
+        -------
+
+        """
         if level == 0:
             metadata = dict(self._metadata, axes=self._series.axes)
         else:
@@ -124,6 +183,7 @@ class OMETiffReader(ImageReader):
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
+        """ """
         writer_kwargs = dict(
             bigtiff=self._tiff.is_bigtiff,
             byteorder=self._tiff.byteorder,
@@ -134,6 +194,19 @@ class OMETiffReader(ImageReader):
         return {"json_tiffwriter_kwargs": json.dumps(writer_kwargs)}
 
     def _original_metadata(self, key: str, default: Any = None) -> Any:
+        """
+
+        Parameters
+        ----------
+        key: str :
+            
+        default: Any :
+             (Default value = None)
+
+        Returns
+        -------
+
+        """
         try:
             xmlanns = self._metadata["OME"]["StructuredAnnotations"]["XMLAnnotation"]
             for xmlann in xmlanns:
@@ -146,6 +219,7 @@ class OMETiffReader(ImageReader):
 
     @property
     def image_metadata(self) -> Dict[str, Any]:
+        """ """
         metadata: Dict[str, Any] = {}
 
         if self._metadata and self._tiff.is_ome:
@@ -263,6 +337,9 @@ class OMETiffReader(ImageReader):
 
     @property
     def original_metadata(self) -> Dict[str, Any]:
+        """
+
+        """
         metadata: Dict[str, Any] = {}
 
         for attr in dir(self._tiff):
@@ -282,11 +359,25 @@ class OMETiffReader(ImageReader):
 
 
 class OMETiffWriter(ImageWriter):
+    """ """
     def __init__(self, output_path: str, ome: bool = True):
         self._output_path = output_path
         self._ome = ome
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        """
+
+        Parameters
+        ----------
+        metadata: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
+        """
         self._writer = tifffile.TiffWriter(
             self._output_path, shaped=False, bigtiff=True, append=False, ome=self._ome
         )
@@ -300,6 +391,29 @@ class OMETiffWriter(ImageWriter):
         array_metadata: Mapping[str, Any],
         **writer_kwargs: Mapping[str, Any],
     ) -> Mapping[str, Any]:
+        """
+
+        Parameters
+        ----------
+        baseline: bool :
+            
+        num_levels: int :
+            
+        image_dtype: np.dtype :
+            
+        group_metadata: Mapping[str :
+            
+        Any] :
+            
+        array_metadata: Mapping[str :
+            
+        **writer_kwargs: Mapping[str :
+            
+
+        Returns
+        -------
+
+        """
         original_axes = "".join(group_metadata.get("axes", [])[0].get("originalAxes"))
         original_shape = group_metadata.get("axes", [])[0].get("originalShape")
 
@@ -381,6 +495,21 @@ class OMETiffWriter(ImageWriter):
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
+        """
+
+        Parameters
+        ----------
+        image: np.ndarray :
+            
+        metadata: Mapping[str :
+            
+        Any] :
+            
+
+        Returns
+        -------
+
+        """
         write_kwargs: Dict[str, Any] = dict(metadata)
         self._writer.write(image, **write_kwargs)
 

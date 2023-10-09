@@ -8,6 +8,17 @@ from tiledb.bioimg.helpers import iter_color
 
 
 def qpi_original_meta(file: TiffFile) -> List[Dict[str, Any]]:
+    """
+
+    Parameters
+    ----------
+    file: TiffFile :
+        
+
+    Returns
+    -------
+
+    """
     metadata: List[Dict[str, Any]] = []
 
     for page in file.pages.pages:
@@ -17,6 +28,17 @@ def qpi_original_meta(file: TiffFile) -> List[Dict[str, Any]]:
 
 
 def qpi_image_meta(baseline: TiffPageSeries) -> Dict[str, Any]:
+    """
+
+    Parameters
+    ----------
+    baseline: TiffPageSeries :
+        
+
+    Returns
+    -------
+
+    """
     # https://downloads.openmicroscopy.org/images/Vectra-QPTIFF/perkinelmer/PKI_Image%20Format.docx
     # Read the channel information from the tiff pages
     metadata: Dict[str, Any] = {

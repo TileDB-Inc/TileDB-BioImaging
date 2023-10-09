@@ -5,7 +5,18 @@
 build/
 dist/
 *.DS_Store
+# Quarto dev-cache
+/.quarto/
+docs/.quarto
+
+# Let CI build this
+/docs
 docs/_build/
+
+
+# Vim swapfiles
+.*.sw?
+.sw?
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
