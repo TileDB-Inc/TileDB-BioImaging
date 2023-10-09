@@ -17,7 +17,7 @@ setuptools.setup(
         "pyeditdistance",
         "tiledb>=0.19",
         "tqdm",
-        "tifffile==2022.10.10",
+        "tifffile",
         "scikit-image",
     ],
     extras_require={
