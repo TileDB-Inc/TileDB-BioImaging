@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
 import numpy
@@ -13,21 +14,34 @@ from ome_zarr.writer import write_multiscale
 from tiledb.cc import WebpInputFormat
 
 from .. import WHITE_RGB
-from ..helpers import get_rgba
+from ..helpers import get_logger_wrapper, get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(
+        self,
+        input_path: str,
+        logger: Optional[logging.Logger] = None,
+    ):
         """
         OME-Zarr image reader
 
         :param input_path: The path to the Zarr image
         """
+        self._logger = get_logger_wrapper(False) if not logger else logger
         self._root_node = next(Reader(ZarrLocation(input_path))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
+
+    @property
+    def logger(self) -> Optional[logging.Logger]:
+        return self._logger
+
+    @logger.setter
+    def logger(self, default_logger: logging.Logger) -> None:
+        self._logger = default_logger
 
     @property
     def axes(self) -> Axes:
@@ -134,12 +148,13 @@ class OMEZarrReader(ImageReader):
 
 
 class OMEZarrWriter(ImageWriter):
-    def __init__(self, output_path: str):
+    def __init__(self, output_path: str, logger: logging.Logger):
         """
         OME-Zarr image writer from TileDB
 
         :param output_path: The path to the Zarr image
         """
+        self._logger = logger
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )

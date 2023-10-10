@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import warnings
 from abc import ABC, abstractmethod
@@ -38,6 +39,7 @@ from ..helpers import (
     compute_channel_minmax,
     get_axes_mapper,
     get_axes_translation,
+    get_logger_wrapper,
     get_schema,
     is_local_path,
     iter_levels_meta,
@@ -56,7 +58,7 @@ DEFAULT_SCRATCH_SPACE = "/dev/shm"
 
 class ImageReader(ABC):
     @abstractmethod
-    def __init__(self, input_path: str, **kwargs: Any):
+    def __init__(self, input_path: str, logger: logging.Logger, **kwargs: Any):
         """Initialize this ImageReader"""
 
     def __enter__(self) -> ImageReader:
@@ -64,6 +66,16 @@ class ImageReader(ABC):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         pass
+
+    @property
+    @abstractmethod
+    def logger(self) -> Optional[logging.Logger]:
+        """The logger of this image reader."""
+
+    @logger.setter
+    @abstractmethod
+    def logger(self, default_logger: logging.Logger) -> None:
+        """The setter for the logger of this image reader"""
 
     @property
     @abstractmethod
@@ -132,8 +144,9 @@ class ImageReader(ABC):
 
 class ImageWriter(ABC):
     @abstractmethod
-    def __init__(self, output_path: str):
+    def __init__(self, output_path: str, logger: logging.Logger, **kwargs: Any):
         """Initialize this ImageWriter"""
+        self.logger = logger
 
     def __enter__(self) -> ImageWriter:
         return self
@@ -197,6 +210,7 @@ class ImageConverter:
         config: Union[tiledb.Config, Mapping[str, Any]] = None,
         output_config: Union[tiledb.Config, Mapping[str, Any]] = None,
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
+        log: Optional[Union[bool, logging.Logger]] = None,
         **writer_kwargs: Mapping[str, Any],
     ) -> Type[ImageConverter]:
         """
@@ -209,12 +223,25 @@ class ImageConverter:
         :param config: tiledb configuration either a dict or a tiledb.Config of source
         :param output_config: tiledb configuration either a dict or a tiledb.Config of destination
         :param scratch_space: shared memory or cache space for cloud random access export support
+        :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
+        If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
+        DEBUG logging level.
         """
+
+        # Initializes the logger depending on the API path chosen
+        if log:
+            logger = get_logger_wrapper(log) if type(log) is bool else log
+        else:
+            default_verbose = False
+            logger = get_logger_wrapper(default_verbose)
+
         if cls._ImageWriterType is None:
             raise NotImplementedError(f"{cls} does not support exporting")
 
         out_uri_res, scheme = resolve_path(output_path)
+        logger.debug(f"Resolving output path {out_uri_res}, with scheme {scheme}")
         vfs_use = False if is_local_path(scheme) else True
+        logger.debug(f"VFS is used: {vfs_use}")
 
         # OS specific
         destination_uri = (
@@ -222,12 +249,13 @@ class ImageConverter:
             if vfs_use
             else out_uri_res
         )
+        logger.debug(f"Scratch space temp destination uri: {destination_uri}")
 
         if not output_config and vfs_use:
             output_config = config
 
         slide = TileDBOpenSlide(input_path, attr=attr, config=config)
-        writer = cls._ImageWriterType(destination_uri)
+        writer = cls._ImageWriterType(destination_uri, logger)
 
         with slide, writer:
             writer.write_group_metadata(slide.properties)
@@ -269,6 +297,7 @@ class ImageConverter:
         chunked: bool = False,
         max_workers: int = 0,
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
+        log: Optional[Union[bool, logging.Logger]] = None,
         reader_kwargs: Optional[Mapping[str, Any]] = None,
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> Type[ImageConverter]:
@@ -289,6 +318,9 @@ class ImageConverter:
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
         :param compressor: TileDB compression filter mapping for each level
+        :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
+            If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
+            DEBUG logging level.
         :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
         :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
             generating downsampled versions of the base level. Valid keyword arguments are:
@@ -306,20 +338,31 @@ class ImageConverter:
                 chunked downsampling. If None, it will default to the number of processors
                 on the machine, multiplied by 5.
         """
+
+        if log:
+            logger = get_logger_wrapper(log) if type(log) is bool else log
+        else:
+            default_verbose = False
+            logger = get_logger_wrapper(default_verbose)
+
         if isinstance(source, ImageReader):
             if cls._ImageReaderType != source.__class__:
                 raise ValueError("Image reader should match converter on source format")
+            if not source.logger:
+                source.logger = logger
             reader = source
         elif cls._ImageReaderType is not None:
             reader = cls._ImageReaderType(
-                source, **reader_kwargs if reader_kwargs else {}
+                source, logger, **reader_kwargs if reader_kwargs else {}
             )
         else:
             raise NotImplementedError(f"{cls} does not support importing")
 
         max_tiles = cls._DEFAULT_TILES.copy()
+        logger.debug(f"Max tiles:{max_tiles}")
         if tiles:
             max_tiles.update(tiles)
+        logger.debug(f"Updated max tiles:{max_tiles}")
 
         rw_group = ReadWriteGroup(output_path)
 
@@ -328,6 +371,7 @@ class ImageConverter:
 
         with rw_group, reader:
             stored_fmt_version = rw_group.r_group.meta.get("fmt_version")
+            logger.debug(f"Format version: {stored_fmt_version}")
             if stored_fmt_version not in (None, FMT_VERSION):
                 warnings.warn(
                     "Incremental ingestion is not supported for different versions: "
@@ -363,6 +407,7 @@ class ImageConverter:
                     compressors = compressor  # type: ignore
                     break
 
+            logger.debug(f"Compressors : {compressors}")
             convert_kwargs = dict(
                 reader=reader,
                 rw_group=rw_group,
@@ -372,12 +417,11 @@ class ImageConverter:
                 max_workers=max_workers,
                 compressor=compressors,
             )
+            logger.debug(f"Convert arguments : {convert_kwargs}")
 
             metadata = reader.image_metadata
             metadata["axes"] = []
-
             channel_min_max = []
-
             scaled_compressors: Mapping[int, Any] = {}
             if pyramid_kwargs is not None:
                 if level_min < reader.level_count - 1:
@@ -402,10 +446,14 @@ class ImageConverter:
                 metadata["axes"] += levels_meta["axes"]
             else:
                 for level in range(level_min, reader.level_count):
+                    logger.info(f"Converting level: {level}")
                     level_meta = _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
                     channel_min_max.append(level_meta["channelMinMax"])
+                    logger.debug(
+                        f'Level {level} channel MinMax: {level_meta["channelMinMax"]}'
+                    )
                     metadata["axes"].append(level_meta["axes"])
-
+                    logger.debug(f'Level {level} axes: {level_meta["axes"]}')
             for idx in range(len(metadata["channels"])):
                 metadata["channels"][idx].setdefault(
                     "min", channel_min_max[0].item((idx, 0))
@@ -415,6 +463,7 @@ class ImageConverter:
                 )
 
             metadata["channels"] = {f"{ATTR_NAME}": metadata["channels"]}
+            logger.debug(f'Metadata channels: {metadata["channels"]}')
 
             original_metadata = reader.original_metadata
 

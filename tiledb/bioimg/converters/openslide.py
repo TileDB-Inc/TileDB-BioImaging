@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional, Sequence, Tuple, cast
 
 import numpy as np
@@ -5,23 +6,32 @@ import openslide as osd
 
 from tiledb.cc import WebpInputFormat
 
-from ..helpers import iter_color
+from ..helpers import get_logger_wrapper, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader
 
 
 class OpenSlideReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(self, input_path: str, logger: Optional[logging.Logger] = None):
         """
         OpenSlide image reader
 
         :param input_path: The path to the OpenSlide image
 
         """
+        self._logger = get_logger_wrapper(False) if not logger else logger
         self._osd = osd.OpenSlide(input_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._osd.close()
+
+    @property
+    def logger(self) -> Optional[logging.Logger]:
+        return self._logger
+
+    @logger.setter
+    def logger(self, default_logger: logging.Logger) -> None:
+        self._logger = default_logger
 
     @property
     def axes(self) -> Axes:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
+from .version import version_tuple
 
 
 class ReadWriteGroup:
@@ -260,3 +262,50 @@ def is_win_path(scheme: str) -> bool:
 
 def is_local_path(scheme: str) -> bool:
     return True if is_win_path(scheme) or scheme == "" else False
+
+
+def get_logger(level: int = logging.INFO, name: str = __name__) -> logging.Logger:
+    """
+    Get a logger with a custom formatter and set the logging level.
+
+    :param level: logging level, defaults to logging.INFO
+    :param name: logger name, defaults to __name__
+    :return: Logger object
+    """
+
+    sh = logging.StreamHandler(stream=sys.stdout)
+    formatter = logging.Formatter(
+        "[%(asctime)s] [%(module)s] [%(funcName)s] [%(levelname)s] %(message)s"
+    )
+    sh.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    # Only add one handler, in case get_logger is called multiple times
+    if not logger.handlers:
+        logger.addHandler(sh)
+        logger.setLevel(level)
+
+    return logger
+
+
+def get_logger_wrapper(
+    verbose: bool = False,
+) -> logging.Logger:
+    """
+    Get a logger instance and log version information.
+
+    :param verbose: verbose logging, defaults to False
+    :return: logger instance
+    """
+
+    level = logging.DEBUG if verbose else logging.INFO
+    logger = get_logger(level)
+
+    logger.debug(
+        "tiledb=%s, libtiledb=%s, tiledb-bioimg=%s",
+        tiledb.version(),
+        tiledb.libtiledb.version(),
+        version_tuple,
+    )
+
+    return logger
