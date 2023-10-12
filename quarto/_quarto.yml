@@ -1,0 +1,139 @@
+# Cloned from https://github.com/TileDB-Inc/tiledb-quarto-template
+project:
+  type: website
+  output-dir: build
+
+format:
+  html:
+    toc: true
+    theme:
+      light: [flatly, "quarto-materials/tiledb.scss"]
+    mainfont: Helvetica
+    fontsize: 1rem
+    linkcolor: "#4d9fff"
+    code-copy: true
+    code-overflow: wrap
+    css: "quarto-materials/tiledb.css"
+
+website:
+  favicon: "images/favicon.ico"
+  site-url: https://tiledb-inc.github.io/tiledb-quarto-template/
+  repo-url: https://github.com/TileDB-Inc/tiledb-quarto-template
+  # You may want one or both of these, or neither:
+  repo-actions: [edit, issue]
+  page-navigation: true
+  navbar:
+    background: light
+    logo: "quarto-materials/tiledb-logo.png"
+    collapse-below: lg
+    left:
+      - text: "Home page"
+        href: "https://tiledb.com"
+      - text: "Reference"
+        file: reference/index.qmd
+      - text: "Login"
+        href: "https://cloud.tiledb.com/auth/login"
+      - text: "Contact us"
+        href: "https://tiledb.com/contact"
+      - text: "Repo"
+        href: "https://github.com/TileDB-Inc/TileDB-BioImaging"
+
+  sidebar:
+    - id: reference
+      contents: "_sidebar.yml"
+
+quartodoc:
+  style: pkgdown
+  title: "TileDB-Bioimaging"
+  package: tiledb.bioimg
+  renderer:
+    style: markdown
+    display_name: relative
+  sidebar: "_sidebar.yml"
+  sections:
+    - title: API
+      desc: ""
+    - subtitle: Wrappers
+      package: tiledb.bioimg.wrappers
+      contents:
+        - from_bioimg
+        - to_bioimg
+    - subtitle: Base
+      package: tiledb.bioimg.converters.base.ImageConverter
+      contents:
+        - from_tiledb
+        - to_tiledb
+    - subtitle: Openslide
+      package: tiledb.bioimg.openslide
+      contents:
+        - TileDBOpenSlide
+    - title: Converters
+      desc: ""
+      package: tiledb.bioimg.converters
+    - subtitle: OME-TIFF
+      package: tiledb.bioimg.converters.ome_tiff
+      contents:
+        - OMETiffConverter
+        - OMETiffReader
+        - OMETiffWriter
+    - subtitle: OME-Zarr
+      package: tiledb.bioimg.converters.ome_zarr
+      contents:
+        - OMEZarrConverter
+        - OMEZarrReader
+        - OMEZarrWriter
+    - subtitle: OpenSlide
+      package: tiledb.bioimg.converters.openslide
+      contents:
+        - OpenSlideConverter
+        - OpenSlideReader
+    - title: Internals
+      desc: ""
+      package: tiledb.bioimg.converters
+    - subtitle: Axes
+      package: tiledb.bioimg.converters.axes
+      contents:
+        - Axes
+        - AxesMapper
+        - CompositeAxesMapper
+        - Move
+        - Squeeze
+        - Swap
+        - Unsqueeze
+        - YX_TO_YXC
+        - YXC_TO_YX
+    - subtitle: Metadata
+      package: tiledb.bioimg.converters
+      contents:
+        - metadata
+    - subtitle: Scaling
+      package: tiledb.bioimg.converters.scale
+      contents:
+        - Scaler
+    - subtitle: Tiling
+      package: tiledb.bioimg.converters.tiles
+      contents:
+        - dim_range
+        - iter_slices
+        - iter_tiles
+        - num_tiles
+    - subtitle: Helpers
+      package: tiledb.bioimg.helpers
+      contents:
+        - compute_channel_minmax
+        - get_axes_mapper
+        - get_axes_translation
+        - get_decimal_from_rgba
+        - get_pixel_depth
+        - get_rgba
+        - get_schema
+        - is_local_path
+        - iter_levels_meta
+        - iter_pixel_depths_meta
+        - open_bioimg
+        - ReadWriteGroup
+        - resolve_path
+
+
+metadata-files:
+  - _sidebar.yml

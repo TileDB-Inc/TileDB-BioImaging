@@ -22,21 +22,22 @@ from .helpers import open_bioimg
 
 
 class TileDBOpenSlide:
-    """ """
+    """
+        An Openslide-like API for TileDB
+    """
     @classmethod
     def from_group_uri(cls, uri: str, attr: str = ATTR_NAME) -> TileDBOpenSlide:
         """
-
+        [DEPRECATED] Open a TileDB image group with TileDBOpenslide API
         Parameters
         ----------
-        uri: str :
-            
-        attr: str :
-             (Default value = ATTR_NAME)
-
+        uri: str
+            URI of a tiledb.Group containing the image
+        attr: str
+            The attribute name of the image array
         Returns
         -------
-
+        TileDBOpenSlide:
         """
         warnings.warn(
             "This method is deprecated, please use TileDBOpenSlide() instead",
@@ -46,9 +47,16 @@ class TileDBOpenSlide:
         return cls(uri, attr=attr)
 
     def __init__(self, uri: str, *, attr: str = ATTR_NAME, config: Config = None):
-        """Open this TileDBOpenSlide.
-
-        :param uri: uri of a tiledb.Group containing the image
+        """Open a TileDB image group with TileDBOpenslide API
+        Parameters
+        ----------
+        uri: str
+            URI of a tiledb.Group containing the image
+        attr: str
+            The attribute name of the image array
+        config: tiledb.Config: The tiledb config to be used
+        Returns
+        -------
         """
         self._config = config
         self._group = tiledb.Group(uri, config=config)
@@ -78,17 +86,13 @@ class TileDBOpenSlide:
     @property
     def levels(self) -> Sequence[int]:
         """Sequence of level numbers in the slide.
-        
         Levels are numbered from `level_min` (highest resolution) to `level_count - 1`
         (lowest resolution), where `level_min` is the value of the respective
         `ImageConverter.to_tiledb` parameter (default=0) when creating the slide.
-
         Parameters
         ----------
-
         Returns
         -------
-
         """
         return tuple(map(attrgetter("level"), self._levels))
 
@@ -101,15 +105,12 @@ class TileDBOpenSlide:
     def level_dimensions(self) -> Sequence[Tuple[int, int]]:
         """A sequence of (width, height) tuples, one for each level of the slide.
         level_dimensions[k] are the dimensions of level k.
-        
-        :return: A sequence of dimensions for each level
-
         Parameters
         ----------
-
         Returns
         -------
-
+        Sequence[Tuple[int, int]]:
+            A sequence of dimensions for each level
         """
         return tuple(map(attrgetter("dimensions"), self._levels))
 
@@ -117,13 +118,10 @@ class TileDBOpenSlide:
     def level_downsamples(self) -> Sequence[float]:
         """A sequence of downsample factors for each level of the slide.
         level_downsamples[k] is the downsample factor of level k.
-
         Parameters
         ----------
-
         Returns
         -------
-
         """
         level_dims = self.level_dimensions
         l0_w, l0_h = level_dims[0]
@@ -136,57 +134,46 @@ class TileDBOpenSlide:
 
     def level_properties(self, level: int) -> Mapping[str, Any]:
         """Metadata about the given slide level
-
         Parameters
         ----------
-        level: int :
-            
-
+        level: int
+            The level's number
         Returns
         -------
-
+        Mapping[str, Any]
+            Properties
         """
         return self._levels[level].properties
 
     def read_level(self, level: int, to_original_axes: bool = False) -> np.ndarray:
         """Return an image containing the contents of the specified level as NumPy array.
-
         Parameters
         ----------
-        level :
-            the level number
-        to_original_axes :
+        level : int
+            The level's number
+        to_original_axes : bool
             If True return the image in the original axes,
             otherwise return it in YXC (height, width, channel) axes.
-        level: int :
-            
-        to_original_axes: bool :
-             (Default value = False)
-
         Returns
         -------
-
+        np.ndarray:
+            The image of the specified level
         """
         return self._read_image(level, to_original_axes=to_original_axes)
 
     def read_level_dask(self, level: int, to_original_axes: bool = False) -> da.Array:
         """Return an image containing the contents of the specified level as Dask array.
-
         Parameters
         ----------
-        level :
-            the level number
-        to_original_axes :
+        level : int
+            The level's number
+        to_original_axes : bool
             If True return the image in the original axes,
             otherwise return it in YXC (height, width, channel) axes.
-        level: int :
-            
-        to_original_axes: bool :
-             (Default value = False)
-
         Returns
         -------
-
+        da.Array:
+            Level's Image
         """
         return self._read_image(level, to_original_axes=to_original_axes, to_dask=True)
 
@@ -194,29 +181,18 @@ class TileDBOpenSlide:
         self, location: Tuple[int, int], level: int, size: Tuple[int, int]
     ) -> np.ndarray:
         """Return an image containing the contents of the specified region as NumPy array.
-
         Parameters
         ----------
-        location :
-            x, y) tuple giving the top left pixel in the level 0 reference frame
-        level :
-            the level number
-        size :
-            width, height) tuple giving the region size
-        location: Tuple[int :
-            
-        int] :
-            
-        level: int :
-            
-        size: Tuple[int :
-            
-
+        location : Tuple[int, int]
+            (x, y) tuple giving the top left pixel in the level 0 reference frame
+        level : int
+            The level's number
+        size : Tuple[int, int]
+            (width, height) tuple giving the region size
         Returns
         -------
-        type
+        np.ndarray
             3D (height, width, channel) Numpy array
-
         """
         x, y = location
         w, h = size
@@ -224,19 +200,14 @@ class TileDBOpenSlide:
 
     def get_best_level_for_downsample(self, factor: float) -> int:
         """Return the best level for displaying the given downsample filtering by factor.
-
         Parameters
         ----------
-        factor :
+        factor : float
             The factor of downsamples. Above this value downsamples are filtered out.
-        factor: float :
-            
-
         Returns
         -------
-        type
+        int
             The number corresponding to a level
-
         """
         lla = np.where(np.array(self.level_downsamples) < factor)[0]
         return int(lla.max() if len(lla) > 0 else 0)

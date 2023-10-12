@@ -17,26 +17,18 @@ def from_bioimg(
 
     Parameters
     ----------
-    src :
+    src : str
         The source path for the file to be ingested *.tiff, *.zarr, *.svs etc..
-    dest :
+    dest : str
         The destination path where the TileDB image will be stored
-    converter :
+    converter : Converters
         The converter type to be used (tentative) soon automatically detected
     kwargs :
         keyword arguments for custom ingestion behaviour
-    src: str :
-        
-    dest: str :
-        
-    converter: Converters :
-         (Default value = Converters.OMETIFF)
-    **kwargs: Any :
-        
 
     Returns
     -------
-    type
+    ImageConverter
         The converter class that was used for the ingestion
 
     """
@@ -56,27 +48,19 @@ def to_bioimg(
 
     Parameters
     ----------
-    src :
+    src : str
         The source path where the TileDB image is stored
-    dest :
+    dest : str
         The destination path for the image file to be exported *.tiff, *.zarr, *.svs etc..
     converter :
         The converter type to be used
-    kwargs :
+    kwargs : Converters
         keyword arguments for custom exportation behaviour
-    src: str :
-        
-    dest: str :
-        
-    converter: Converters :
-         (Default value = Converters.OMETIFF)
-    **kwargs: Any :
-        
 
     Returns
     -------
-    type
-        None
+    ImageConverter
+         The converter class that was used for the ingestion
 
     """
 

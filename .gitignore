@@ -6,12 +6,11 @@ build/
 dist/
 *.DS_Store
 # Quarto dev-cache
-/.quarto/
-docs/.quarto
+quarto/.quarto
 
 # Let CI build this
-/docs
-docs/_build/
+quarto/reference/
+quarto/build/
 
 
 # Vim swapfiles

@@ -12,17 +12,17 @@ from .base import ImageConverter, ImageReader
 
 class OpenSlideReader(ImageReader):
     def __init__(self, input_path: str):
-    """OpenSlide image reader
+        """OpenSlide image reader
 
-    Parameters
-    ----------
-    input_path :
-        The path to the OpenSlide image
+        Parameters
+        ----------
+        input_path :
+            The path to the OpenSlide image
 
-    Returns
-    -------
+        Returns
+        -------
 
-    """
+        """
         self._osd = osd.OpenSlide(input_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
