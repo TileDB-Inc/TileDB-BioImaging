@@ -298,7 +298,7 @@ def get_logger_wrapper(
     :return: logger instance
     """
 
-    level = logging.DEBUG if verbose else logging.INFO
+    level = logging.DEBUG if verbose else logging.WARNING
     logger = get_logger(level)
 
     logger.debug(
