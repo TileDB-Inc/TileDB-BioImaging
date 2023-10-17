@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
 import numpy
@@ -13,25 +14,40 @@ from ome_zarr.writer import write_multiscale
 from tiledb.cc import WebpInputFormat
 
 from .. import WHITE_RGB
-from ..helpers import get_rgba
+from ..helpers import get_logger_wrapper, get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
 
 class OMEZarrReader(ImageReader):
-    def __init__(self, input_path: str):
+    def __init__(
+        self,
+        input_path: str,
+        logger: Optional[logging.Logger] = None,
+    ):
         """
         OME-Zarr image reader
 
         :param input_path: The path to the Zarr image
         """
+        self._logger = get_logger_wrapper(False) if not logger else logger
         self._root_node = next(Reader(ZarrLocation(input_path))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
     @property
+    def logger(self) -> Optional[logging.Logger]:
+        return self._logger
+
+    @logger.setter
+    def logger(self, default_logger: logging.Logger) -> None:
+        self._logger = default_logger
+
+    @property
     def axes(self) -> Axes:
-        return Axes(a["name"].upper() for a in self._multiscales.node.metadata["axes"])
+        axes = Axes(a["name"].upper() for a in self._multiscales.node.metadata["axes"])
+        self._logger.debug(f"Reader axes: {axes}")
+        return axes
 
     @property
     def channels(self) -> Sequence[str]:
@@ -41,19 +57,27 @@ class OMEZarrReader(ImageReader):
     def webp_format(self) -> WebpInputFormat:
         channels = self._omero.image_data.get("channels", ()) if self._omero else ()
         colors = tuple(channel.get("color") for channel in channels)
+        self._logger.debug(f"Webp format - channels: {channels},  colors:{colors}")
+
         if colors == ("FF0000", "00FF00", "0000FF"):
             return WebpInputFormat.WEBP_RGB
         return WebpInputFormat.WEBP_NONE
 
     @property
     def level_count(self) -> int:
-        return len(self._multiscales.datasets)
+        level_count = len(self._multiscales.datasets)
+        self._logger.debug(f"Level count: {level_count}")
+        return level_count
 
     def level_dtype(self, level: int) -> np.dtype:
-        return self._multiscales.node.data[level].dtype
+        dtype = self._multiscales.node.data[level].dtype
+        self._logger.debug(f"Level {level} dtype: {dtype}")
+        return dtype
 
     def level_shape(self, level: int) -> Tuple[int, ...]:
-        return cast(Tuple[int, ...], self._multiscales.node.data[level].shape)
+        l_shape = cast(Tuple[int, ...], self._multiscales.node.data[level].shape)
+        self._logger.debug(f"Level {level} shape: {l_shape}")
+        return l_shape
 
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
@@ -66,6 +90,7 @@ class OMEZarrReader(ImageReader):
     def level_metadata(self, level: int) -> Dict[str, Any]:
         dataset = self._multiscales.datasets[level]
         location = ZarrLocation(self._multiscales.zarr.subpath(dataset))
+        self._logger.debug(f"Level {level} - Metadata: {json.dumps(location.zarray)}")
         return {"json_zarray": json.dumps(location.zarray)}
 
     @property
@@ -80,6 +105,7 @@ class OMEZarrReader(ImageReader):
             metadata=multiscale.get("metadata"),
             omero=self._omero.image_data if self._omero else None,
         )
+        self._logger.debug(f"Group metadata: {writer_kwargs}")
         return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
 
     @property
@@ -120,7 +146,7 @@ class OMEZarrReader(ImageReader):
                     "max": channel.get("window", {}).get("end", channel_max),
                 }
             )
-
+        self._logger.debug(f"Image metadata: {metadata}")
         return metadata
 
     @property
@@ -134,12 +160,13 @@ class OMEZarrReader(ImageReader):
 
 
 class OMEZarrWriter(ImageWriter):
-    def __init__(self, output_path: str):
+    def __init__(self, output_path: str, logger: logging.Logger):
         """
         OME-Zarr image writer from TileDB
 
         :param output_path: The path to the Zarr image
         """
+        self._logger = logger
         self._group = zarr.group(
             store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
         )

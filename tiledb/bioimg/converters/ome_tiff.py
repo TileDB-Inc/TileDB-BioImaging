@@ -1,4 +1,5 @@
 import decimal
+import logging
 import warnings
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
@@ -9,20 +10,26 @@ import tifffile
 from tiledb.cc import WebpInputFormat
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
-from ..helpers import get_decimal_from_rgba, get_rgba, iter_color
+from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .metadata import qpi_image_meta, qpi_original_meta
 
 
 class OMETiffReader(ImageReader):
-    def __init__(self, input_path: str, extra_tags: Sequence[Union[str, int]] = ()):
+    def __init__(
+        self,
+        input_path: str,
+        logger: Optional[logging.Logger] = None,
+        extra_tags: Sequence[Union[str, int]] = (),
+    ):
         """
         OME-TIFF image reader
 
         :param input_path: The path to the TIFF image
         :param extra_tags: Extra tags to read, specified either by name or by int code.
         """
+        self._logger = get_logger_wrapper(False) if not logger else logger
         self._extra_tags = extra_tags
         self._tiff = tifffile.TiffFile(input_path)
         # XXX ignore all but the first series
@@ -34,26 +41,40 @@ class OMETiffReader(ImageReader):
         self._tiff.close()
 
     @property
+    def logger(self) -> Optional[logging.Logger]:
+        return self._logger
+
+    @logger.setter
+    def logger(self, default_logger: logging.Logger) -> None:
+        self._logger = default_logger
+
+    @property
     def axes(self) -> Axes:
-        return Axes(self._series.axes.replace("S", "C"))
+        axes = Axes(self._series.axes.replace("S", "C"))
+        self._logger.debug(f"Reader axes: {axes}")
+        return axes
 
     @property
     def channels(self) -> Sequence[str]:
         # channel names are fixed if this is an RGB image
         if self.webp_format is WebpInputFormat.WEBP_RGB:
+            self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGB}")
             return "RED", "GREEN", "BLUE"
 
         # otherwise try to infer them from the OME-XML metadata
+        self._logger.debug(f"Webp format is not: {WebpInputFormat.WEBP_RGB}")
         try:
             channels = self._metadata["OME"]["Image"][0]["Pixels"]["Channel"]
             if not isinstance(channels, Sequence):
                 channels = [channels]
+            self._logger.debug(f"Channels inferred: {channels}")
         except KeyError:
             return ()
         return tuple(c.get("Name") or f"Channel {i}" for i, c in enumerate(channels))
 
     @property
     def webp_format(self) -> WebpInputFormat:
+        self._logger.debug(f"Keyframe photometric: {self._series.keyframe.photometric}")
         if self._series.keyframe.photometric == tifffile.PHOTOMETRIC.RGB:
             return WebpInputFormat.WEBP_RGB
         # XXX: it is possible that instead of a single RGB channel (samplesperpixel==3)
@@ -65,13 +86,19 @@ class OMETiffReader(ImageReader):
 
     @property
     def level_count(self) -> int:
-        return len(self._series.levels)
+        level_count = len(self._series.levels)
+        self._logger.debug(f"Level count: {level_count}")
+        return level_count
 
     def level_dtype(self, level: int) -> np.dtype:
-        return self._series.levels[level].dtype
+        dtype = self._series.levels[level].dtype
+        self._logger.debug(f"Level {level} dtype: {dtype}")
+        return dtype
 
     def level_shape(self, level: int) -> Tuple[int, ...]:
-        return cast(Tuple[int, ...], self._series.levels[level].shape)
+        l_shape = cast(Tuple[int, ...], self._series.levels[level].shape)
+        self._logger.debug(f"Level {level} shape: {l_shape}")
+        return l_shape
 
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
@@ -92,13 +119,17 @@ class OMETiffReader(ImageReader):
             metadata = dict(self._metadata, axes=self._series.axes)
         else:
             metadata = None
+        self._logger.debug(f"Level {level} - Metadata: {metadata}")
         keyframe = self._series.levels[level].keyframe
+        self._logger.debug(f"Level {level} -Keyframe: {keyframe}")
         extratags = []
         get_tag = keyframe.tags.get
+        self._logger.debug(f"Level {level} - Tag: {keyframe}")
         for key in self._extra_tags:
             tag = get_tag(key)
             if tag is not None:
                 extratags.append(tag.astuple())
+        self._logger.debug(f"Level {level} - Extratags: {extratags}")
         write_kwargs = dict(
             subifds=self.level_count - 1 if level == 0 else None,
             metadata=metadata,
@@ -131,6 +162,7 @@ class OMETiffReader(ImageReader):
             imagej=self._tiff.is_imagej,
             ome=self._tiff.is_ome,
         )
+        self._logger.debug(f"Group metadata: {writer_kwargs}")
         return {"json_tiffwriter_kwargs": json.dumps(writer_kwargs)}
 
     def _original_metadata(self, key: str, default: Any = None) -> Any:
@@ -259,6 +291,7 @@ class OMETiffReader(ImageReader):
                     )
                     metadata["physicalSizeXUnit"] = metadata["physicalSizeYUnit"] = "µm"
 
+        self._logger.debug(f"Image metadata: {metadata}")
         return metadata
 
     @property
@@ -282,7 +315,8 @@ class OMETiffReader(ImageReader):
 
 
 class OMETiffWriter(ImageWriter):
-    def __init__(self, output_path: str, ome: bool = True):
+    def __init__(self, output_path: str, logger: logging.Logger, ome: bool = True):
+        self._logger = logger
         self._output_path = output_path
         self._ome = ome
 
@@ -373,7 +407,7 @@ class OMETiffWriter(ImageWriter):
                         "photometric", tifffile.PHOTOMETRIC.MINISBLACK
                     ),
                 )
-
+        self._logger.debug(f"Writer metadata: {writer_metadata}")
         return writer_metadata
 
     def write_level_image(

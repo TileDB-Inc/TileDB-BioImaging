@@ -126,6 +126,7 @@ def test_ome_tiff_converter_roundtrip(
         chunked=chunked,
         max_workers=max_workers,
         compressor=compressor,
+        log=False,
         reader_kwargs=dict(
             extra_tags=(
                 "ModelPixelScaleTag",
