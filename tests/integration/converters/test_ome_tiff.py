@@ -10,6 +10,7 @@ import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
+from tiledb.bioimg.converters.ome_tiff import OMETiffReader
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
@@ -95,6 +96,43 @@ def test_ome_tiff_converter_group_metadata(tmp_path, filename):
             assert shape[level_axes.index("X")] == level_width
             assert shape[level_axes.index("Y")] == level_height
 
+
+@pytest.mark.parametrize(
+    "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
+)
+@pytest.mark.parametrize("preserve_axes", [False, True])
+@pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
+@pytest.mark.parametrize(
+    "compressor",
+    [
+        tiledb.ZstdFilter(level=0),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
+    ],
+)
+def test_ome_tiff_converter_exclude_original_metadata(
+    tmp_path, filename, num_series, preserve_axes, chunked, max_workers, compressor
+):
+    if isinstance(compressor, tiledb.WebpFilter) and filename == "UTM2GTIF.tiff":
+        pytest.skip(f"WebPFilter cannot be applied to {filename}")
+
+    input_path = get_path(filename)
+    tiledb_path = tmp_path / "to_tiledb"
+    output_path = tmp_path / "from_tiledb"
+    OMETiffConverter.to_tiledb(
+        input_path,
+        str(tiledb_path),
+        preserve_axes=preserve_axes,
+        chunked=chunked,
+        max_workers=max_workers,
+        compressor=compressor,
+        log=False,
+        exclude_metadata=True
+    )
+
+    with TileDBOpenSlide(str(tiledb_path)) as t:
+        assert t.properties['original_metadata'] == '{}'
 
 @pytest.mark.parametrize(
     "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
