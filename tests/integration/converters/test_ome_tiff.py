@@ -10,7 +10,6 @@ import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
-from tiledb.bioimg.converters.ome_tiff import OMETiffReader
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
@@ -119,7 +118,6 @@ def test_ome_tiff_converter_exclude_original_metadata(
 
     input_path = get_path(filename)
     tiledb_path = tmp_path / "to_tiledb"
-    output_path = tmp_path / "from_tiledb"
     OMETiffConverter.to_tiledb(
         input_path,
         str(tiledb_path),
@@ -128,11 +126,12 @@ def test_ome_tiff_converter_exclude_original_metadata(
         max_workers=max_workers,
         compressor=compressor,
         log=False,
-        exclude_metadata=True
+        exclude_metadata=True,
     )
 
     with TileDBOpenSlide(str(tiledb_path)) as t:
-        assert t.properties['original_metadata'] == '{}'
+        assert t.properties["original_metadata"] == "{}"
+
 
 @pytest.mark.parametrize(
     "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
