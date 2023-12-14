@@ -32,7 +32,9 @@ jobs:
           pytest-mock
     
     - name: Install openslide for non-Win
-      run: micromamba install openslide
+      run: |
+        sudo apt install openslide-tools
+        micromamba install openslide
       if: matrix.os != 'windows-latest'
 
     - name: Install openslide for Win 
