@@ -63,9 +63,10 @@ jobs:
         # default is C: ,thus we create a temp_test folder for pytest's tmp_dir to run on D: as well 
         if [ "$RUNNER_OS" == "Linux" ]; then
           pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ > coverage.txt
-          cat coverage.txt
+          exit_code=$?
           TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
           echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+          exit $exit_code
         else
           mkdir test_temp
           pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/

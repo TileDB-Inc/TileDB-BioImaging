@@ -14,6 +14,10 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
     dims = []
     x_tile = min(x_size, 1024)
     y_tile = min(y_size, 1024)
+    # WEBP Compressor does not accept specific dtypes so for dimensions we use the default
+    dim_compressor = tiledb.ZstdFilter(level=0)
+    if not isinstance(compressor, tiledb.WebpFilter):
+        dim_compressor = compressor
     if isinstance(compressor, tiledb.WebpFilter):
         x_size *= c_size
         x_tile *= c_size
@@ -46,7 +50,7 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
             (0, y_size - 1),
             tile=y_tile,
             dtype=np.uint32,
-            filters=tiledb.FilterList([compressor]),
+            filters=tiledb.FilterList([dim_compressor]),
         )
     )
     dims.append(
@@ -55,7 +59,7 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
             (0, x_size - 1),
             tile=x_tile,
             dtype=np.uint32,
-            filters=tiledb.FilterList([compressor]),
+            filters=tiledb.FilterList([dim_compressor]),
         )
     )
 

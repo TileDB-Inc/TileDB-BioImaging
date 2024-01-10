@@ -97,9 +97,19 @@ def get_schema(
 
     dims = []
     assert len(dim_names) == len(dim_shape), (dim_names, dim_shape)
+    # WEBP Compressor does not accept specific dtypes so for dimensions we use the default
+    dim_compressor = tiledb.ZstdFilter(level=0)
+    if not isinstance(compressor, tiledb.WebpFilter):
+        dim_compressor = compressor
     for dim_name, dim_size in zip(dim_names, dim_shape):
         dim_tile = min(dim_size, max_tiles[dim_name])
-        dim = tiledb.Dim(dim_name, (0, dim_size - 1), dim_tile, dtype=dim_dtype)
+        dim = tiledb.Dim(
+            dim_name,
+            (0, dim_size - 1),
+            dim_tile,
+            dtype=dim_dtype,
+            filters=[dim_compressor],
+        )
         dims.append(dim)
     attr = tiledb.Attr(name=ATTR_NAME, dtype=attr_dtype, filters=[compressor])
     return tiledb.ArraySchema(domain=tiledb.Domain(*dims), attrs=[attr])
