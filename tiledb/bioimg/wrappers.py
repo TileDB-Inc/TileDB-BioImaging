@@ -16,6 +16,7 @@ def from_bioimg(
     converter: Converters = Converters.OMETIFF,
     *,
     verbose: bool = False,
+    exclude_metadata: bool = False,
     **kwargs: Any,
 ) -> Type[ImageConverter]:
     """
@@ -32,17 +33,29 @@ def from_bioimg(
     if converter is Converters.OMETIFF:
         logger.info("Converting OME-TIFF file")
         return OMETiffConverter.to_tiledb(
-            source=src, output_path=dest, log=logger, **kwargs
+            source=src,
+            output_path=dest,
+            log=logger,
+            exclude_metadata=exclude_metadata,
+            **kwargs,
         )
     elif converter is Converters.OMEZARR:
         logger.info("Converting OME-Zarr file")
         return OMEZarrConverter.to_tiledb(
-            source=src, output_path=dest, log=logger, **kwargs
+            source=src,
+            output_path=dest,
+            log=logger,
+            exclude_metadata=exclude_metadata,
+            **kwargs,
         )
     else:
         logger.info("Converting Openslide")
         return OpenSlideConverter.to_tiledb(
-            source=src, output_path=dest, log=logger, **kwargs
+            source=src,
+            output_path=dest,
+            log=logger,
+            exclude_metadata=exclude_metadata,
+            **kwargs,
         )
 
 

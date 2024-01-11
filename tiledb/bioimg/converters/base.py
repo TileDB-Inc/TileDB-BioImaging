@@ -296,6 +296,7 @@ class ImageConverter:
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
+        exclude_metadata: bool = False,
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
         log: Optional[Union[bool, logging.Logger]] = None,
         reader_kwargs: Optional[Mapping[str, Any]] = None,
@@ -317,6 +318,7 @@ class ImageConverter:
             original ones.
         :param max_workers: Maximum number of threads that can be used for conversion.
             Applicable only if chunked=True.
+        :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
         :param compressor: TileDB compression filter mapping for each level
         :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
             If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
@@ -465,7 +467,8 @@ class ImageConverter:
             metadata["channels"] = {f"{ATTR_NAME}": metadata["channels"]}
             logger.debug(f'Metadata channels: {metadata["channels"]}')
 
-            original_metadata = reader.original_metadata
+            if not exclude_metadata:
+                original_metadata = reader.original_metadata
 
         with rw_group:
             rw_group.w_group.meta.update(
