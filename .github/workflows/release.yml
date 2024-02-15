@@ -12,7 +12,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     - name: Build package
-      run: pip install wheel && python setup.py sdist bdist_wheel && ls -l dist
+      run: pip install wheel setuptools && python setup.py sdist bdist_wheel && ls -l dist
     - name: Publish package to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       continue-on-error: true
