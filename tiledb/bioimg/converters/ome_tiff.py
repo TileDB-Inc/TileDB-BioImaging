@@ -14,6 +14,7 @@ from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .metadata import qpi_image_meta, qpi_original_meta
+from ..metadata import NGFFMetadata
 
 
 class OMETiffReader(ImageReader):
@@ -312,6 +313,10 @@ class OMETiffReader(ImageReader):
             metadata.setdefault("qpi_metadata", qpi_original_meta(self._tiff))
 
         return metadata
+
+    @property
+    def ngff_metadata(self) -> NGFFMetadata:
+        return NGFFMetadata.from_ome_tiff(self._metadata)
 
 
 class OMETiffWriter(ImageWriter):

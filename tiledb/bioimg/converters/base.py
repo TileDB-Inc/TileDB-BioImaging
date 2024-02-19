@@ -24,6 +24,7 @@ import numpy as np
 from tqdm import tqdm
 
 from .scale import Scaler
+from ..metadata import NGFFMetadata
 
 try:
     from tiledb.cloud.groups import register as register_group
@@ -140,6 +141,11 @@ class ImageReader(ABC):
     @abstractmethod
     def original_metadata(self) -> Dict[str, Any]:
         """Return the metadata of the original file."""
+
+    @property
+    @abstractmethod
+    def ngff_metadata(self) -> NGFFMetadata:
+        """Return the NGFF compliant metadata of the original file."""
 
 
 class ImageWriter(ABC):
