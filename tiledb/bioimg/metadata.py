@@ -1,98 +1,210 @@
 import json
-from typing import Literal, Union, Sequence, Optional, Mapping, Any, Tuple
+from dataclasses import dataclass
+from typing import (
+    Any,
+    Literal,
+    Mapping,
+    MutableSequence,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
-from attr import dataclass
+import tifffile
+from tifffile import TiffFile
+from typing_extensions import Self
 
 SpaceUnit = Literal[
-    'angstrom', 'attometer', 'centimeter', 'decimeter', 'exameter', 'femtometer', 'foot', 'gigameter', 'hectometer', 'inch', 'kilometer', 'megameter', 'meter', 'micrometer', 'mile', 'millimeter', 'nanometer', 'parsec', 'petameter', 'picometer', 'terameter', 'yard', 'yoctometer', 'yottameter', 'zeptometer', 'zettameter']
+    "angstrom",
+    "attometer",
+    "centimeter",
+    "decimeter",
+    "exameter",
+    "femtometer",
+    "foot",
+    "gigameter",
+    "hectometer",
+    "inch",
+    "kilometer",
+    "megameter",
+    "meter",
+    "micrometer",
+    "mile",
+    "millimeter",
+    "nanometer",
+    "parsec",
+    "petameter",
+    "picometer",
+    "terameter",
+    "yard",
+    "yoctometer",
+    "yottameter",
+    "zeptometer",
+    "zettameter",
+]
 TimeUnit = Literal[
-    'attosecond', 'centisecond', 'day', 'decisecond', 'exasecond', 'femtosecond', 'gigasecond', 'hectosecond', 'hour', 'kilosecond', 'megasecond', 'microsecond', 'millisecond', 'minute', 'nanosecond', 'petasecond', 'picosecond', 'second', 'terasecond', 'yoctosecond', 'yottasecond', 'zeptosecond', 'zettasecond']
+    "attosecond",
+    "centisecond",
+    "day",
+    "decisecond",
+    "exasecond",
+    "femtosecond",
+    "gigasecond",
+    "hectosecond",
+    "hour",
+    "kilosecond",
+    "megasecond",
+    "microsecond",
+    "millisecond",
+    "minute",
+    "nanosecond",
+    "petasecond",
+    "picosecond",
+    "second",
+    "terasecond",
+    "yoctosecond",
+    "yottasecond",
+    "zeptosecond",
+    "zettasecond",
+]
 
-spaceUnitSymbolMap = {
-    "Å": 'angstrom',
-    "am": 'attometer',
-    "cm": 'centimeter',
-    "dm": 'decimeter',
-    "Em": 'exameter',
-    "fm": 'femtometer',
-    "ft": 'foot',
-    "Gm": 'gigameter',
-    "hm": 'hectometer',
-    "in": 'inch',
-    "km": 'kilometer',
-    "Mm": 'megameter',
-    "m": 'meter',
-    "µm": 'micrometer',
-    "mi.": 'mile',
-    "mm": 'millimeter',
-    "nm": 'nanometer',
-    "pc": 'parsec',
-    "Pm": 'petameter',
-    "pm": 'picometer',
-    "Tm": 'terameter',
-    "yd": 'yard',
-    "ym": 'yoctometer',
-    "Ym": 'yottameter',
-    "zm": 'zeptometer',
-    "Zm": 'zettameter'
+spaceUnitSymbolMap: Mapping[str, SpaceUnit] = {
+    "Å": "angstrom",
+    "am": "attometer",
+    "cm": "centimeter",
+    "dm": "decimeter",
+    "Em": "exameter",
+    "fm": "femtometer",
+    "ft": "foot",
+    "Gm": "gigameter",
+    "hm": "hectometer",
+    "in": "inch",
+    "km": "kilometer",
+    "Mm": "megameter",
+    "m": "meter",
+    "µm": "micrometer",
+    "mi.": "mile",
+    "mm": "millimeter",
+    "nm": "nanometer",
+    "pc": "parsec",
+    "Pm": "petameter",
+    "pm": "picometer",
+    "Tm": "terameter",
+    "yd": "yard",
+    "ym": "yoctometer",
+    "Ym": "yottameter",
+    "zm": "zeptometer",
+    "Zm": "zettameter",
 }
 
-timeUnitSymbolMap = {
-    "as": 'attosecond',
-    "cs": 'centisecond',
-    "d": 'day',
-    "ds": 'decisecond',
-    "Es": 'exasecond',
-    "fs": 'femtosecond',
-    "Gs": 'gigasecond',
-    "hs": 'hectosecond',
-    "h": 'hour',
-    "ks": 'kilosecond',
-    "Ms": 'megasecond',
-    "µs": 'microsecond',
-    "ms": 'millisecond',
-    "min": 'minute',
-    "ns": 'nanosecond',
-    "Ps": 'petasecond',
-    "ps": 'picosecond',
-    "s": 'second',
-    "Ts": 'terasecond',
-    "ys": 'yoctosecond',
-    "Ys": 'yottasecond',
-    "zs": 'zeptosecond',
-    "Zs": 'zettasecond'
+timeUnitSymbolMap: Mapping[str, TimeUnit] = {
+    "as": "attosecond",
+    "cs": "centisecond",
+    "d": "day",
+    "ds": "decisecond",
+    "Es": "exasecond",
+    "fs": "femtosecond",
+    "Gs": "gigasecond",
+    "hs": "hectosecond",
+    "h": "hour",
+    "ks": "kilosecond",
+    "Ms": "megasecond",
+    "µs": "microsecond",
+    "ms": "millisecond",
+    "min": "minute",
+    "ns": "nanosecond",
+    "Ps": "petasecond",
+    "ps": "picosecond",
+    "s": "second",
+    "Ts": "terasecond",
+    "ys": "yoctosecond",
+    "Ys": "yottasecond",
+    "zs": "zeptosecond",
+    "Zs": "zettasecond",
 }
 
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
         if isinstance(obj, NGFFLabelProperty):
-            return {key: val for key, val in {**obj.__dict__, **obj.additionalMetadata} if val is not None}
+            return {
+                key: val
+                for key, val in {
+                    **obj.__dict__,
+                    **(obj.additionalMetadata if obj.additionalMetadata else {}),
+                }.items()
+                if val is not None
+            }
         return {key: val for key, val in obj.__dict__ if val is not None}
 
 
-@dataclass
 class NGFFAxes:
+    def __init__(
+        self,
+        name: str,
+        type: Optional[Union[Literal["space", "time", "channel"], str]] = None,
+        unit: Optional[Union[SpaceUnit, TimeUnit]] = None,
+    ):
+        self.name = name
+        self.type = type
+        self.unit = unit
+
     name: str
-    type: Optional[Union[Literal['space', 'time', 'channel'], str]]
+    type: Optional[Union[Literal["space", "time", "channel"], str]]
     unit: Optional[Union[SpaceUnit, TimeUnit]]
 
 
-@dataclass
 class NGFFCoordinateTransformation:
-    type: Literal['identity', 'translation', 'scale']
+    def __init__(
+        self,
+        type: Literal["identity", "translation", "scale"],
+        translation: Optional[Sequence[float]] = None,
+        scale: Optional[Sequence[float]] = None,
+    ):
+        self.type = type
+        self.translation = translation
+        self.scale = scale
+
+    type: Literal["identity", "translation", "scale"]
     translation: Optional[Sequence[float]]
     scale: Optional[Sequence[float]]
 
 
-@dataclass
 class NGFFDataset:
+    def __init__(
+        self,
+        path: str,
+        coordinateTransformations: Sequence[NGFFCoordinateTransformation],
+    ):
+        self.path = path
+        self.coordinateTransformations = coordinateTransformations
+
     path: str
     coordinateTransformations: Sequence[NGFFCoordinateTransformation]
 
 
-@dataclass
 class NGFFMultiscale:
+    def __init__(
+        self,
+        version: str,
+        axes: Sequence[NGFFAxes],
+        datasets: Sequence[NGFFDataset],
+        name: Optional[str] = None,
+        type: Optional[str] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
+        coordinateTransformations: Optional[
+            Sequence[NGFFCoordinateTransformation]
+        ] = None,
+    ):
+        self.version = version
+        self.name = name
+        self.type = type
+        self.metadata = metadata
+        self.axes = axes
+        self.datasets = datasets
+        self.coordinateTransformations = coordinateTransformations
+
     version: str
     name: Optional[str]
     type: Optional[str]
@@ -108,10 +220,15 @@ class NGFFLabelColor:
     rgba: Tuple[int, int, int, int]
 
 
-@dataclass
 class NGFFLabelProperty:
+    def __init__(
+        self, labelValue: int, additionalMetadata: Optional[Mapping[str, Any]] = None
+    ):
+        self.labelValue = labelValue
+        self.additionalMetadata = additionalMetadata
+
     labelValue: int
-    additionalMetadata: Mapping[str, Any]
+    additionalMetadata: Optional[Mapping[str, Any]]
 
 
 @dataclass
@@ -119,16 +236,42 @@ class NGFFLabelSource:
     image: str
 
 
-@dataclass
 class NGFFImageLabel:
+    def __init__(
+        self,
+        version: str,
+        colors: Optional[Sequence[NGFFLabelColor]] = None,
+        properties: Optional[Sequence[NGFFLabelProperty]] = None,
+        source: Optional[NGFFLabelSource] = None,
+    ):
+        self.version = version
+        self.colors = colors
+        self.properties = properties
+        self.source = source
+
     version: str
     colors: Optional[Sequence[NGFFLabelColor]]
     properties: Optional[Sequence[NGFFLabelProperty]]
     source: Optional[NGFFLabelSource]
 
 
-@dataclass
 class NGFFAcquisition:
+    def __init__(
+        self,
+        id: int,
+        name: Optional[str] = None,
+        maximumFieldCount: Optional[int] = None,
+        description: Optional[str] = None,
+        startTime: Optional[int] = None,
+        endTime: Optional[int] = None,
+    ):
+        self.id = id
+        self.name = name
+        self.maximumFieldCount = maximumFieldCount
+        self.description = description
+        self.startTime = startTime
+        self.endTime = endTime
+
     id: int
     name: Optional[str]
     maximumFieldCount: Optional[int]
@@ -178,41 +321,215 @@ class NGFFWell:
 
 
 class NGFFMetadata:
+    def __init__(
+        self,
+        axes: Sequence[NGFFAxes],
+        coordinateTransformations: Optional[
+            Sequence[NGFFCoordinateTransformation]
+        ] = None,
+        multiscales: Optional[Sequence[NGFFMultiscale]] = None,
+    ):
+        self.axes = axes
+        self.coordinateTransformations = coordinateTransformations
+        self.multiscales = multiscales
+
     axes: Sequence[NGFFAxes]
     coordinateTransformations: Optional[Sequence[NGFFCoordinateTransformation]]
     multiscales: Optional[Sequence[NGFFMultiscale]]
     labels: Optional[Sequence[str]]
-
-    # TODO How should we store NGFFImageLabels
+    # Image Labels are stored at the label image level
+    imageLabels: Optional[Sequence[NGFFImageLabel]]
 
     @classmethod
-    def from_ome_tiff(cls, ome_metadata: Union[dict[str, Any], dict]):
-        metadata = cls()
+    def from_ome_tiff(cls, tiff: TiffFile) -> Union[Self, None]:
+        multiscales: MutableSequence[NGFFMultiscale] = []
+        ome_metadata = tifffile.xml2dict(tiff.ome_metadata) if tiff.ome_metadata else {}
 
         # If invalid OME metadata return empty NGFF metadata
-        if 'OME' not in ome_metadata:
-            return metadata
+        if "OME" not in ome_metadata:
+            return None
 
-        ome_images = ome_metadata.get('OME', {}).get('Image', [])
-        if not ome_images:
-            return metadata
+        ome_images = ome_metadata.get("OME", {}).get("Image", [])
+        if not len(ome_images):
+            return None
 
-        ome_pixels = ome_images[0].get('Pixels', {}) if isinstance(ome_images, list) else ome_images.get('Pixels', {})
+        ome_images = [ome_images] if not isinstance(ome_images, list) else ome_images
+        ome_plate = ome_metadata.get("OME", {}).get("Plate", {})
 
+        # Step 1: Indentify all axes of the image. Special care must be taken for modulo datasets
+        # where multiple axes are squashed in TCZ dimensions.
+        xmlAnnotations = (
+            ome_metadata.get("OME", {})
+            .get("StructuredAnnotations", {})
+            .get("XMLAnnotation", {})
+        )
+
+        if not isinstance(xmlAnnotations, list):
+            xmlAnnotations = [xmlAnnotations]
+
+        ome_modulo = {}
+        for annotation in (
+            raw_annotation.get("Value", {}) for raw_annotation in xmlAnnotations
+        ):
+            if "Modulo" in annotation:
+                ome_modulo = annotation.get("Modulo", {})
+
+        additional_axes = dict()
+        for modulo_key in ["ModuloAlongZ", "ModuloAlongT", "ModuloAlongC"]:
+            if modulo_key not in ome_modulo:
+                continue
+
+            modulo = ome_modulo.get(modulo_key, {})
+            axis = NGFFAxes(
+                name=modulo_key,
+                type=modulo.get("Type", None),
+                unit=modulo.get("Unit", None),
+            )
+            axis_size = (
+                len(modulo.get("Label", []))
+                if "Label" in modulo
+                else (modulo.get("End") - modulo.get("Start")) / modulo.get("Step", 1)
+                + 1
+            )
+            additional_axes[modulo_key] = (axis, axis_size)
+
+        ome_pixels = ome_images[0].get("Pixels", {})
+        canonical_axes = [
+            "T",
+            "ModuloAlongT",
+            "ModuloAlongC",
+            "ModuloAlongZ",
+            "C",
+            "Z",
+            "Y",
+            "X",
+        ]
         # Create 'axes' metadata field
-        if 'DimensionOrder' in ome_pixels:
-            axes = []
-            for axis in ome_pixels.get('DimensionOrder', ''):
-                if axis in ['X', 'Y', 'Z']:
-                    axes.append(NGFFAxes(name=axis, type='space',
-                                         unit=spaceUnitSymbolMap.get(ome_pixels.get(f'PhysicalSize{axis}Unit', "µm"))))
-                elif axis == 'C':
-                    axes.append(NGFFAxes(name=axis, type='channel', unit=None))
-                elif axis == 'T':
-                    axes.append(NGFFAxes(name=axis, type='time',
-                                         unit=timeUnitSymbolMap.get(ome_pixels.get(f'TimeIncrementUnit', "s"))))
-                else:
-                    axes.append(NGFFAxes(name=axis, type=None, unit=None))
-            metadata.axes = axes
+        axes = []
+        for canonical_axis in canonical_axes:
+            if canonical_axis in ["X", "Y", "Z"]:
+                _, modulo_size = additional_axes.get(
+                    f"ModuloAlong{canonical_axis}", (None, 1)
+                )
+                if ome_pixels.get(f"Size{canonical_axis}") > modulo_size:
+                    axes.append(
+                        NGFFAxes(
+                            name=canonical_axis,
+                            type="space",
+                            unit=spaceUnitSymbolMap.get(
+                                ome_pixels.get(
+                                    f"PhysicalSize{canonical_axis}Unit", "µm"
+                                )
+                            ),
+                        )
+                    )
+            elif canonical_axis == "C":
+                axes.append(NGFFAxes(name=canonical_axis, type="channel"))
+            elif canonical_axis == "T":
+                _, modulo_size = additional_axes.get("ModuloAlongT", (None, 1))
+                if ome_pixels.get("SizeT") > modulo_size:
+                    axes.append(
+                        NGFFAxes(
+                            name=canonical_axis,
+                            type="time",
+                            unit=timeUnitSymbolMap.get(
+                                ome_pixels.get("TimeIncrementUnit", "s")
+                            ),
+                        )
+                    )
+            elif canonical_axis in additional_axes:
+                axes.append(additional_axes.get(canonical_axis, [])[0])
 
-        return metadata
+        # Create 'multiscales' metadata field
+        for idx, series in enumerate(tiff.series):
+            ome_pixels = ome_images[idx].get("Pixels", {})
+            ome_plate.get("Well")
+            datasets: MutableSequence[NGFFDataset] = []
+            x_index, y_index = series.levels[0].axes.index("X"), series.levels[
+                0
+            ].axes.index("Y")
+            base_size = {
+                "X": series.levels[0].shape[x_index],
+                "Y": series.levels[0].shape[y_index],
+            }
+
+            # Calculate axis using the base image
+            level_shape = list(series.levels[0].shape)
+
+            # We need to map each modulo axis to its axis symbol
+            # Step 1: Iterate the dimension order
+            axes_order = []
+            for dim in reversed(ome_pixels.get("DimensionOrder", "")):
+                size = ome_pixels.get(f"Size{dim}", 1)
+
+                # If dimension size is 1 then the axis is skipped
+                if size == 1:
+                    continue
+
+                if dim in series.levels[0].axes:
+                    # If the axis appear in the level axes then we add the axis
+                    axes_order.append(dim)
+
+                    # If the length of the axis does not match its size then there must be a modulo axis
+                    if size != level_shape[0]:
+                        axes_order.append(f"ModuloAlong{dim}")
+                        level_shape.pop(0)
+                    level_shape.pop(0)
+                else:
+                    axes_order.append(f"ModuloAlong{dim}")
+                    level_shape.pop(0)
+
+            if "C" not in axes_order:
+                axes_order.append("C")
+
+            for idx, level in enumerate(series.levels):
+                if len(axes_order) != len(level.shape):
+                    level_shape = list(level.shape) + [1]
+                else:
+                    level_shape = list(level.shape)
+
+                # Step 2: Calculate scale information for each axis after transpose
+                scale = []
+                for axis in axes:
+                    size = level_shape[axes_order.index(axis.name)]
+
+                    if axis.name in ["X", "Y"]:
+                        scale.append(
+                            ome_pixels.get(f"PhysicalSize{axis.name}", 1)
+                            * base_size.get(axis.name, size)
+                            / size
+                        )
+                    else:
+                        scale.append(1)
+
+                datasets.append(
+                    NGFFDataset(
+                        level.name, [NGFFCoordinateTransformation("scale", scale)]
+                    )
+                )
+            scale = []
+            for axis in axes:
+                if axis.name == "T":
+                    scale.append(ome_pixels.get("TimeIncrement", 1))
+                elif axis.name == "Z":
+                    scale.append(ome_pixels.get("PhysicalSizeZ", 1))
+                else:
+                    scale.append(1)
+            coordinateTransformation = (
+                [NGFFCoordinateTransformation(type="scale", scale=scale)]
+                if not all(factor == 1 for factor in scale)
+                else None
+            )
+            multiscales.append(
+                NGFFMultiscale(
+                    version="0.5-dev",
+                    name=series.name,
+                    type=None,
+                    metadata=None,
+                    axes=axes,
+                    datasets=datasets,
+                    coordinateTransformations=coordinateTransformation,
+                )
+            )
+
+        return cls(axes=axes, multiscales=multiscales)

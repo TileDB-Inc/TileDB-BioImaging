@@ -22,8 +22,8 @@ import jsonpickle
 import numpy as np
 from tqdm import tqdm
 
-from .scale import Scaler
 from ..metadata import NGFFMetadata
+from .scale import Scaler
 
 try:
     from tiledb.cloud.groups import register as register_group
@@ -132,7 +132,7 @@ class ImageReader(ABC):
 
     @property
     @abstractmethod
-    def ngff_metadata(self) -> NGFFMetadata:
+    def ngff_metadata(self) -> Union[NGFFMetadata, None]:
         """Return the NGFF compliant metadata of the original file."""
 
 

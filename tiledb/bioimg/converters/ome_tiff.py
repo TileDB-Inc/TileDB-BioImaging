@@ -10,10 +10,10 @@ from tiledb.cc import WebpInputFormat
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_rgba, iter_color
+from ..metadata import NGFFMetadata
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .metadata import qpi_image_meta, qpi_original_meta
-from ..metadata import NGFFMetadata
 
 
 class OMETiffReader(ImageReader):
@@ -282,8 +282,8 @@ class OMETiffReader(ImageReader):
         return metadata
 
     @property
-    def ngff_metadata(self) -> NGFFMetadata:
-        return NGFFMetadata.from_ome_tiff(self._metadata)
+    def ngff_metadata(self) -> Union[NGFFMetadata, None]:
+        return NGFFMetadata.from_ome_tiff(self._tiff)
 
 
 class OMETiffWriter(ImageWriter):
