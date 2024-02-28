@@ -1,9 +1,10 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from typing import (
     Any,
-    Literal,
     Mapping,
+    MutableMapping,
     MutableSequence,
     Optional,
     Sequence,
@@ -13,7 +14,7 @@ from typing import (
 
 import tifffile
 from tifffile import TiffFile
-from typing_extensions import Self
+from typing_extensions import Literal, Self
 
 SpaceUnit = Literal[
     "angstrom",
@@ -297,8 +298,25 @@ class NGFFPlateWell:
     columnIndex: int
 
 
-@dataclass
 class NGFFPlate:
+    def __init__(
+        self,
+        version: str,
+        columns: Sequence[NGFFColumn],
+        rows: Sequence[NGFFRow],
+        wells: Sequence[NGFFPlateWell],
+        fieldCount: Optional[int] = None,
+        name: Optional[str] = None,
+        acquisitions: Optional[Sequence[NGFFAcquisition]] = None,
+    ):
+        self.version = version
+        self.columns = columns
+        self.rows = rows
+        self.wells = wells
+        self.fieldCount = fieldCount
+        self.name = name
+        self.acquisitions = acquisitions
+
     version: str
     columns: Sequence[NGFFColumn]
     rows: Sequence[NGFFRow]
@@ -307,17 +325,137 @@ class NGFFPlate:
     name: Optional[str]
     acquisitions: Optional[Sequence[NGFFAcquisition]]
 
+    @classmethod
+    def from_ome_tiff(cls, ome_metadata: Mapping[str, Any]) -> Union[Self, None]:
+        ome_plate = ome_metadata.get("OME", {}).get("Plate", {})
 
-@dataclass
+        if not len(ome_plate):
+            return None
+
+        wells: MutableSequence[NGFFPlateWell] = []
+        acquisitions: MutableSequence[NGFFAcquisition] = []
+
+        ome_plate.get("PlateAcquisition", [])
+
+        row_naming: Literal["number", "letter"] = ome_plate.get(
+            "RowNamingConvention", "number"
+        )
+        column_naming: Literal["number", "letter"] = ome_plate.get(
+            "ColumnNamingConvention", "number"
+        )
+
+        for ome_acquisition in ome_plate.get("PlateAcquisition", []):
+            start_time = (
+                int(
+                    datetime.fromisoformat(ome_acquisition.get("StartTime")).timestamp()
+                )
+                if "StartTime" in ome_acquisition
+                else None
+            )
+            end_time = (
+                int(datetime.fromisoformat(ome_acquisition.get("EndTime")).timestamp())
+                if "EndTime" in ome_acquisition
+                else None
+            )
+            acquisitions.append(
+                NGFFAcquisition(
+                    id=ome_acquisition.get("ID"),
+                    name=ome_acquisition.get("Name"),
+                    description=ome_acquisition.get("Description"),
+                    maximumFieldCount=ome_acquisition.get("MaximumFieldCount"),
+                    startTime=start_time,
+                    endTime=end_time,
+                )
+            )
+
+        number_of_rows = 1
+        number_of_columns = 1
+        for ome_well in ome_plate.get("Well", []):
+            number_of_rows = max(ome_well.get("Row") + 1, number_of_rows)
+            number_of_columns = max(ome_well.get("Column") + 1, number_of_columns)
+            wells.append(
+                NGFFPlateWell(
+                    path=f'{format_number(ome_well.get("Row"), row_naming)}/{format_number(ome_well.get("Column"), column_naming)}',
+                    rowIndex=ome_well.get("Row"),
+                    columnIndex=ome_well.get("Column"),
+                )
+            )
+
+        return cls(
+            version="0.5-dev",
+            columns=[
+                NGFFColumn(format_number(idx, column_naming))
+                for idx in range(number_of_columns)
+            ],
+            rows=[
+                NGFFRow(format_number(idx, row_naming)) for idx in range(number_of_rows)
+            ],
+            wells=wells,
+            acquisitions=acquisitions,
+            name=ome_plate.get("Name"),
+        )
+
+
 class NGFFWellImage:
+    def __init__(self, path: str, acquisition: Optional[int] = None):
+        self.path = path
+        self.acquisition = acquisition
+
     path: str
     acquisition: Optional[int]
 
 
-@dataclass
 class NGFFWell:
+    def __init__(self, images: Sequence[NGFFWellImage], version: Optional[str] = None):
+        self.version = version
+        self.images = images
+
     version: Optional[str]
     images: Sequence[NGFFWellImage]
+
+    @classmethod
+    def from_ome_tiff(
+        cls, ome_metadata: Mapping[str, Any]
+    ) -> Union[Mapping[Tuple[int, int], Self], None]:
+        ome_plate = ome_metadata.get("OME", {}).get("Plate", {})
+        ome_acquisitions = ome_plate.get("PlateAcquisition", [])
+        ome_wells = ome_plate.get("Well", [])
+        ome_images = ome_metadata.get("OME", {}).get("Image", [])
+
+        if not len(ome_plate) or not len(ome_acquisitions) or not len(ome_wells):
+            return None
+
+        image_name_map: MutableMapping[str, str] = {}
+        for image in ome_images:
+            image_name_map.setdefault(
+                image.get("ID"), image.get("Name", image.get("ID"))
+            )
+
+        sample_acquisition_map: MutableMapping[str, int] = {}
+        for idx, acquisition in enumerate(ome_acquisitions):
+            for sample in acquisition.get("WellSampleRef", []):
+                sample_acquisition_map.setdefault(sample.get("ID"), idx)
+
+        wells: MutableMapping[Tuple[int, int], Self] = {}
+
+        for well in ome_wells:
+            images: MutableSequence[NGFFWellImage] = []
+            for sample in well.get("WellSample", []):
+                images.append(
+                    NGFFWellImage(
+                        path=image_name_map.get(
+                            sample.get("ImageRef", {}).get("ID"), ""
+                        ),
+                        acquisition=sample_acquisition_map.get(sample.get("ID")),
+                    )
+                )
+
+            wells.setdefault(
+                (int(well.get("Row")), int(well.get("Column"))),
+                cls(images=images, version="0.5-dev"),
+            )
+
+        return wells
 
 
 class NGFFMetadata:
@@ -328,10 +466,14 @@ class NGFFMetadata:
             Sequence[NGFFCoordinateTransformation]
         ] = None,
         multiscales: Optional[Sequence[NGFFMultiscale]] = None,
+        plate: Optional[NGFFPlate] = None,
+        wells: Optional[Mapping[Tuple[int, int], NGFFWell]] = None,
     ):
         self.axes = axes
         self.coordinateTransformations = coordinateTransformations
         self.multiscales = multiscales
+        self.plate = plate
+        self.wells = wells
 
     axes: Sequence[NGFFAxes]
     coordinateTransformations: Optional[Sequence[NGFFCoordinateTransformation]]
@@ -339,37 +481,40 @@ class NGFFMetadata:
     labels: Optional[Sequence[str]]
     # Image Labels are stored at the label image level
     imageLabels: Optional[Sequence[NGFFImageLabel]]
+    plate: Optional[NGFFPlate]
+
+    # Wells metadata shoud be written at the group level of each well.
+    # Each well is identified by a tuple (row, column)
+    wells: Optional[Mapping[Tuple[int, int], NGFFWell]]
 
     @classmethod
     def from_ome_tiff(cls, tiff: TiffFile) -> Union[Self, None]:
         multiscales: MutableSequence[NGFFMultiscale] = []
         ome_metadata = tifffile.xml2dict(tiff.ome_metadata) if tiff.ome_metadata else {}
 
-        # If invalid OME metadata return empty NGFF metadata
         if "OME" not in ome_metadata:
             return None
 
         ome_images = ome_metadata.get("OME", {}).get("Image", [])
+        ome_images = [ome_images] if not isinstance(ome_images, list) else ome_images
+
         if not len(ome_images):
             return None
 
-        ome_images = [ome_images] if not isinstance(ome_images, list) else ome_images
-        ome_plate = ome_metadata.get("OME", {}).get("Plate", {})
-
         # Step 1: Indentify all axes of the image. Special care must be taken for modulo datasets
         # where multiple axes are squashed in TCZ dimensions.
-        xmlAnnotations = (
+        xml_annotations = (
             ome_metadata.get("OME", {})
             .get("StructuredAnnotations", {})
             .get("XMLAnnotation", {})
         )
 
-        if not isinstance(xmlAnnotations, list):
-            xmlAnnotations = [xmlAnnotations]
+        if not isinstance(xml_annotations, list):
+            xml_annotations = [xml_annotations]
 
         ome_modulo = {}
         for annotation in (
-            raw_annotation.get("Value", {}) for raw_annotation in xmlAnnotations
+            raw_annotation.get("Value", {}) for raw_annotation in xml_annotations
         ):
             if "Modulo" in annotation:
                 ome_modulo = annotation.get("Modulo", {})
@@ -443,7 +588,6 @@ class NGFFMetadata:
         # Create 'multiscales' metadata field
         for idx, series in enumerate(tiff.series):
             ome_pixels = ome_images[idx].get("Pixels", {})
-            ome_plate.get("Well")
             datasets: MutableSequence[NGFFDataset] = []
             x_index, y_index = series.levels[0].axes.index("X"), series.levels[
                 0
@@ -532,4 +676,23 @@ class NGFFMetadata:
                 )
             )
 
-        return cls(axes=axes, multiscales=multiscales)
+        return cls(
+            axes=axes,
+            multiscales=multiscales,
+            plate=NGFFPlate.from_ome_tiff(ome_metadata),
+            wells=NGFFWell.from_ome_tiff(ome_metadata),
+        )
+
+
+def format_number(value: int, naming_convention: Literal["number", "letter"]) -> str:
+    if naming_convention == "number":
+        return str(value)
+
+    value += 1
+
+    result = ""
+    while value > 0:
+        result = chr(ord("A") + (value - 1) % 26) + result
+        value = int((value - (value - 1) % 26) / 26)
+
+    return result
