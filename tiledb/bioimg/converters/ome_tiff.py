@@ -14,6 +14,7 @@ from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .metadata import qpi_image_meta, qpi_original_meta
+from ..metadata import NGFFMetadata
 
 
 class OMETiffReader(ImageReader):
@@ -35,6 +36,7 @@ class OMETiffReader(ImageReader):
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
         omexml = self._tiff.ome_metadata
+        self._ome_metadata = self.ngff_metadata
         self._metadata = tifffile.xml2dict(omexml) if omexml else {}
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -50,9 +52,10 @@ class OMETiffReader(ImageReader):
 
     @property
     def axes(self) -> Axes:
-        axes = Axes(self._series.axes.replace("S", "C"))
-        self._logger.debug(f"Reader axes: {axes}")
-        return axes
+        data_axes = self._series.axes.replace("S", "C")
+        if self._ome_metadata:
+            data_axes = self._ome_metadata.axes
+        return Axes(data_axes)
 
     @property
     def channels(self) -> Sequence[str]:
@@ -312,6 +315,10 @@ class OMETiffReader(ImageReader):
             metadata.setdefault("qpi_metadata", qpi_original_meta(self._tiff))
 
         return metadata
+
+    @property
+    def ngff_metadata(self) -> NGFFMetadata:
+        return NGFFMetadata.from_ome_tiff(self._tiff)
 
 
 class OMETiffWriter(ImageWriter):

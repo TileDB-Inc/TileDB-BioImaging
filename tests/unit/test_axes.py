@@ -89,7 +89,7 @@ class TestAxesMappers:
 
 class TestAxes:
     def test_init(self):
-        assert Axes("XYZ").dims == "XYZ"
+        assert Axes("XYZ") == "XYZ"
 
         with pytest.raises(ValueError) as excinfo:
             Axes("XYZW")
@@ -114,7 +114,7 @@ class TestAxes:
     def test_canonical_unsqueezed(self, canonical_dims):
         shape = np.random.randint(2, 20, size=len(canonical_dims))
         for axes in map(Axes, it.permutations(canonical_dims)):
-            assert axes.canonical(shape).dims == canonical_dims
+            assert axes.canonical(shape) == canonical_dims
 
     def test_canonical_squeezed(self):
         shape = (1, 60, 40)
@@ -287,7 +287,10 @@ class TestCompositeAxesMapper:
 
 
 def assert_transform(source, target, a, expected):
-    axes_mapper = Axes(source).mapper(Axes(target))
+    s = Axes(source)
+    t = Axes(target)
+    print(f"Original:{s}")
+    axes_mapper = s.mapper(t)
     assert axes_mapper.map_shape(a.shape) == expected.shape
     np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
 
@@ -297,4 +300,7 @@ def assert_canonical_transform(source, a, expected):
     target = source.canonical(a.shape)
     axes_mapper = source.mapper(target)
     assert axes_mapper.map_shape(a.shape) == expected.shape
-    np.testing.assert_array_equal(axes_mapper.map_array(a), expected)
+    output = axes_mapper.map_array(a)
+    print(f"Output:{output}")
+    print(f"Expected:{target}")
+    np.testing.assert_array_equal(output, expected)

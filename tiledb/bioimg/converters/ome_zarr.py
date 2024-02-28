@@ -45,9 +45,13 @@ class OMEZarrReader(ImageReader):
 
     @property
     def axes(self) -> Axes:
+<<<<<<< Updated upstream
         axes = Axes(a["name"].upper() for a in self._multiscales.node.metadata["axes"])
         self._logger.debug(f"Reader axes: {axes}")
         return axes
+=======
+        return Axes([a["name"].upper() for a in self._multiscales.node.metadata["axes"]])
+>>>>>>> Stashed changes
 
     @property
     def channels(self) -> Sequence[str]:

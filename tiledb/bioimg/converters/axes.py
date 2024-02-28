@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple
+from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple, Optional, Union, Literal
+from ..constants import SpaceUnit, TimeUnit
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
@@ -112,7 +113,7 @@ class Unsqueeze(AxesMapper):
         self.transform_sequence(tile, fill_value=slice(None))
 
     def transform_sequence(
-        self, sequence: MutableSequence[Any], fill_value: Any = None
+            self, sequence: MutableSequence[Any], fill_value: Any = None
     ) -> None:
         for i in sorted(self.idxs):
             sequence.insert(i, fill_value)
@@ -195,15 +196,38 @@ class CompositeAxesMapper(AxesMapper):
 
 
 @dataclass(frozen=True)
+class NGFFAxes:
+    name: str
+    type: Optional[Union[Literal['space', 'time', 'channel'], str]]
+    unit: Optional[Union[SpaceUnit, TimeUnit]]
+
+    def __repr__(self):
+        # {"name": "t", "type": "time", "unit": "millisecond"},
+        name_rep = f'"name": "{self.name}"'
+        type_rep = f', "type": "{self.type}"' if self.type else ""
+        unit_rep = f', "unit": "{self.unit}"' if self.unit else ""
+        return f"\u007b{name_rep}{type_rep}{unit_rep}\u007d"
+
+
+@dataclass(frozen=True)
 class Axes:
-    dims: str
+    dims: Sequence[NGFFAxes]
     __slots__ = ("dims",)
     CANONICAL_DIMS = "TCZYX"
 
-    def __init__(self, dims: Iterable[str]):
-        if not isinstance(dims, str):
-            dims = "".join(dims)
-        axes = set(dims)
+    def __init__(self, dims: Sequence[Union[str, NGFFAxes]]):
+        if not len(dims):
+            raise ValueError("Axes list cannot be empty.")
+
+        if isinstance(dims, str):
+            # Handle list of literals instead of str
+            dims = [NGFFAxes(d, None, None) for d in [*dims]]
+        else:
+            if all(isinstance(d, str) for d in dims):
+                dims = [NGFFAxes(d, None, None) for d in dims]
+
+        dims_names = [d.name for d in dims]
+        axes = set(dims_names)
         if len(dims) != len(axes):
             raise ValueError(f"Duplicate axes: {dims}")
         for required_axis in "X", "Y":
@@ -214,6 +238,20 @@ class Axes:
             raise ValueError(f"{axes.pop()!r} is not a valid Axis")
         object.__setattr__(self, "dims", dims)
 
+    def to_str(self):
+        return "".join([d.name for d in self.dims])
+
+    def __repr__(self):
+        return f"{repr(self.dims)}"
+
+    def __eq__(self, other: Union[str, Axes]):
+        if isinstance(other, str):
+            return "".join([d.name for d in self.dims]) == other
+        elif isinstance(other, Axes):
+            return self.dims == other.dims
+        else:
+            raise ValueError(f"Invalid second equality operator")
+
     def canonical(self, shape: Tuple[int, ...]) -> Axes:
         """
         Return a new Axes instance with the dimensions of this axes whose size in `shape`
@@ -221,7 +259,7 @@ class Axes:
         """
         assert len(self.dims) == len(shape)
         dims = frozenset(dim for dim, size in zip(self.dims, shape) if size > 1)
-        return Axes(dim for dim in self.CANONICAL_DIMS if dim in dims)
+        return Axes([dim for dim in self.CANONICAL_DIMS if dim in [d.name for d in dims]])
 
     def mapper(self, other: Axes) -> AxesMapper:
         """Return an AxesMapper from this axes to other"""
@@ -234,7 +272,9 @@ class Axes:
         return CompositeAxesMapper(mappers)
 
 
-def _iter_axes_mappers(s: str, t: str) -> Iterator[AxesMapper]:
+def _iter_axes_mappers(s: Sequence[NGFFAxes], t: Sequence[NGFFAxes]) -> Iterator[AxesMapper]:
+    s = "".join([d.name for d in s])
+    t = "".join([d.name for d in t])
     s_set = frozenset(s)
     assert len(s_set) == len(s), f"{s!r} contains duplicates"
     t_set = frozenset(t)
