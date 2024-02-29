@@ -326,74 +326,97 @@ class NGFFPlate:
     acquisitions: Optional[Sequence[NGFFAcquisition]]
 
     @classmethod
-    def from_ome_tiff(cls, ome_metadata: Mapping[str, Any]) -> Union[Self, None]:
-        ome_plate = ome_metadata.get("OME", {}).get("Plate", {})
+    def from_ome_tiff(
+        cls, ome_metadata: Mapping[str, Any]
+    ) -> Union[Mapping[str, Self], None]:
+        ome_plates = ome_metadata.get("OME", {}).get("Plate", [])
+        ome_plates = [ome_plates] if not isinstance(ome_plates, list) else ome_plates
+        plates: MutableMapping[str, Self] = {}
 
-        if not len(ome_plate):
+        if not len(ome_plates):
             return None
 
-        wells: MutableSequence[NGFFPlateWell] = []
-        acquisitions: MutableSequence[NGFFAcquisition] = []
+        for ome_plate in ome_plates:
+            wells: MutableSequence[NGFFPlateWell] = []
+            acquisitions: MutableSequence[NGFFAcquisition] = []
 
-        ome_plate.get("PlateAcquisition", [])
+            row_naming: Literal["number", "letter"] = ome_plate.get(
+                "RowNamingConvention", "number"
+            )
+            column_naming: Literal["number", "letter"] = ome_plate.get(
+                "ColumnNamingConvention", "number"
+            )
 
-        row_naming: Literal["number", "letter"] = ome_plate.get(
-            "RowNamingConvention", "number"
-        )
-        column_naming: Literal["number", "letter"] = ome_plate.get(
-            "ColumnNamingConvention", "number"
-        )
-
-        for ome_acquisition in ome_plate.get("PlateAcquisition", []):
-            start_time = (
-                int(
-                    datetime.fromisoformat(ome_acquisition.get("StartTime")).timestamp()
+            ome_acquisitions = ome_plate.get("PlateAcquisition", [])
+            ome_acquisitions = (
+                [ome_acquisitions]
+                if not isinstance(ome_acquisitions, list)
+                else ome_acquisitions
+            )
+            for ome_acquisition in ome_acquisitions:
+                start_time = (
+                    int(
+                        datetime.fromisoformat(
+                            ome_acquisition.get("StartTime")
+                        ).timestamp()
+                    )
+                    if "StartTime" in ome_acquisition
+                    else None
                 )
-                if "StartTime" in ome_acquisition
-                else None
-            )
-            end_time = (
-                int(datetime.fromisoformat(ome_acquisition.get("EndTime")).timestamp())
-                if "EndTime" in ome_acquisition
-                else None
-            )
-            acquisitions.append(
-                NGFFAcquisition(
-                    id=ome_acquisition.get("ID"),
-                    name=ome_acquisition.get("Name"),
-                    description=ome_acquisition.get("Description"),
-                    maximumFieldCount=ome_acquisition.get("MaximumFieldCount"),
-                    startTime=start_time,
-                    endTime=end_time,
+                end_time = (
+                    int(
+                        datetime.fromisoformat(
+                            ome_acquisition.get("EndTime")
+                        ).timestamp()
+                    )
+                    if "EndTime" in ome_acquisition
+                    else None
                 )
+                acquisitions.append(
+                    NGFFAcquisition(
+                        id=ome_acquisition.get("ID"),
+                        name=ome_acquisition.get("Name"),
+                        description=ome_acquisition.get("Description"),
+                        maximumFieldCount=ome_acquisition.get("MaximumFieldCount"),
+                        startTime=start_time,
+                        endTime=end_time,
+                    )
+                )
+
+            number_of_rows = 1
+            number_of_columns = 1
+            ome_wells = ome_plate.get("Well", [])
+            ome_wells = [ome_wells] if not isinstance(ome_wells, list) else ome_wells
+
+            for ome_well in ome_wells:
+                number_of_rows = max(ome_well.get("Row") + 1, number_of_rows)
+                number_of_columns = max(ome_well.get("Column") + 1, number_of_columns)
+                wells.append(
+                    NGFFPlateWell(
+                        path=f'{format_number(ome_well.get("Row"), row_naming)}/{format_number(ome_well.get("Column"), column_naming)}',
+                        rowIndex=ome_well.get("Row"),
+                        columnIndex=ome_well.get("Column"),
+                    )
+                )
+            plates.setdefault(
+                ome_plate.get("ID"),
+                cls(
+                    version="0.5-dev",
+                    columns=[
+                        NGFFColumn(format_number(idx, column_naming))
+                        for idx in range(number_of_columns)
+                    ],
+                    rows=[
+                        NGFFRow(format_number(idx, row_naming))
+                        for idx in range(number_of_rows)
+                    ],
+                    wells=wells,
+                    acquisitions=acquisitions if len(acquisitions) else None,
+                    name=ome_plate.get("Name"),
+                ),
             )
 
-        number_of_rows = 1
-        number_of_columns = 1
-        for ome_well in ome_plate.get("Well", []):
-            number_of_rows = max(ome_well.get("Row") + 1, number_of_rows)
-            number_of_columns = max(ome_well.get("Column") + 1, number_of_columns)
-            wells.append(
-                NGFFPlateWell(
-                    path=f'{format_number(ome_well.get("Row"), row_naming)}/{format_number(ome_well.get("Column"), column_naming)}',
-                    rowIndex=ome_well.get("Row"),
-                    columnIndex=ome_well.get("Column"),
-                )
-            )
-
-        return cls(
-            version="0.5-dev",
-            columns=[
-                NGFFColumn(format_number(idx, column_naming))
-                for idx in range(number_of_columns)
-            ],
-            rows=[
-                NGFFRow(format_number(idx, row_naming)) for idx in range(number_of_rows)
-            ],
-            wells=wells,
-            acquisitions=acquisitions,
-            name=ome_plate.get("Name"),
-        )
+        return plates
 
 
 class NGFFWellImage:
@@ -416,44 +439,62 @@ class NGFFWell:
     @classmethod
     def from_ome_tiff(
         cls, ome_metadata: Mapping[str, Any]
-    ) -> Union[Mapping[Tuple[int, int], Self], None]:
-        ome_plate = ome_metadata.get("OME", {}).get("Plate", {})
-        ome_acquisitions = ome_plate.get("PlateAcquisition", [])
-        ome_wells = ome_plate.get("Well", [])
+    ) -> Optional[Mapping[str, Mapping[Tuple[int, int], Self]]]:
         ome_images = ome_metadata.get("OME", {}).get("Image", [])
+        ome_images = [ome_images] if not isinstance(ome_images, list) else ome_images
+        ome_plates = ome_metadata.get("OME", {}).get("Plate", [])
+        ome_plates = [ome_plates] if not isinstance(ome_plates, list) else ome_plates
 
-        if not len(ome_plate) or not len(ome_acquisitions) or not len(ome_wells):
+        wells: MutableMapping[str, MutableMapping[Tuple[int, int], Self]] = {}
+
+        if not len(ome_plates) or not len(ome_images):
             return None
 
-        image_name_map: MutableMapping[str, str] = {}
-        for image in ome_images:
-            image_name_map.setdefault(
-                image.get("ID"), image.get("Name", image.get("ID"))
+        for ome_plate in ome_plates:
+            ome_acquisitions = ome_plate.get("PlateAcquisition", [])
+            ome_acquisitions = (
+                [ome_acquisitions]
+                if not isinstance(ome_acquisitions, list)
+                else ome_acquisitions
             )
+            ome_wells = ome_plate.get("Well", [])
+            ome_wells = [ome_wells] if not isinstance(ome_wells, list) else ome_wells
 
-        sample_acquisition_map: MutableMapping[str, int] = {}
-        for idx, acquisition in enumerate(ome_acquisitions):
-            for sample in acquisition.get("WellSampleRef", []):
-                sample_acquisition_map.setdefault(sample.get("ID"), idx)
+            if not len(ome_plate) or not len(ome_wells):
+                continue
 
-        wells: MutableMapping[Tuple[int, int], Self] = {}
-
-        for well in ome_wells:
-            images: MutableSequence[NGFFWellImage] = []
-            for sample in well.get("WellSample", []):
-                images.append(
-                    NGFFWellImage(
-                        path=image_name_map.get(
-                            sample.get("ImageRef", {}).get("ID"), ""
-                        ),
-                        acquisition=sample_acquisition_map.get(sample.get("ID")),
-                    )
+            image_name_map: MutableMapping[str, str] = {}
+            for image in ome_images:
+                image_name_map.setdefault(
+                    image.get("ID"), image.get("Name", image.get("ID"))
                 )
 
-            wells.setdefault(
-                (int(well.get("Row")), int(well.get("Column"))),
-                cls(images=images, version="0.5-dev"),
-            )
+            sample_acquisition_map: MutableMapping[str, int] = {}
+            for idx, acquisition in enumerate(ome_acquisitions):
+                for sample in acquisition.get("WellSampleRef", []):
+                    sample_acquisition_map.setdefault(sample.get("ID"), idx)
+
+            wells.setdefault(ome_plate.get("ID"), {})
+
+            for well in ome_wells:
+                images: MutableSequence[NGFFWellImage] = []
+                ome_samples = well.get("WellSample", [])
+                ome_samples = (
+                    [ome_samples] if not isinstance(ome_samples, list) else ome_samples
+                )
+                for sample in ome_samples:
+                    images.append(
+                        NGFFWellImage(
+                            path=image_name_map.get(
+                                sample.get("ImageRef", {}).get("ID"), ""
+                            ),
+                            acquisition=sample_acquisition_map.get(sample.get("ID")),
+                        )
+                    )
+                wells.get(ome_plate.get("ID"), {}).setdefault(
+                    (int(well.get("Row")), int(well.get("Column"))),
+                    cls(images=images, version="0.5-dev"),
+                )
 
         return wells
 
@@ -466,8 +507,8 @@ class NGFFMetadata:
             Sequence[NGFFCoordinateTransformation]
         ] = None,
         multiscales: Optional[Sequence[NGFFMultiscale]] = None,
-        plate: Optional[NGFFPlate] = None,
-        wells: Optional[Mapping[Tuple[int, int], NGFFWell]] = None,
+        plate: Optional[Mapping[str, NGFFPlate]] = None,
+        wells: Optional[Mapping[str, Mapping[Tuple[int, int], NGFFWell]]] = None,
     ):
         self.axes = axes
         self.coordinateTransformations = coordinateTransformations
@@ -481,11 +522,13 @@ class NGFFMetadata:
     labels: Optional[Sequence[str]]
     # Image Labels are stored at the label image level
     imageLabels: Optional[Sequence[NGFFImageLabel]]
-    plate: Optional[NGFFPlate]
 
-    # Wells metadata shoud be written at the group level of each well.
+    # Plate metadata should be written at the group level of each plate
+    plate: Optional[Mapping[str, NGFFPlate]]
+
+    # Wells metadata should be written at the group level of each well.
     # Each well is identified by a tuple (row, column)
-    wells: Optional[Mapping[Tuple[int, int], NGFFWell]]
+    wells: Optional[Mapping[str, Mapping[Tuple[int, int], NGFFWell]]]
 
     @classmethod
     def from_ome_tiff(cls, tiff: TiffFile) -> Union[Self, None]:
