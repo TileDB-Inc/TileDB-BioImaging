@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import openslide as osd
@@ -6,6 +6,7 @@ import openslide as osd
 from tiledb.cc import WebpInputFormat
 
 from ..helpers import iter_color
+from ..metadata import NGFFMetadata
 from .axes import Axes
 from .base import ImageConverter, ImageReader
 
@@ -99,6 +100,10 @@ class OpenSlideReader(ImageReader):
     @property
     def original_metadata(self) -> Dict[str, Any]:
         return {"SVS": list(self._osd.properties.items())}
+
+    @property
+    def ngff_metadata(self) -> Union[NGFFMetadata, None]:
+        return None
 
 
 class OpenSlideConverter(ImageConverter):

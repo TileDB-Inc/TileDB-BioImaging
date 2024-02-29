@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import numpy
 import numpy as np
@@ -14,6 +14,7 @@ from tiledb.cc import WebpInputFormat
 
 from .. import WHITE_RGB
 from ..helpers import get_rgba
+from ..metadata import NGFFMetadata
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -131,6 +132,10 @@ class OMEZarrReader(ImageReader):
             metadata["ZARR"].setdefault(key, value)
 
         return metadata
+
+    @property
+    def ngff_metadata(self) -> Union[NGFFMetadata, None]:
+        return None
 
 
 class OMEZarrWriter(ImageWriter):
