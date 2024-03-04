@@ -293,6 +293,7 @@ class ImageConverter:
         *,
         level_min: int = 0,
         tiles: Optional[Mapping[str, int]] = None,
+        tile_scale: int = 1,
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
@@ -311,6 +312,8 @@ class ImageConverter:
             to convert all levels.
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
+        :param tile_scale: The scaling factor applied to each tile during I/O.
+            Larger scale factors will result in less I/O operations.
         :param preserve_axes: If true, preserve the axes order of the original image.
         :param chunked: If true, convert one tile at a time instead of the whole image.
             **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
@@ -414,6 +417,7 @@ class ImageConverter:
                 reader=reader,
                 rw_group=rw_group,
                 max_tiles=max_tiles,
+                tile_scale=tile_scale,
                 preserve_axes=preserve_axes,
                 chunked=chunked,
                 max_workers=max_workers,
@@ -498,6 +502,7 @@ def _convert_level_to_tiledb(
     reader: ImageReader,
     rw_group: ReadWriteGroup,
     max_tiles: MutableMapping[str, int],
+    tile_scale: int,
     preserve_axes: bool,
     chunked: bool,
     max_workers: int,
@@ -566,8 +571,8 @@ def _convert_level_to_tiledb(
         # write image and metadata to TileDB array
         with open_bioimg(uri, "w") as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
-            if chunked or max_workers:
-                inv_axes_mapper = axes_mapper.inverse
+            inv_axes_mapper = axes_mapper.inverse
+            if chunked:
 
                 def tile_to_tiledb(
                     level_tile: Tuple[slice, ...]
@@ -596,7 +601,25 @@ def _convert_level_to_tiledb(
                     ex.shutdown()
             else:
                 image = reader.level_image(level)
-                out_array[:] = axes_mapper.map_array(image)
+                ex = ThreadPoolExecutor(max_workers) if max_workers else None
+                mapper = getattr(ex, "map", map)
+
+                def write_to_tiledb(level_tile: Tuple[slice, ...]) -> None:
+                    source_tile = inv_axes_mapper.map_tile(level_tile)
+                    out_array[level_tile] = axes_mapper.map_array(image[source_tile])
+
+                for _ in tqdm(
+                    mapper(
+                        write_to_tiledb, iter_tiles(out_array.domain, scale=tile_scale)
+                    ),
+                    desc=f"Ingesting level {level}",
+                    total=num_tiles(out_array.domain, scale=tile_scale),
+                    unit="tiles",
+                ):
+                    # Find the global min-max values from all tiles
+                    pass
+                if ex:
+                    ex.shutdown()
 
                 compute_channel_minmax(
                     channel_min_max,
