@@ -313,7 +313,7 @@ class ImageConverter:
         :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
             the (maximum) tile for this dimension.
         :param tile_scale: The scaling factor applied to each tile during I/O.
-            LArger scale factors will result in less I/O operations.
+            Larger scale factors will result in less I/O operations.
         :param preserve_axes: If true, preserve the axes order of the original image.
         :param chunked: If true, convert one tile at a time instead of the whole image.
             **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True

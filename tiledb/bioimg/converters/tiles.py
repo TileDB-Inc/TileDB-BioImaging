@@ -1,5 +1,6 @@
 import itertools as it
 from typing import Iterator, Tuple
+import numpy as np
 
 import tiledb
 
@@ -21,7 +22,7 @@ def num_tiles(domain: tiledb.Domain, scale: int = 1) -> int:
 
 def dim_range(dim: tiledb.Dim, scale: int = 1) -> range:
     """Get the range of the given tiledb dimension with step equal to the dimension tile."""
-    return range(int(dim.domain[0]), int(dim.domain[1]) + 1, dim.tile * scale)
+    return range(int(dim.domain[0]), int(dim.domain[1]) + 1, dim.tile.astype(np.int64) * scale)
 
 
 def iter_slices(r: range) -> Iterator[slice]:
