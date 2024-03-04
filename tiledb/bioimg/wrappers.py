@@ -17,6 +17,7 @@ def from_bioimg(
     *,
     verbose: bool = False,
     exclude_metadata: bool = False,
+    tile_scale: int = 1,
     **kwargs: Any,
 ) -> Type[ImageConverter]:
     """
@@ -37,6 +38,7 @@ def from_bioimg(
             output_path=dest,
             log=logger,
             exclude_metadata=exclude_metadata,
+            tile_scale=tile_scale,
             **kwargs,
         )
     elif converter is Converters.OMEZARR:
@@ -46,6 +48,7 @@ def from_bioimg(
             output_path=dest,
             log=logger,
             exclude_metadata=exclude_metadata,
+            tile_scale=tile_scale,
             **kwargs,
         )
     else:
@@ -55,6 +58,7 @@ def from_bioimg(
             output_path=dest,
             log=logger,
             exclude_metadata=exclude_metadata,
+            tile_scale=tile_scale,
             **kwargs,
         )
 
