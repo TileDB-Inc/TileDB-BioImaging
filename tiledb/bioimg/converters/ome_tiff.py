@@ -203,7 +203,7 @@ class OMETiffReader(ImageReader):
                     )
                     for i in range(channel["SamplesPerPixel"]):
                         channel_metadata = {
-                            "id": channel.get("ID", f"{idx}-{i}"),
+                            "id": f'{channel.get("ID", f"{idx}")}-{i}',
                             "name": channel.get("Name", f"Channel {idx}-{i}"),
                             "color": next(color_generator),
                         }
