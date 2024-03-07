@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import openslide as osd
@@ -120,6 +120,16 @@ class OpenSlideReader(ImageReader):
     @property
     def original_metadata(self) -> Dict[str, Any]:
         return {"SVS": list(self._osd.properties.items())}
+
+    def iter_mem_contig_tiles(
+        self, level: int, scale: int = 1
+    ) -> Iterator[Tuple[slice, ...]]:
+        raise NotImplementedError()
+
+    def level_image_experimental(
+        self, level: int, tile: Tuple[slice, ...]
+    ) -> np.ndarray:
+        raise NotImplementedError()
 
 
 class OpenSlideConverter(ImageConverter):

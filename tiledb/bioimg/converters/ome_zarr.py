@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, cast
 
 import numpy
 import numpy as np
@@ -157,6 +157,20 @@ class OMEZarrReader(ImageReader):
             metadata["ZARR"].setdefault(key, value)
 
         return metadata
+
+    def iter_mem_contig_tiles(
+        self, level: int, scale: int = 1
+    ) -> Iterator[Tuple[slice, ...]]:
+        raise NotImplementedError(
+            "Zarr reader does not support memory contiguous access"
+        )
+
+    def level_image_experimental(
+        self, level: int, tile: Tuple[slice, ...]
+    ) -> np.ndarray:
+        raise NotImplementedError(
+            "Zarr reader does not support memory contiguous access"
+        )
 
 
 class OMEZarrWriter(ImageWriter):
