@@ -1,12 +1,25 @@
 import decimal
 import logging
+import math
 import warnings
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import jsonpickle as json
 import numpy as np
 import tifffile
 
+from tiledb.bioimg.converters.io import asarray
 from tiledb.cc import WebpInputFormat
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
@@ -312,6 +325,156 @@ class OMETiffReader(ImageReader):
             metadata.setdefault("qpi_metadata", qpi_original_meta(self._tiff))
 
         return metadata
+
+    @property
+    def page_tile_store_order(self) -> Mapping[int, int]:
+        tile_store_order: MutableMapping[int, int] = {}
+
+        for level in range(self.level_count):
+            for page in self._series.levels[level].pages:
+                if not page.planarconfig == 1:
+                    tile_store_order.setdefault(page.hash, 0)
+                    continue
+
+                if page.axes == "YXS":
+                    pos = page.dataoffsets[0] + page.databytecounts[0]
+                    for y in range(page.chunked[0]):
+                        for x in range(page.chunked[1]):
+                            tile = y * page.chunked[1] + x
+                            if tile == 0:
+                                continue
+
+                            if page.dataoffsets[tile] == pos:
+                                pos += page.databytecounts[tile]
+                            else:
+                                tile_store_order.setdefault(page.hash, 0)
+                                break
+                        else:
+                            continue
+                        break
+                    else:
+                        tile_store_order[page.hash] = 1
+                        continue
+
+                    pos = page.dataoffsets[0] + page.databytecounts[0]
+                    for x in range(page.chunked[1]):
+                        for y in range(page.chunked[0]):
+                            tile = y * page.chunked[1] + x
+
+                            if tile == 0:
+                                continue
+
+                            if page.dataoffsets[tile] == pos:
+                                pos += page.databytecounts[tile]
+                            else:
+                                tile_store_order.setdefault(page.hash, 0)
+                                break
+                        else:
+                            continue
+                        break
+                    else:
+                        tile_store_order[page.hash] = 2
+        return tile_store_order
+
+    def iter_mem_contig_tiles(
+        self, level: int, scale: int = 1
+    ) -> Iterator[Tuple[slice, ...]]:
+        pages = self._series.levels[level].pages
+
+        if len(pages) > 1:
+            raise ValueError("Multi page chunked ingestion is not supported")
+
+        for idx in range(len(pages)):
+            page = pages[idx]
+
+            if self.page_tile_store_order[page.hash] == 0:
+                raise ValueError(
+                    "Chunked mode is unsupported for random tile locations"
+                )
+
+            # Remove unary dimensions from the chunks
+            shape = [dim for dim in page.chunked if dim != 1]
+            tuple_template = tuple(slice(None) for _ in range(len(page.chunks) - 1))
+
+            if self.page_tile_store_order[page.hash] == 1:  # Row major
+                for row in range(0, shape[0], scale):
+                    row_start = row * page.chunks[0]
+                    row_end = min(
+                        (row + scale) * page.chunks[0], page.keyframe.shape[0]
+                    )
+                    mask = (slice(row_start, row_end),) + tuple_template
+
+                    yield mask
+                pass
+            elif self.page_tile_store_order[page.hash] == 2:  # Column major
+                for column in range(0, shape[-1], scale):
+                    column_start = column * page.chunks[-2]
+                    column_end = min(
+                        (column + scale) * page.chunks[-2], page.keyframe.shape[-2]
+                    )
+                    mask = (
+                        tuple_template[1:]
+                        + (slice(column_start, column_end),)
+                        + (slice(None),)
+                    )
+
+                    yield mask
+
+    def level_image_experimental(
+        self, level: int, tile: Tuple[slice, ...]
+    ) -> np.ndarray:
+        pages = self._series.levels[level].pages
+        if len(pages) > 1:
+            raise ValueError("Multi page chunked ingestion is not supported")
+
+        for idx in range(len(pages)):
+            page = pages[idx]
+
+            if self.page_tile_store_order[page.hash] == 0:
+                raise ValueError(
+                    "Chunked mode is unsupported for random tile locations"
+                )
+
+            # Remove unary dimensions from the chunks
+            shape = [dim for dim in page.chunked if dim != 1]
+
+            # the number of chunks per row
+            size = int(np.prod(shape[1:]))
+
+            if self.page_tile_store_order[page.hash] == 1:  # Row major
+                row_width = page.chunks[0]
+                row = int(math.floor(tile[0].start / row_width))
+                scale_factor = int(
+                    math.ceil((tile[0].stop - tile[0].start) / row_width)
+                )
+
+                result = asarray(
+                    page,
+                    slices=[slice(row * size, (row + scale_factor) * size, 1)],
+                    maxworkers=tifffile.TIFF.MAXWORKERS,
+                    storedTilesOrder=self.page_tile_store_order[page.hash],
+                )
+
+                return result[: tile[0].stop - tile[0].start, :]
+            elif self.page_tile_store_order[page.hash] == 2:  # Column major
+                column_width = page.chunks[-2]
+                column = int(math.floor(tile[-2].start / column_width))
+                scale_factor = int(
+                    math.ceil((tile[-2].stop - tile[-2].start) / column_width)
+                )
+
+                slices = [
+                    slice(idx, None, size)
+                    for idx in range(column, column + scale_factor)
+                ]
+                result = asarray(
+                    page,
+                    slices=slices,
+                    maxworkers=tifffile.TIFF.MAXWORKERS,
+                    storedTilesOrder=self.page_tile_store_order[page.hash],
+                )
+
+                return result[:, : tile[-2].stop - tile[-2].start, :]
 
 
 class OMETiffWriter(ImageWriter):

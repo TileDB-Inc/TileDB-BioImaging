@@ -130,6 +130,16 @@ class OpenSlideReader(ImageReader):
     def original_metadata(self) -> Dict[str, Any]:
         return {"SVS": list(self._osd.properties.items())}
 
+    def iter_mem_contig_tiles(
+        self, level: int, scale: int = 1
+    ) -> Iterator[Tuple[slice, ...]]:
+        raise NotImplementedError()
+
+    def level_image_experimental(
+        self, level: int, tile: Tuple[slice, ...]
+    ) -> np.ndarray:
+        raise NotImplementedError()
+
 
 class OpenSlideConverter(ImageConverter):
     """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
