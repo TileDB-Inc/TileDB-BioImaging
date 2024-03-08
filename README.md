@@ -32,6 +32,7 @@ Breaking changes to the underlying data format and the API are to be expected.
 
 - From PyPI:
 
+      # If you use zsh replace [full] with \[full\]
       pip install tiledb-bioimg[full]
 
 - From source:
