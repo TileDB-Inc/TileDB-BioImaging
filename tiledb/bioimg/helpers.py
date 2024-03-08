@@ -143,7 +143,13 @@ def get_axes_mapper(
 def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
     for o in group:
         with open_bioimg(o.uri) as array:
-            level = array.meta["level"]
+            try:
+                level = array.meta["level"]
+            except KeyError:
+                raise RuntimeError(
+                    "Key: 'level' not found in array metadata. Make sure that levels have been "
+                    "ingested correctly in any previous process for the same image."
+                )
             domain = array.schema.domain
             axes = "".join(domain.dim(dim_idx).name for dim_idx in range(domain.ndim))
             yield dict(level=level, name=f"l_{level}.tdb", axes=axes, shape=array.shape)
