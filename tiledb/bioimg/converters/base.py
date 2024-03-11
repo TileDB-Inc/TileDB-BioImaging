@@ -623,11 +623,11 @@ def _convert_level_to_tiledb(
                         ),
                         desc=f"Ingesting level {level}",
                         total=len(
-                            [
+                            list(
                                 reader.iter_mem_contig_tiles(
                                     level=level, scale=tile_scale
                                 )
-                            ]
+                            )
                         ),
                         unit="tiles",
                     ):

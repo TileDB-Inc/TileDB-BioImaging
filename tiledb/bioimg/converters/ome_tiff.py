@@ -8,6 +8,7 @@ from typing import (
     Iterator,
     Mapping,
     MutableMapping,
+    MutableSequence,
     Optional,
     Sequence,
     Tuple,
@@ -331,21 +332,32 @@ class OMETiffReader(ImageReader):
         tile_store_order: MutableMapping[int, int] = {}
 
         for level in range(self.level_count):
+            # If the page is of instance TiffFrame the hash is the same for all frames of a page
             for page in self._series.levels[level].pages:
-                if not page.planarconfig == 1:
+                if page.axes.startswith("S"):
                     tile_store_order.setdefault(page.hash, 0)
                     continue
 
-                if page.axes == "YXS":
-                    pos = page.dataoffsets[0] + page.databytecounts[0]
-                    for y in range(page.chunked[0]):
-                        for x in range(page.chunked[1]):
-                            tile = y * page.chunked[1] + x
-                            if tile == 0:
+                z_length = page.chunked[0] if page.axes.startswith("Z") else 1
+                y_length = (
+                    page.chunked[1] if page.axes.startswith("Z") else page.chunked[0]
+                )
+                x_length = (
+                    page.chunked[2] if page.axes.startswith("Z") else page.chunked[1]
+                )
+
+                # Row major detection loop
+                pos = page.dataoffsets[0] + page.databytecounts[0]
+                for z in range(z_length):
+                    for y in range(y_length):
+                        for x in range(x_length):
+                            index = z * y_length * x_length + y * x_length + x
+
+                            if index == 0:
                                 continue
 
-                            if page.dataoffsets[tile] == pos:
-                                pos += page.databytecounts[tile]
+                            if page.dataoffsets[index] == pos:
+                                pos += page.databytecounts[index]
                             else:
                                 tile_store_order.setdefault(page.hash, 0)
                                 break
@@ -353,19 +365,24 @@ class OMETiffReader(ImageReader):
                             continue
                         break
                     else:
-                        tile_store_order[page.hash] = 1
                         continue
+                    break
+                else:
+                    tile_store_order[page.hash] = 1
+                    continue
 
-                    pos = page.dataoffsets[0] + page.databytecounts[0]
-                    for x in range(page.chunked[1]):
-                        for y in range(page.chunked[0]):
-                            tile = y * page.chunked[1] + x
+                # Column major detection loop
+                pos = page.dataoffsets[0] + page.databytecounts[0]
+                for x in range(x_length):
+                    for y in range(y_length):
+                        for z in range(z_length):
+                            index = z * y_length * x_length + y * x_length + x
 
-                            if tile == 0:
+                            if index == 0:
                                 continue
 
-                            if page.dataoffsets[tile] == pos:
-                                pos += page.databytecounts[tile]
+                            if page.dataoffsets[index] == pos:
+                                pos += page.databytecounts[index]
                             else:
                                 tile_store_order.setdefault(page.hash, 0)
                                 break
@@ -373,7 +390,10 @@ class OMETiffReader(ImageReader):
                             continue
                         break
                     else:
-                        tile_store_order[page.hash] = 2
+                        continue
+                    break
+                else:
+                    tile_store_order[page.hash] = 2
         return tile_store_order
 
     def iter_mem_contig_tiles(
@@ -381,100 +401,139 @@ class OMETiffReader(ImageReader):
     ) -> Iterator[Tuple[slice, ...]]:
         pages = self._series.levels[level].pages
 
-        if len(pages) > 1:
-            raise ValueError("Multi page chunked ingestion is not supported")
+        if any(self.page_tile_store_order[page.hash] == 0 for page in pages):
+            raise ValueError("Non memory contiguous images are not supported")
+
+        dim_dif = len(self.axes.dims) - len(pages[0].axes)
+        strides: MutableSequence[int] = [
+            int(np.prod([d for d in self.level_shape(level)[:dim_dif]]))
+        ]
+        for dim in range(len(self.axes.dims) - len(pages[0].axes)):
+            strides.append(
+                int(np.prod([d for d in self.level_shape(level)[dim + 1 : dim_dif]]))
+            )
 
         for idx in range(len(pages)):
             page = pages[idx]
 
-            if self.page_tile_store_order[page.hash] == 0:
-                raise ValueError(
-                    "Chunked mode is unsupported for random tile locations"
-                )
+            page_mask: Tuple[slice, ...] = ()
 
-            # Remove unary dimensions from the chunks
-            shape = [dim for dim in page.chunked if dim != 1]
-            tuple_template = tuple(slice(None) for _ in range(len(page.chunks) - 1))
+            for dim in range(1, dim_dif + 1):
+                dim_index = (idx % strides[dim - 1]) // strides[dim]
+                page_mask += (slice(dim_index, dim_index + 1),)
+
+            if page.axes == "YX" or page.axes == "ZYX":
+                shape = [dim for dim in page.chunked]
+                chunk_shape = [dim for dim in page.chunks]
+                page_shape = [dim for dim in page.keyframe.shape]
+            elif page.axes == "YXS" or page.axes == "ZYXS":
+                shape = [dim for dim in page.chunked[:-1]]
+                chunk_shape = [dim for dim in page.chunks[:-1]]
+                page_shape = [dim for dim in page.keyframe.shape[:-1]]
+            else:
+                raise ValueError("Separate pixel sample images are not supported")
 
             if self.page_tile_store_order[page.hash] == 1:  # Row major
                 for row in range(0, shape[0], scale):
-                    row_start = row * page.chunks[0]
-                    row_end = min(
-                        (row + scale) * page.chunks[0], page.keyframe.shape[0]
+                    row_start = row * chunk_shape[0]
+                    row_end = min((row + scale) * chunk_shape[0], page_shape[0])
+                    mask = (slice(row_start, row_end),) + tuple(
+                        slice(0, dim) for dim in page_shape[1:]
                     )
-                    mask = (slice(row_start, row_end),) + tuple_template
 
-                    yield mask
-                pass
+                    if page.axes.endswith("S"):
+                        mask += (slice(0, page.samplesperpixel),)
+
+                    yield page_mask + mask
             elif self.page_tile_store_order[page.hash] == 2:  # Column major
                 for column in range(0, shape[-1], scale):
-                    column_start = column * page.chunks[-2]
-                    column_end = min(
-                        (column + scale) * page.chunks[-2], page.keyframe.shape[-2]
+                    column_start = column * chunk_shape[-1]
+                    column_end = min((column + scale) * chunk_shape[-1], page_shape[-1])
+                    mask = tuple(slice(0, dim) for dim in page_shape[:-1]) + (
+                        slice(column_start, column_end),
                     )
-                    mask = (
-                        tuple_template[1:]
-                        + (slice(column_start, column_end),)
-                        + (slice(None),)
-                    )
+                    if page.axes.endswith("S"):
+                        mask += (slice(0, page.samplesperpixel),)
 
-                    yield mask
+                    yield page_mask + mask
+            else:
+                raise ValueError(
+                    f"Unknown tile order value. Expected 0, 1 or 2, found {self.page_tile_store_order[page.hash]}"
+                )
 
     def level_image_experimental(
         self, level: int, tile: Tuple[slice, ...]
     ) -> np.ndarray:
         pages = self._series.levels[level].pages
-        if len(pages) > 1:
-            raise ValueError("Multi page chunked ingestion is not supported")
+        dim_dif = len(self.axes.dims) - len(pages[0].axes)
+        page_mask, mask = tile[:dim_dif], tile[dim_dif:]
+        idx = page_mask[0].start if len(page_mask) else 0
+        for dim, sl in enumerate(page_mask[1:]):
+            idx = idx * self.level_shape(level)[dim + 1] + sl.start
 
-        for idx in range(len(pages)):
-            page = pages[idx]
+        if idx >= len(pages):
+            raise IndexError(
+                f"Page index out of bounds. Expected less than {len(pages)} found {idx}"
+            )
 
-            if self.page_tile_store_order[page.hash] == 0:
-                raise ValueError(
-                    "Chunked mode is unsupported for random tile locations"
-                )
+        page = pages[idx]
+        page_axes = page.axes.replace("S", "C")
 
-            # Remove unary dimensions from the chunks
-            shape = [dim for dim in page.chunked if dim != 1]
+        axes_offsets: Tuple[int, int] = (
+            self.axes.dims.index(page_axes[0]),
+            self.axes.dims.index(page_axes[-1]),
+        )
 
-            # the number of chunks per row
-            size = int(np.prod(shape[1:]))
+        if self.page_tile_store_order[page.hash] == 0:
+            raise ValueError("Chunked mode is unsupported for random tile locations")
 
-            if self.page_tile_store_order[page.hash] == 1:  # Row major
-                row_width = page.chunks[0]
-                row = int(math.floor(tile[0].start / row_width))
-                scale_factor = int(
-                    math.ceil((tile[0].stop - tile[0].start) / row_width)
-                )
+        # Remove unary dimensions from the chunks
+        shape = [dim for dim in page.chunked if dim != 1]
 
-                result = asarray(
-                    page,
-                    slices=[slice(row * size, (row + scale_factor) * size, 1)],
-                    maxworkers=tifffile.TIFF.MAXWORKERS,
-                    storedTilesOrder=self.page_tile_store_order[page.hash],
-                )
+        # the number of chunks per row
+        size = int(np.prod(shape[1:]))
 
-                return result[: tile[0].stop - tile[0].start, :]
-            elif self.page_tile_store_order[page.hash] == 2:  # Column major
-                column_width = page.chunks[-2]
-                column = int(math.floor(tile[-2].start / column_width))
-                scale_factor = int(
-                    math.ceil((tile[-2].stop - tile[-2].start) / column_width)
-                )
+        if self.page_tile_store_order[page.hash] == 1:  # Row major
+            row_width = page.chunks[0]
+            row = int(math.floor(mask[0].start / row_width))
+            scale_factor = int(math.ceil((mask[0].stop - mask[0].start) / row_width))
 
-                slices = [
-                    slice(idx, None, size)
-                    for idx in range(column, column + scale_factor)
-                ]
-                result = asarray(
-                    page,
-                    slices=slices,
-                    maxworkers=tifffile.TIFF.MAXWORKERS,
-                    storedTilesOrder=self.page_tile_store_order[page.hash],
-                )
+            result = asarray(
+                page,
+                slices=[slice(row * size, (row + scale_factor) * size, 1)],
+                maxworkers=tifffile.TIFF.MAXWORKERS,
+                storedTilesOrder=self.page_tile_store_order[page.hash],
+            )
 
-                return result[:, : tile[-2].stop - tile[-2].start, :]
+            result.shape = (
+                tuple(1 for _ in range(0, axes_offsets[0]))
+                + result.shape
+                + tuple(1 for _ in range(axes_offsets[1] + 1, len(self.axes.dims)))
+            )
+
+            return result[
+                tuple(slice(m.stop - m.start) if m.start else slice(None) for m in tile)
+            ]
+        elif self.page_tile_store_order[page.hash] == 2:  # Column major
+            column_width = page.chunks[-2]
+            column = int(math.floor(mask[-2].start / column_width))
+            scale_factor = int(
+                math.ceil((mask[-2].stop - mask[-2].start) / column_width)
+            )
+
+            slices = [
+                slice(idx, None, size) for idx in range(column, column + scale_factor)
+            ]
+            result = asarray(
+                page,
+                slices=slices,
+                maxworkers=tifffile.TIFF.MAXWORKERS,
+                storedTilesOrder=self.page_tile_store_order[page.hash],
+            )
+
+            return result[
+                tuple(slice(m.stop - m.start) if m.start else slice(None) for m in tile)
+            ]
 
 
 class OMETiffWriter(ImageWriter):
