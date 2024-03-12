@@ -144,7 +144,7 @@ class ImageReader(ABC):
 
     @abstractmethod
     def iter_mem_contig_tiles(
-        self, level: int, scale: int = 1
+        self, level: int, chunk_target_size: int = 256
     ) -> Iterator[Tuple[slice, ...]]:
         """Generate all the non-overlapping memory contiguous tiles that cover the given image level"""
 
@@ -619,16 +619,10 @@ def _convert_level_to_tiledb(
                     for tile_min, tile_max in tqdm(
                         mapper(
                             tile_to_tiledb,
-                            reader.iter_mem_contig_tiles(level=level, scale=tile_scale),
+                            reader.iter_mem_contig_tiles(level=level),
                         ),
                         desc=f"Ingesting level {level}",
-                        total=len(
-                            list(
-                                reader.iter_mem_contig_tiles(
-                                    level=level, scale=tile_scale
-                                )
-                            )
-                        ),
+                        total=len(list(reader.iter_mem_contig_tiles(level=level))),
                         unit="tiles",
                     ):
                         # Find the global min-max values from all tiles

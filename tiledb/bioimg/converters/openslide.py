@@ -131,7 +131,7 @@ class OpenSlideReader(ImageReader):
         return {"SVS": list(self._osd.properties.items())}
 
     def iter_mem_contig_tiles(
-        self, level: int, scale: int = 1
+        self, level: int, chunk_target_size: int = 256
     ) -> Iterator[Tuple[slice, ...]]:
         raise NotImplementedError()
 

@@ -163,7 +163,7 @@ class OMEZarrReader(ImageReader):
         return metadata
 
     def iter_mem_contig_tiles(
-        self, level: int, scale: int = 1
+        self, level: int, chunk_target_size: int = 256
     ) -> Iterator[Tuple[slice, ...]]:
         raise NotImplementedError(
             "Zarr reader does not support memory contiguous access"

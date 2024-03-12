@@ -397,7 +397,7 @@ class OMETiffReader(ImageReader):
         return tile_store_order
 
     def iter_mem_contig_tiles(
-        self, level: int, scale: int = 1
+        self, level: int, chunk_target_size: int = 256
     ) -> Iterator[Tuple[slice, ...]]:
         pages = self._series.levels[level].pages
 
@@ -415,7 +415,6 @@ class OMETiffReader(ImageReader):
 
         for idx in range(len(pages)):
             page = pages[idx]
-
             page_mask: Tuple[slice, ...] = ()
 
             for dim in range(1, dim_dif + 1):
@@ -434,6 +433,23 @@ class OMETiffReader(ImageReader):
                 raise ValueError("Separate pixel sample images are not supported")
 
             if self.page_tile_store_order[page.hash] == 1:  # Row major
+                # Calculate optimal tile scale for the requested page
+                scale = int(
+                    math.ceil(
+                        chunk_target_size
+                        / (
+                            chunk_shape[0]
+                            * np.prod(page_shape[1:])
+                            * page.samplesperpixel
+                            / 2**20
+                        )
+                    )
+                )
+                if (
+                    page.compression != 1
+                ):  # if a compression scheme is applied, assume a 50% compression ratio
+                    scale *= 2
+
                 for row in range(0, shape[0], scale):
                     row_start = row * chunk_shape[0]
                     row_end = min((row + scale) * chunk_shape[0], page_shape[0])
@@ -446,6 +462,22 @@ class OMETiffReader(ImageReader):
 
                     yield page_mask + mask
             elif self.page_tile_store_order[page.hash] == 2:  # Column major
+                scale = int(
+                    math.ceil(
+                        chunk_target_size
+                        / (
+                            chunk_shape[-1]
+                            * np.prod(page_shape[:-1])
+                            * page.samplesperpixel
+                            / 2**20
+                        )
+                    )
+                )
+                if (
+                    page.compression != 1
+                ):  # if a compression scheme is applied, assume a 50% compression ratio
+                    scale *= 2
+
                 for column in range(0, shape[-1], scale):
                     column_start = column * chunk_shape[-1]
                     column_end = min((column + scale) * chunk_shape[-1], page_shape[-1])
