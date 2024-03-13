@@ -416,6 +416,7 @@ class OMETiffReader(ImageReader):
         for idx in range(len(pages)):
             page = pages[idx]
             page_mask: Tuple[slice, ...] = ()
+            samples_per_pixel: int = 1
 
             for dim in range(1, dim_dif + 1):
                 dim_index = (idx % strides[dim - 1]) // strides[dim]
@@ -429,6 +430,7 @@ class OMETiffReader(ImageReader):
                 shape = [dim for dim in page.chunked[:-1]]
                 chunk_shape = [dim for dim in page.chunks[:-1]]
                 page_shape = [dim for dim in page.keyframe.shape[:-1]]
+                samples_per_pixel = page.keyframe.shape[-1]
             else:
                 raise ValueError("Separate pixel sample images are not supported")
 
@@ -440,7 +442,7 @@ class OMETiffReader(ImageReader):
                         / (
                             chunk_shape[0]
                             * np.prod(page_shape[1:])
-                            * page.samplesperpixel
+                            * samples_per_pixel
                             / 2**20
                         )
                     )
@@ -468,7 +470,7 @@ class OMETiffReader(ImageReader):
                         / (
                             chunk_shape[-1]
                             * np.prod(page_shape[:-1])
-                            * page.samplesperpixel
+                            * samples_per_pixel
                             / 2**20
                         )
                     )
