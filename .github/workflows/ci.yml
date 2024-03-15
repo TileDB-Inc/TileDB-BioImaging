@@ -26,7 +26,7 @@ jobs:
         environment-name: test
         cache-downloads: true
         create-args: >-
-          python=3.7
+          python=3.9
           pre-commit
           pytest-cov
           pytest-mock
@@ -50,8 +50,8 @@ jobs:
 
     - name: Install package
       run: |
-        pip install tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7
-        pip install -e .[full]
+        pip install --no-cache-dir --upgrade tifffile "imagecodecs>=2023.7.10"
+        pip install .[full]
 
     - name: Run tests with coverage
       id: stats
