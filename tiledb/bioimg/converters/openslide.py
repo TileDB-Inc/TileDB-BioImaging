@@ -1,10 +1,12 @@
 import logging
+import os
 from typing import Any, Dict, Optional, Sequence, Tuple, cast
-from . import WIN_OPENSLIDE_PATH
+
 import numpy as np
 
-import os
-if hasattr(os, 'add_dll_directory'):
+from . import WIN_OPENSLIDE_PATH
+
+if hasattr(os, "add_dll_directory"):
     # Python >= 3.8 on Windows
     with os.add_dll_directory(WIN_OPENSLIDE_PATH):
         import openslide as osd
