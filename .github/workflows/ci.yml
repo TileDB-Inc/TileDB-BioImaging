@@ -41,8 +41,8 @@ jobs:
       run: |
         choco install wget --no-progress
         wget https://github.com/openslide/openslide-winbuild/releases/download/v20221217/openslide-win64-20221217.zip
-        unzip ./openslide-win64-20221217.zip -d /usr/local/
-        mv /usr/local/openslide-win64-20221217/* /usr/local/
+        unzip ./openslide-win64-20221217.zip -d C:\python\openslide-win64-20171122\bin
+        mv /usr/local/openslide-win64-20221217/* C:\python\openslide-win64-20171122\bin
       if: matrix.os == 'windows-latest'
 
     - name: Run pre-commit hooks
