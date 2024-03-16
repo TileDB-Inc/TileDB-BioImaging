@@ -18,6 +18,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    Iterable
 )
 
 import jsonpickle
@@ -475,15 +476,35 @@ class ImageConverter:
                 channel_min_max.append(level_meta["channelMinMax"])
                 metadata["axes"] += levels_meta["axes"]
             else:
+                ex = ThreadPoolExecutor(max_workers) if max_workers else None
+                mapper = getattr(ex, "map", map)
+                level_meta_info = {}
+
+                def level_to_tiledb(level_ingest: int, convert_kwargs: Iterable[Mapping[str, Any]]) -> None:
+                    levels_meta = _convert_level_to_tiledb(level_ingest, **convert_kwargs)  # type: ignore
+                    level_meta_info[level_ingest] = levels_meta
+
+                for _ in tqdm(
+                        mapper(
+                            level_to_tiledb, range(level_min, reader.level_count), convert_kwargs
+                        ),
+                        desc=f"Converting level {level}",
+                        total=reader.level_count - level_min,
+                        unit="levels",
+                ):
+                    pass
+                if ex:
+                    ex.shutdown()
+
                 for level in range(level_min, reader.level_count):
-                    logger.info(f"Converting level: {level}")
-                    level_meta = _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
-                    channel_min_max.append(level_meta["channelMinMax"])
+                #     logger.info(f"Converting level: {level}")
+                #     level_meta = _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
+                    channel_min_max.append(level_meta_info[level]["channelMinMax"])
                     logger.debug(
-                        f'Level {level} channel MinMax: {level_meta["channelMinMax"]}'
+                        f'Level {level} channel MinMax: {level_meta_info[level]["channelMinMax"]}'
                     )
-                    metadata["axes"].append(level_meta["axes"])
-                    logger.debug(f'Level {level} axes: {level_meta["axes"]}')
+                    metadata["axes"].append(level_meta_info[level]["axes"])
+                    logger.debug(f'Level {level} axes: {level_meta_info[level]["axes"]}')
             for idx in range(len(metadata["channels"])):
                 metadata["channels"][idx].setdefault(
                     "min", channel_min_max[0].item((idx, 0))
