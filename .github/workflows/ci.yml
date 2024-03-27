@@ -85,13 +85,13 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
         mkdir test_temp
-        C:\Users\runneradmin\micromamba\envs\test\python.exe -m pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
+        micromamba run -n test pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
       if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run notebook examples
       run: |
         pip install opencv-python-headless matplotlib nbmake
-        pytest --nbmake examples
+        micromamba run -n test pytest --nbmake examples
 
     - name: Create Test Coverage Badge
       if: ${{ fromJSON(env.run_coverage) && matrix.sys.os == 'ubuntu-latest'}}
