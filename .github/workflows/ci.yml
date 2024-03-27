@@ -90,7 +90,7 @@ jobs:
 
     - name: Run notebook examples
       run: |
-        pip install opencv-python-headless matplotlib nbmake
+        micromamba run -n test pip install opencv-python-headless matplotlib nbmake
         micromamba run -n test pytest --nbmake examples
 
     - name: Create Test Coverage Badge
