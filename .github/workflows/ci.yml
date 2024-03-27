@@ -46,6 +46,9 @@ jobs:
         choco install wget --no-progress
         wget https://github.com/openslide/openslide-winbuild/releases/download/v20221217/openslide-win64-20221217.zip
         7z x openslide-win64-20221217.zip -oD:\openslide-win64\
+        cd D:\openslide-win64\
+        set openslide_path=%cd%
+        echo %openslide_path%
       if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run pre-commit hooks
