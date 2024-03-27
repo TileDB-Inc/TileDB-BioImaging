@@ -79,10 +79,9 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      shell: "bash -l {0}"
       run: |
         mkdir test_temp
-        python -m pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
+        C:\Users\runneradmin\micromamba\envs\test\python.exe -m pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
       if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run notebook examples
