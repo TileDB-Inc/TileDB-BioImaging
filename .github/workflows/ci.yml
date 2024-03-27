@@ -4,15 +4,18 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.sys.os }}
+    runs-on: ${{ matrix.sys.os }}
     timeout-minutes: 20
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        sys:
+          - { os: windows-latest, shell: 'cmd /C call {0}' }
+          - { os: ubuntu-latest,  shell: "bash -l {0}" }
       fail-fast: false
     defaults:
       run:
-        shell: bash -l {0}
+        shell: ${{ matrix.sys.shell }}
 
     env:
       run_coverage: ${{ github.ref == 'refs/heads/main' }}
@@ -26,7 +29,7 @@ jobs:
         environment-name: test
         cache-downloads: true
         create-args: >-
-          python=3.7
+          python=3.9
           pre-commit
           pytest-cov
           pytest-mock
@@ -35,23 +38,30 @@ jobs:
       run: |
         sudo apt install openslide-tools
         micromamba install openslide
-      if: matrix.os != 'windows-latest'
+        echo ${{ matrix.sys.os }}
+      if: ${{ matrix.sys.os != 'windows-latest' }}
 
     - name: Install openslide for Win 
       run: |
         choco install wget --no-progress
         wget https://github.com/openslide/openslide-winbuild/releases/download/v20221217/openslide-win64-20221217.zip
-        unzip ./openslide-win64-20221217.zip -d /usr/local/
-        mv /usr/local/openslide-win64-20221217/* /usr/local/
-      if: matrix.os == 'windows-latest'
+        7z x openslide-win64-20221217.zip -oD:\openslide\
+        mklink /D D:\openslide-win64\ D:\openslide\openslide-win64-20221217\
+        cd D:\openslide-win64\
+        dir
+        set openslide_path=%cd%
+        echo %openslide_path%
+      if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run pre-commit hooks
-      run: pre-commit run -a
+      run: | 
+        micromamba run -n test pre-commit run -a
 
     - name: Install package
+      shell: "bash -l {0}"
       run: |
-        pip install tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7
-        pip install -e .[full]
+        pip install --no-cache-dir --upgrade tifffile "imagecodecs>=2023.7.10"
+        pip install .[full]
 
     - name: Run tests with coverage
       id: stats
@@ -59,26 +69,32 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
-        # This GITHUB_WORKSPACE is bydefault set to D: driver whereas pytest's tmp_dir 
-        # default is C: ,thus we create a temp_test folder for pytest's tmp_dir to run on D: as well 
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ > coverage.txt
-          exit_code=$?
-          TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
-          echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
-          exit $exit_code
-        else
-          mkdir test_temp
-          pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
-        fi
+        : # This GITHUB_WORKSPACE is bydefault set to D: driver whereas pytest's tmp_dir 
+        : # default is C: ,thus we create a temp_test folder for pytest's tmp_dir to run on D: as well 
+        pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ > coverage.txt
+        exit_code=$?
+        TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
+        echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+        exit $exit_code
+      if: ${{ matrix.sys.os != 'windows-latest' }}
+
+    - name: Run tests with coverage WINDOWS
+      id: stats-win
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        mkdir test_temp
+        micromamba run -n test pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
+      if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run notebook examples
       run: |
-        pip install opencv-python-headless matplotlib nbmake
-        pytest --nbmake examples
+        micromamba run -n test pip install opencv-python-headless matplotlib nbmake
+        micromamba run -n test pytest --nbmake examples
 
     - name: Create Test Coverage Badge
-      if: ${{ fromJSON(env.run_coverage) && matrix.os == 'ubuntu-latest'}}
+      if: ${{ fromJSON(env.run_coverage) && matrix.sys.os == 'ubuntu-latest'}}
       uses: schneegans/dynamic-badges-action@v1.1.0
       with:
         auth: ${{ secrets.COVERAGE_SECRET }}
