@@ -50,7 +50,8 @@ jobs:
 
     - name: Run pre-commit hooks
       shell: ${{ matrix.sys.shell }}
-      run: pre-commit run -a
+      run: |
+        pre-commit run -a
 
     - name: Install package
       shell: ${{ matrix.sys.shell }}
