@@ -18,7 +18,7 @@ setuptools.setup(
         "tiledb>=0.19",
         "tqdm",
         "scikit-image",
-        "jsonpickle"
+        "jsonpickle",
     ],
     extras_require={
         "zarr": zarr,
