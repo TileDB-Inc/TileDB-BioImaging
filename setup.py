@@ -2,7 +2,7 @@ import setuptools
 
 zarr = ["ome-zarr"]
 openslide = ["openslide-python"]
-tiff = ["tifffile", "imagecodecs", "jsonpickle"]
+tiff = ["tifffile", "imagecodecs"]
 cloud = ["tiledb-cloud"]
 
 full = sorted({*zarr, *openslide, *tiff, *cloud})
@@ -17,8 +17,8 @@ setuptools.setup(
         "pyeditdistance",
         "tiledb>=0.19",
         "tqdm",
-        "tifffile",
         "scikit-image",
+        "jsonpickle"
     ],
     extras_require={
         "zarr": zarr,
