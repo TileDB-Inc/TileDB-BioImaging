@@ -18,6 +18,12 @@ from ..helpers import get_logger_wrapper, get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
+import pkg_resources
+from distutils.version import StrictVersion
+
+# Check the version of a package
+ome_zarr_version = pkg_resources.get_distribution("ome_zarr").version
+
 
 class OMEZarrReader(ImageReader):
     def __init__(
@@ -51,7 +57,14 @@ class OMEZarrReader(ImageReader):
 
     @property
     def channels(self) -> Sequence[str]:
-        return tuple(self._omero.node.metadata.get("name", ())) if self._omero else ()
+        channels = ()
+        if self._omero:
+            # ome-zarr 0.9.0 changed the spec
+            if StrictVersion(ome_zarr_version) > StrictVersion('0.8.3'):
+                channels = self._omero.node.metadata.get("channel_names", ())
+            else:
+                channels = self._omero.node.metadata.get("name", ())
+        return channels
 
     @property
     def webp_format(self) -> WebpInputFormat:

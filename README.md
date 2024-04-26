@@ -19,13 +19,13 @@ Breaking changes to the underlying data format and the API are to be expected.
     - OME-Tiff
     - Open-Slide
 
-### Ingestion from TileDB Groups of Arrays to:
+### Export from TileDB-Bioimaging Arrays to:
     - OME-Zarr
     - OME-Tiff
 
 ### Visualization Options
 
-- [TileDB Cloud](https://cloud.tiledb.com)
+- [TileDB Cloud](https://cloud.tiledb.com) includes a built-in, pyramidal multi-resolution viewer (log in to TileDB Cloud to see an example image preview [here](https://cloud.tiledb.com/biomedical-imaging/TileDB-Inc/dbb7dfcc-28b3-40e5-916f-6509a666d950/preview))
 - Napari: https://github.com/TileDB-Inc/napari-tiledb-bioimg
 
 ## Quick Installation
