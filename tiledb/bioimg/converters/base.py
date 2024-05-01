@@ -22,6 +22,7 @@ from typing import (
 
 import jsonpickle
 import numpy as np
+from numpy._typing import NDArray
 from tqdm import tqdm
 
 from .scale import Scaler
@@ -142,24 +143,14 @@ class ImageReader(ABC):
     def original_metadata(self) -> Dict[str, Any]:
         """Return the metadata of the original file."""
 
-    @abstractmethod
-    def iter_mem_contig_tiles(
-        self, level: int, chunk_target_size: int = 256
-    ) -> Iterator[Tuple[slice, ...]]:
-        """Generate all the non-overlapping memory contiguous tiles that cover the given image level"""
-
-    @abstractmethod
-    def level_image_experimental(
-        self, level: int, tile: Tuple[slice, ...]
-    ) -> np.ndarray:
+    def optimal_reader(
+        self, level: int, max_workers: Optional[int] = None
+    ) -> Union[None, Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
         """
-        Return the image for the given level as numpy array.
+        Return an image tile iterator with optimal memory access pattern.
 
-        The axes of the array are specified by the `axes` property.
-
-        :param tile: A tuple of slices (one per each axes) that specify the
-            subregion of the image to return. The subregion should be contiguous on disk.
         """
+        return None
 
 
 class ImageWriter(ABC):
@@ -250,7 +241,7 @@ class ImageConverter:
 
         # Initializes the logger depending on the API path chosen
         if log:
-            logger = get_logger_wrapper(log) if type(log) is bool else log
+            logger = get_logger_wrapper(log) if isinstance(log, bool) else log
         else:
             default_verbose = False
             logger = get_logger_wrapper(default_verbose)
@@ -368,7 +359,7 @@ class ImageConverter:
         """
 
         if log:
-            logger = get_logger_wrapper(log) if type(log) is bool else log
+            logger = get_logger_wrapper(log) if isinstance(log, bool) else log
         else:
             default_verbose = False
             logger = get_logger_wrapper(default_verbose)
@@ -602,27 +593,29 @@ def _convert_level_to_tiledb(
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
                 mapper = getattr(ex, "map", map)
 
-                if experimental_reader:
+                opt_reader = reader.optimal_reader(level=level, max_workers=max_workers)
 
-                    def tile_to_tiledb(
-                        level_tile: Tuple[slice, ...]
+                if experimental_reader and opt_reader is not None:
+
+                    def tile_to_tiledb_exp(
+                        tile: Tuple[Tuple[slice, ...], NDArray[Any]]
                     ) -> Tuple[np.ndarray, ...]:
-                        array_tile = axes_mapper.map_tile(level_tile)
-                        image = reader.level_image_experimental(level, level_tile)
-                        out_array[array_tile] = axes_mapper.map_array(image)
+                        idx, data = tile
+                        array_tile = axes_mapper.map_tile(idx)
+                        out_array[array_tile] = axes_mapper.map_array(data)
 
                         # return a tuple containing the min-max values of the tile
-                        return np.amin(image, axis=min_max_indices), np.amax(
-                            image, axis=min_max_indices
+                        return np.amin(data, axis=min_max_indices), np.amax(
+                            data, axis=min_max_indices
                         )
 
                     for tile_min, tile_max in tqdm(
                         mapper(
-                            tile_to_tiledb,
-                            reader.iter_mem_contig_tiles(level=level),
+                            tile_to_tiledb_exp,
+                            opt_reader[1],
                         ),
                         desc=f"Ingesting level {level}",
-                        total=len(list(reader.iter_mem_contig_tiles(level=level))),
+                        total=opt_reader[0],
                         unit="tiles",
                     ):
                         # Find the global min-max values from all tiles

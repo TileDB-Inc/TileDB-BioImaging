@@ -17,7 +17,7 @@ def get_pages_memory_order(
         for page in level.pages:
             # Order the chunk indices based on their memory location within the page
             chunks = [
-                x for _, x in sorted(zip(page.dataoffsets, get_chucks(page.chunked)))
+                x for _, x in sorted(zip(page.dataoffsets, get_chunks(page.chunked)))
             ]
 
             # Get the axes order as defined by the memory location of the indices
@@ -26,7 +26,7 @@ def get_pages_memory_order(
     return memory_order
 
 
-def get_chucks(
+def get_chunks(
     shape: Tuple[int, ...], permutation: Optional[Sequence[int]] = None
 ) -> Sequence[Sequence[int]]:
     """
@@ -57,7 +57,7 @@ def get_page_order(
     for perm_shape, perm_axes in zip(
         itertools.permutations(range(len(shape))), itertools.permutations(axes)
     ):
-        if get_chucks(tuple(shape[p] for p in perm_shape), perm_shape) == chunks:
+        if get_chunks(tuple(shape[p] for p in perm_shape), perm_shape) == chunks:
             return perm_axes
 
     return tuple()
