@@ -337,13 +337,17 @@ class OMETiffReader(ImageReader):
         return get_pages_memory_order(self._tiff)
 
     def optimal_reader(
-        self, level: int, max_workers: Optional[int] = None
+        self, level: int, max_workers: int = 0
     ) -> Union[None, Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
         # Get the pages the hold the data for the requested level
         pages = self._series.levels[level].pages
 
+        # Check if all pages in the level can be read by the optimal reader
+        if any(True for page in pages if len(self.memory_order[page.hash]) == 0):
+            return None
+
         # Use system info to tune reader config
-        cpu_count = psutil.cpu_count() if max_workers is None else max_workers
+        cpu_count = psutil.cpu_count() if max_workers == 0 else max_workers
         available_memory = psutil.virtual_memory().available / 2**20
 
         # Use first page as the baseline for calculate minimum memory requirements per thread

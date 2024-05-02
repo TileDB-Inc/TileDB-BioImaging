@@ -144,7 +144,7 @@ class ImageReader(ABC):
         """Return the metadata of the original file."""
 
     def optimal_reader(
-        self, level: int, max_workers: Optional[int] = None
+        self, level: int, max_workers: int = 0
     ) -> Union[None, Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
         """
         Return an image tile iterator with optimal memory access pattern.
