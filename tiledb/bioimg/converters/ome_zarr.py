@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-from distutils.version import StrictVersion
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
 import numpy
 import numpy as np
-import pkg_resources
 import zarr
 from numcodecs import Blosc
 from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
@@ -19,9 +17,6 @@ from .. import WHITE_RGB
 from ..helpers import get_logger_wrapper, get_rgba
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
-
-# Check the version of a package
-ome_zarr_version = pkg_resources.get_distribution("ome_zarr").version
 
 
 class OMEZarrReader(ImageReader):
@@ -56,14 +51,11 @@ class OMEZarrReader(ImageReader):
 
     @property
     def channels(self) -> Sequence[str]:
-        channels = ()
-        if self._omero:
-            # ome-zarr 0.9.0 changed the spec
-            if StrictVersion(ome_zarr_version) > StrictVersion("0.8.3"):
-                channels = self._omero.node.metadata.get("channel_names", ())
-            else:
-                channels = self._omero.node.metadata.get("name", ())
-        return channels
+        return (
+            tuple(self._omero.node.metadata.get("channel_names", ()))
+            if self._omero
+            else ()
+        )
 
     @property
     def webp_format(self) -> WebpInputFormat:
