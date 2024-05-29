@@ -1,6 +1,6 @@
 import setuptools
 
-zarr = ["ome-zarr"]
+zarr = ["ome-zarr>=0.9.0"]
 openslide = ["openslide-python"]
 tiff = ["tifffile", "imagecodecs"]
 cloud = ["tiledb-cloud"]

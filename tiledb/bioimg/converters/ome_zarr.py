@@ -51,7 +51,11 @@ class OMEZarrReader(ImageReader):
 
     @property
     def channels(self) -> Sequence[str]:
-        return tuple(self._omero.node.metadata.get("name", ())) if self._omero else ()
+        return (
+            tuple(self._omero.node.metadata.get("channel_names", ()))
+            if self._omero
+            else ()
+        )
 
     @property
     def webp_format(self) -> WebpInputFormat:
