@@ -375,6 +375,8 @@ class ImageConverter:
         original_metadata = {}
 
         with rw_group, reader:
+            # Update MIME type
+            rw_group.w_group.meta.update(dataset_type=DATASET_TYPE)
             stored_fmt_version = rw_group.r_group.meta.get("fmt_version")
             logger.debug(f"Format version: {stored_fmt_version}")
             if stored_fmt_version not in (None, FMT_VERSION):
@@ -484,7 +486,6 @@ class ImageConverter:
                 ),
                 pkg_version=PKG_VERSION,
                 fmt_version=FMT_VERSION,
-                dataset_type=DATASET_TYPE,
                 channels=json.dumps(reader.channels),
                 levels=jsonpickle.encode(
                     sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level")),
