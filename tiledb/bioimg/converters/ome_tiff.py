@@ -8,7 +8,7 @@ import numpy as np
 import tifffile
 
 from tiledb.cc import WebpInputFormat
-
+from tiledb import VFS, Config, Ctx
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
 from .axes import Axes
@@ -21,6 +21,8 @@ class OMETiffReader(ImageReader):
         self,
         input_path: str,
         logger: Optional[logging.Logger] = None,
+        config: Optional[Config] = None,
+        ctx: Optional[Ctx] = None,
         extra_tags: Sequence[Union[str, int]] = (),
     ):
         """
@@ -31,7 +33,12 @@ class OMETiffReader(ImageReader):
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
         self._extra_tags = extra_tags
-        self._tiff = tifffile.TiffFile(input_path)
+
+        # Use VFS for all paths local or remote for reading the input image
+        self._input_path = input_path
+        self._vfs = VFS(config=config, ctx=ctx)
+        self._vfs_fh = self._vfs.open(input_path, mode='rb')
+        self._tiff = tifffile.TiffFile(self._vfs_fh)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
         omexml = self._tiff.ome_metadata
@@ -39,6 +46,7 @@ class OMETiffReader(ImageReader):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
+        self._vfs.close(file=self._vfs_fh)
 
     @property
     def logger(self) -> Optional[logging.Logger]:

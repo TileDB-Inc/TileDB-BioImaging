@@ -326,7 +326,8 @@ class ImageConverter:
         :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
             If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
             DEBUG logging level.
-        :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
+        :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor. Allows passing configuration
+            parameters like tiledb.Config or/and tiledb.Ctx.
         :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
             generating downsampled versions of the base level. Valid keyword arguments are:
             scale_factors (Required): The downsampling factor for each level
