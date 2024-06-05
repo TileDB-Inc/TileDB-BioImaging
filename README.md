@@ -9,7 +9,7 @@ Python package for:
 - converting images stored in popular Biomedical Imaging formats to groups of TileDB arrays (& vice versa)
 - exposing an expressive and efficient API (powered by TileDB) for querying such data.
 
-**Note**: this project is in pretty early stage and under heavy development.
+**Note**: this project is in an early stage and under heavy development.
 Breaking changes to the underlying data format and the API are to be expected.
 
 ## Features
@@ -25,29 +25,22 @@ Breaking changes to the underlying data format and the API are to be expected.
 
 ### Visualization Options
 
-- [TileDB Cloud](https://cloud.tiledb.com) includes a built-in, pyramidal multi-resolution viewer (log in to TileDB Cloud to see an example image preview [here](https://cloud.tiledb.com/biomedical-imaging/TileDB-Inc/dbb7dfcc-28b3-40e5-916f-6509a666d950/preview))
+- [TileDB Cloud](https://cloud.tiledb.com) includes a built-in, pyramidal multi-resolution viewer: log in to TileDB Cloud to see an example image preview [here](https://cloud.tiledb.com/biomedical-imaging/TileDB-Inc/dbb7dfcc-28b3-40e5-916f-6509a666d950/preview)
 - Napari: https://github.com/TileDB-Inc/napari-tiledb-bioimg
 
 ## Quick Installation
 
 - From PyPI:
 
-      # If you use zsh replace [full] with \[full\]
-      pip install tiledb-bioimg[full]
+      pip install 'tiledb-bioimg[full]'
 
 - From source:
 
       git clone https://github.com/TileDB-Inc/TileDB-BioImaging.git
       cd TileDB-BioImaging
 
-      # If you use zsh replace .[full] with .\[full\]
-      pip install -e .[full]
+      pip install -e '.[full]'
 
-**Note:** For `tiff` support (`[tiff]` or `[full]` extra dependencies) on Python 3.7, you
-should first install our [tifffile fork](https://github.com/TileDB-Inc/tifffile) rather
-than the older PyPI upstream package:
-
-      pip install tifffile@git+https://github.com/TileDB-Inc/tifffile.git@gsa/python-3.7
 
 ## Examples
 How to convert imaging data from standard biomedical formats to group of TileDB arrays.
