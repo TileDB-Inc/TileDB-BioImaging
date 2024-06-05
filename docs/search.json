@@ -1,0 +1,383 @@
+[
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "import os\n\nimport cv2\nimport matplotlib.pylab as pylab\nimport tiledb\n\nfrom tiledb.bioimg.converters.ome_tiff import OMETiffConverter\nfrom tiledb.bioimg.openslide import TileDBOpenSlide\n\n\n\n\nsrc = \"../tests/data/CMU-1-Small-Region.ome.tiff\"\ndest = src + \".tiledb\"\nif not os.path.exists(dest):\n    OMETiffConverter.to_tiledb(src, dest, level_min=0)\n\n\n\n\n\na = tiledb.open(os.path.join(dest, \"l_0.tdb\"))\na.schema\n\n\n\n\n\n\n\nDomain\n\n\n\n\n\nName\nDomain\nTile\nData Type\nIs Var-length\nFilters\n\n\nC\n(0, 2)\n3\nuint32\nFalse\n-\n\n\nY\n(0, 2966)\n1024\nuint32\nFalse\n-\n\n\nX\n(0, 2219)\n1024\nuint32\nFalse\n-\n\n\n\n\n\nAttributes\n\n\n\n\n\n\n\n\n\n\n\n\nName\nData Type\nIs Var-Len\nIs Nullable\nFilters\n\n\nintensity\nuint8\nFalse\nFalse\n\n\n\n\nName\nOption\nLevel\n\n\nZstdFilter\nlevel\n0\n\n\n\n\n\n\n\n\n\nCell Order\n\n\nrow-major\n\n\nTile Order\n\n\nrow-major\n\n\nCapacity\n\n\n10000\n\n\nSparse\n\n\nFalse\n\n\n\n\n\n\n\n\n\nslide = TileDBOpenSlide(dest)\nprint(\"level_count:\", slide.level_count)\nprint(\"dimensions:\", slide.dimensions)\nprint(\"level_dimensions:\", slide.level_dimensions)\nprint(\"level_downsamples:\", slide.level_downsamples)\nprint(\"levels:\", slide.levels)\nprint(\"group_properties:\", slide.properties)\n\nlevel_count: 2\ndimensions: (2220, 2967)\nlevel_dimensions: ((2220, 2967), (574, 768))\nlevel_downsamples: (1.0, 3.865438534407666)\nlevels: (0, 1)\ngroup_properties: {'axes': 'CYX', 'channels': '[\"RED\", \"GREEN\", \"BLUE\"]', 'dataset_type': 'BIOIMG', 'fmt_version': 1, 'json_tiffwriter_kwargs': '{\"bigtiff\": true, \"byteorder\": \"&gt;\", \"append\": false, \"imagej\": false, \"ome\": true}', 'levels': '[{\"level\": 0, \"name\": \"l_0.tdb\", \"axes\": \"CYX\", \"shape\": [3, 2967, 2220]}, {\"level\": 1, \"name\": \"l_1.tdb\", \"axes\": \"CYX\", \"shape\": [3, 768, 574]}]', 'pixel_depth': 1, 'pkg_version': '0.1.1.dev14+dirty'}\n\n\n\n\n\n\nimg3d = slide.read_level(0)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\npylab.imshow(norm_img3d)\n\n\n\n\n\n\n\n\n\n\n\n\nimg3d = slide.read_region((200,200), 0, slide.dimensions)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\n\n\npylab.imshow(norm_img3d)\n\n\n\n\n\n\n\n\n\n\n\n\n# Substring of dict\nstr(slide.level_properties(0))[:200]\n\n'{\\'json_write_kwargs\\': \\'{\"subifds\": 1, \"metadata\": {\"OME\": {\"Instrument\": {\"Objective\": {\"ID\": \"Objective:0:0\", \"NominalMagnification\": 20.0}, \"ID\": \"Instrument:0\"}, \"Image\": [{\"AcquisitionDate\": \"2009'",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html#convert-ome-tiff-to-tiledb-slide",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html#convert-ome-tiff-to-tiledb-slide",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "src = \"../tests/data/CMU-1-Small-Region.ome.tiff\"\ndest = src + \".tiledb\"\nif not os.path.exists(dest):\n    OMETiffConverter.to_tiledb(src, dest, level_min=0)",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html#slide-group-contents",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html#slide-group-contents",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "a = tiledb.open(os.path.join(dest, \"l_0.tdb\"))\na.schema\n\n\n\n\n\n\n\nDomain\n\n\n\n\n\nName\nDomain\nTile\nData Type\nIs Var-length\nFilters\n\n\nC\n(0, 2)\n3\nuint32\nFalse\n-\n\n\nY\n(0, 2966)\n1024\nuint32\nFalse\n-\n\n\nX\n(0, 2219)\n1024\nuint32\nFalse\n-\n\n\n\n\n\nAttributes\n\n\n\n\n\n\n\n\n\n\n\n\nName\nData Type\nIs Var-Len\nIs Nullable\nFilters\n\n\nintensity\nuint8\nFalse\nFalse\n\n\n\n\nName\nOption\nLevel\n\n\nZstdFilter\nlevel\n0\n\n\n\n\n\n\n\n\n\nCell Order\n\n\nrow-major\n\n\nTile Order\n\n\nrow-major\n\n\nCapacity\n\n\n10000\n\n\nSparse\n\n\nFalse",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html#tiledb-slide-information",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html#tiledb-slide-information",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "slide = TileDBOpenSlide(dest)\nprint(\"level_count:\", slide.level_count)\nprint(\"dimensions:\", slide.dimensions)\nprint(\"level_dimensions:\", slide.level_dimensions)\nprint(\"level_downsamples:\", slide.level_downsamples)\nprint(\"levels:\", slide.levels)\nprint(\"group_properties:\", slide.properties)\n\nlevel_count: 2\ndimensions: (2220, 2967)\nlevel_dimensions: ((2220, 2967), (574, 768))\nlevel_downsamples: (1.0, 3.865438534407666)\nlevels: (0, 1)\ngroup_properties: {'axes': 'CYX', 'channels': '[\"RED\", \"GREEN\", \"BLUE\"]', 'dataset_type': 'BIOIMG', 'fmt_version': 1, 'json_tiffwriter_kwargs': '{\"bigtiff\": true, \"byteorder\": \"&gt;\", \"append\": false, \"imagej\": false, \"ome\": true}', 'levels': '[{\"level\": 0, \"name\": \"l_0.tdb\", \"axes\": \"CYX\", \"shape\": [3, 2967, 2220]}, {\"level\": 1, \"name\": \"l_1.tdb\", \"axes\": \"CYX\", \"shape\": [3, 768, 574]}]', 'pixel_depth': 1, 'pkg_version': '0.1.1.dev14+dirty'}",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html#reading-slide-whole-levels",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html#reading-slide-whole-levels",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "img3d = slide.read_level(0)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\npylab.imshow(norm_img3d)",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html#reading-slide-data",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html#reading-slide-data",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "img3d = slide.read_region((200,200), 0, slide.dimensions)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\n\n\npylab.imshow(norm_img3d)",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMETiff-Converter-Demo.html#read-level-properties",
+    "href": "documentation/examples/OMETiff-Converter-Demo.html#read-level-properties",
+    "title": "OME Tiff",
+    "section": "",
+    "text": "# Substring of dict\nstr(slide.level_properties(0))[:200]\n\n'{\\'json_write_kwargs\\': \\'{\"subifds\": 1, \"metadata\": {\"OME\": {\"Instrument\": {\"Objective\": {\"ID\": \"Objective:0:0\", \"NominalMagnification\": 20.0}, \"ID\": \"Instrument:0\"}, \"Image\": [{\"AcquisitionDate\": \"2009'",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Tiff"
+    ]
+  },
+  {
+    "objectID": "documentation/index.html#features",
+    "href": "documentation/index.html#features",
+    "title": "TileDB-BioImaging",
+    "section": "Features",
+    "text": "Features\n\nIngestion to TileDB Groups of Arrays\n- OME-Zarr\n- OME-Tiff\n- Open-Slide\n\n\nExport from TileDB-Bioimaging Arrays to:\n- OME-Zarr\n- OME-Tiff\n\n\nVisualization Options\n\nTileDB Cloud includes a built-in, pyramidal multi-resolution viewer: log in to TileDB Cloud to see an example image preview here\nNapari: https://github.com/TileDB-Inc/napari-tiledb-bioimg",
+    "crumbs": [
+      "Home page",
+      "Overview",
+      "TileDB-BioImaging"
+    ]
+  },
+  {
+    "objectID": "documentation/index.html#quick-installation",
+    "href": "documentation/index.html#quick-installation",
+    "title": "TileDB-BioImaging",
+    "section": "Quick Installation",
+    "text": "Quick Installation\n\nFrom PyPI:\npip install 'tiledb-bioimg[full]'\nFrom source:\ngit clone https://github.com/TileDB-Inc/TileDB-BioImaging.git\ncd TileDB-BioImaging\n\npip install -e '.[full]'",
+    "crumbs": [
+      "Home page",
+      "Overview",
+      "TileDB-BioImaging"
+    ]
+  },
+  {
+    "objectID": "documentation/index.html#examples",
+    "href": "documentation/index.html#examples",
+    "title": "TileDB-BioImaging",
+    "section": "Examples",
+    "text": "Examples\nHow to convert imaging data from standard biomedical formats to group of TileDB arrays.\n\nOME-Zarr to TileDB Group of Arrays\nfrom tiledb.bioimg.converters.ome_zarr import OMEZarrConverter\nOMEZarrConverter.to_tiledb(\"path_to_ome_zarr_image\", \"tiledb_array_group_path\")\n\n\nOME-Tiff to TileDB Group of Arrays\nfrom tiledb.bioimg.converters.ome_tiff import OMETiffConverter\nOMETiffConverter.to_tiledb(\"path_to_ome_tiff_image\", \"tiledb_array_group_path\")\n\n\nOpen Slide to TileDB Group of Arrays\nfrom tiledb.bioimg.converters.openslide import OpenSlideConverter\nOpenSlideConverter.to_tiledb(\"path_to_open_slide_image\", \"tiledb_array_group_path\")",
+    "crumbs": [
+      "Home page",
+      "Overview",
+      "TileDB-BioImaging"
+    ]
+  },
+  {
+    "objectID": "documentation/index.html#documentation",
+    "href": "documentation/index.html#documentation",
+    "title": "TileDB-BioImaging",
+    "section": "Documentation",
+    "text": "Documentation\nAPI Documentation is auto-generated. Following the instructions below:\nquartodoc build && quarto preview",
+    "crumbs": [
+      "Home page",
+      "Overview",
+      "TileDB-BioImaging"
+    ]
+  },
+  {
+    "objectID": "documentation/api/to_bioimg.html",
+    "href": "documentation/api/to_bioimg.html",
+    "title": "to_bioimg",
+    "section": "",
+    "text": "bioimg.wrappers.to_bioimg(src, dest, converter=Converters.OMETIFF, *, verbose=False, **kwargs)\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the exportation of TileDB ingested bio-images back into different file formats\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path where the TileDB image is stored\nrequired\n\n\ndest\nstr\nThe destination path for the image file to be exported .tiff, .zarr, *.svs etc..\nrequired\n\n\nconverter\nConverters\nThe converter type to be used\nConverters.OMETIFF\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom exportation behaviour\n{}\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nType[ImageConverter]\nNone"
+  },
+  {
+    "objectID": "documentation/api/to_bioimg.html#parameters",
+    "href": "documentation/api/to_bioimg.html#parameters",
+    "title": "to_bioimg",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path where the TileDB image is stored\nrequired\n\n\ndest\nstr\nThe destination path for the image file to be exported .tiff, .zarr, *.svs etc..\nrequired\n\n\nconverter\nConverters\nThe converter type to be used\nConverters.OMETIFF\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom exportation behaviour\n{}"
+  },
+  {
+    "objectID": "documentation/api/to_bioimg.html#returns",
+    "href": "documentation/api/to_bioimg.html#returns",
+    "title": "to_bioimg",
+    "section": "",
+    "text": "Type\nDescription\n\n\n\n\nType[ImageConverter]\nNone"
+  },
+  {
+    "objectID": "documentation/api/openslide.OpenSlideConverter.html",
+    "href": "documentation/api/openslide.OpenSlideConverter.html",
+    "title": "openslide.OpenSlideConverter",
+    "section": "",
+    "text": "bioimg.converters.openslide.OpenSlideConverter()\nConverter of OpenSlide-supported images to TileDB Groups of Arrays\n\n\n\n\n\nName\nDescription\n\n\n\n\nfrom_tiledb\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\nto_tiledb\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\nbioimg.converters.openslide.OpenSlideConverter.from_tiledb(input_path, output_path, *, level_min=0, attr=ATTR_NAME, config=None, output_config=None, scratch_space=DEFAULT_SCRATCH_SPACE, log=None, **writer_kwargs)\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\ninput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\noutput_path\nstr\npath to the image\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels\n0\n\n\nattr\nstr\nattribute name for backwards compatiblity support\nATTR_NAME\n\n\nconfig\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of source\nNone\n\n\noutput_config\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of destination\nNone\n\n\nscratch_space\nstr\nshared memory or cache space for cloud random access export support\nDEFAULT_SCRATCH_SPACE\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\n\n\n\n\n\nbioimg.converters.openslide.OpenSlideConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsource\nUnion[str, ImageReader]\npath to the input image or ImageReader object\nrequired\n\n\noutput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels.\n0\n\n\ntiles\nOptional[Mapping[str, int]]\nA mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.\nNone\n\n\ntile_scale\nint\nThe scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.\n1\n\n\npreserve_axes\nbool\nIf true, preserve the axes order of the original image.\nFalse\n\n\nchunked\nbool\nIf true, convert one tile at a time instead of the whole image. Note: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.\nFalse\n\n\nmax_workers\nint\nMaximum number of threads that can be used for conversion. Applicable only if chunked=True.\n0\n\n\nexclude_metadata\nbool\nIf true, drop original metadata of the images and exclude them from being ingested.\nFalse\n\n\ncompressor\nOptional[Union[Mapping[int, Any], Any]]\nTileDB compression filter mapping for each level\nNone\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\nreader_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the _ImageReaderType constructor.\nNone\n\n\npyramid_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See skimage.transform.warp for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.\nNone"
+  },
+  {
+    "objectID": "documentation/api/openslide.OpenSlideConverter.html#methods",
+    "href": "documentation/api/openslide.OpenSlideConverter.html#methods",
+    "title": "openslide.OpenSlideConverter",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\nfrom_tiledb\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\nto_tiledb\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\nbioimg.converters.openslide.OpenSlideConverter.from_tiledb(input_path, output_path, *, level_min=0, attr=ATTR_NAME, config=None, output_config=None, scratch_space=DEFAULT_SCRATCH_SPACE, log=None, **writer_kwargs)\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\ninput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\noutput_path\nstr\npath to the image\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels\n0\n\n\nattr\nstr\nattribute name for backwards compatiblity support\nATTR_NAME\n\n\nconfig\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of source\nNone\n\n\noutput_config\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of destination\nNone\n\n\nscratch_space\nstr\nshared memory or cache space for cloud random access export support\nDEFAULT_SCRATCH_SPACE\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\n\n\n\n\n\nbioimg.converters.openslide.OpenSlideConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsource\nUnion[str, ImageReader]\npath to the input image or ImageReader object\nrequired\n\n\noutput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels.\n0\n\n\ntiles\nOptional[Mapping[str, int]]\nA mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.\nNone\n\n\ntile_scale\nint\nThe scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.\n1\n\n\npreserve_axes\nbool\nIf true, preserve the axes order of the original image.\nFalse\n\n\nchunked\nbool\nIf true, convert one tile at a time instead of the whole image. Note: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.\nFalse\n\n\nmax_workers\nint\nMaximum number of threads that can be used for conversion. Applicable only if chunked=True.\n0\n\n\nexclude_metadata\nbool\nIf true, drop original metadata of the images and exclude them from being ingested.\nFalse\n\n\ncompressor\nOptional[Union[Mapping[int, Any], Any]]\nTileDB compression filter mapping for each level\nNone\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\nreader_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the _ImageReaderType constructor.\nNone\n\n\npyramid_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See skimage.transform.warp for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.\nNone"
+  },
+  {
+    "objectID": "documentation/api/index.html",
+    "href": "documentation/api/index.html",
+    "title": "Function reference",
+    "section": "",
+    "text": "ome_tiff.OMETiffConverter\nConverter of Tiff-supported images to TileDB Groups of Arrays\n\n\nome_zarr.OMEZarrConverter\nConverter of Zarr-supported images to TileDB Groups of Arrays\n\n\nopenslide.OpenSlideConverter\nConverter of OpenSlide-supported images to TileDB Groups of Arrays\n\n\n\n\n\n\n\n\n\nTileDBOpenSlide\n\n\n\n\n\n\n\n\n\n\nfrom_bioimg\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the\n\n\n\n\n\n\n\n\n\nto_bioimg\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the",
+    "crumbs": [
+      "Home page",
+      "API Reference",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "documentation/api/index.html#converters",
+    "href": "documentation/api/index.html#converters",
+    "title": "Function reference",
+    "section": "",
+    "text": "ome_tiff.OMETiffConverter\nConverter of Tiff-supported images to TileDB Groups of Arrays\n\n\nome_zarr.OMEZarrConverter\nConverter of Zarr-supported images to TileDB Groups of Arrays\n\n\nopenslide.OpenSlideConverter\nConverter of OpenSlide-supported images to TileDB Groups of Arrays",
+    "crumbs": [
+      "Home page",
+      "API Reference",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "documentation/api/index.html#tiledbopenslide",
+    "href": "documentation/api/index.html#tiledbopenslide",
+    "title": "Function reference",
+    "section": "",
+    "text": "TileDBOpenSlide",
+    "crumbs": [
+      "Home page",
+      "API Reference",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "documentation/api/index.html#ingestion",
+    "href": "documentation/api/index.html#ingestion",
+    "title": "Function reference",
+    "section": "",
+    "text": "from_bioimg\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the",
+    "crumbs": [
+      "Home page",
+      "API Reference",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "documentation/api/index.html#exporation",
+    "href": "documentation/api/index.html#exporation",
+    "title": "Function reference",
+    "section": "",
+    "text": "to_bioimg\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the",
+    "crumbs": [
+      "Home page",
+      "API Reference",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "documentation/api/TileDBOpenSlide.html",
+    "href": "documentation/api/TileDBOpenSlide.html",
+    "title": "TileDBOpenSlide",
+    "section": "",
+    "text": "bioimg.openslide.TileDBOpenSlide(self, uri, *, attr=ATTR_NAME, config=None)\n\n\n\n\n\nName\nDescription\n\n\n\n\ndimensions\nA (width, height) tuple for level 0 of the slide.\n\n\nlevel_count\nNumber of levels in the slide\n\n\nlevel_dimensions\nA sequence of (width, height) tuples, one for each level of the slide.\n\n\nlevel_downsamples\nA sequence of downsample factors for each level of the slide.\n\n\nlevels\nSequence of level numbers in the slide.\n\n\nproperties\nMetadata about the slide\n\n\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nget_best_level_for_downsample\nReturn the best level for displaying the given downsample filtering by factor.\n\n\nlevel_properties\nMetadata about the given slide level\n\n\nread_level\nReturn an image containing the contents of the specified level as NumPy array.\n\n\nread_level_dask\nReturn an image containing the contents of the specified level as Dask array.\n\n\nread_region\nReturn an image containing the contents of the specified region as NumPy array.\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.get_best_level_for_downsample(factor)\nReturn the best level for displaying the given downsample filtering by factor.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nfactor\nfloat\nThe factor of downsamples. Above this value downsamples are filtered out.\nrequired\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nint\nThe number corresponding to a level\n\n\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.level_properties(level)\nMetadata about the given slide level\n\n\n\nbioimg.openslide.TileDBOpenSlide.read_level(level, to_original_axes=False)\nReturn an image containing the contents of the specified level as NumPy array.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nlevel\nint\nthe level number\nrequired\n\n\nto_original_axes\nbool\nIf True return the image in the original axes, otherwise return it in YXC (height, width, channel) axes.\nFalse\n\n\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.read_level_dask(level, to_original_axes=False)\nReturn an image containing the contents of the specified level as Dask array.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nlevel\nint\nthe level number\nrequired\n\n\nto_original_axes\nbool\nIf True return the image in the original axes, otherwise return it in YXC (height, width, channel) axes.\nFalse\n\n\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.read_region(location, level, size)\nReturn an image containing the contents of the specified region as NumPy array.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nlocation\nTuple[int, int]\n(x, y) tuple giving the top left pixel in the level 0 reference frame\nrequired\n\n\nlevel\nint\nthe level number\nrequired\n\n\nsize\nTuple[int, int]\n(width, height) tuple giving the region size\nrequired\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nnp.ndarray\n3D (height, width, channel) Numpy array"
+  },
+  {
+    "objectID": "documentation/api/TileDBOpenSlide.html#attributes",
+    "href": "documentation/api/TileDBOpenSlide.html#attributes",
+    "title": "TileDBOpenSlide",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\ndimensions\nA (width, height) tuple for level 0 of the slide.\n\n\nlevel_count\nNumber of levels in the slide\n\n\nlevel_dimensions\nA sequence of (width, height) tuples, one for each level of the slide.\n\n\nlevel_downsamples\nA sequence of downsample factors for each level of the slide.\n\n\nlevels\nSequence of level numbers in the slide.\n\n\nproperties\nMetadata about the slide"
+  },
+  {
+    "objectID": "documentation/api/TileDBOpenSlide.html#methods",
+    "href": "documentation/api/TileDBOpenSlide.html#methods",
+    "title": "TileDBOpenSlide",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\nget_best_level_for_downsample\nReturn the best level for displaying the given downsample filtering by factor.\n\n\nlevel_properties\nMetadata about the given slide level\n\n\nread_level\nReturn an image containing the contents of the specified level as NumPy array.\n\n\nread_level_dask\nReturn an image containing the contents of the specified level as Dask array.\n\n\nread_region\nReturn an image containing the contents of the specified region as NumPy array.\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.get_best_level_for_downsample(factor)\nReturn the best level for displaying the given downsample filtering by factor.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nfactor\nfloat\nThe factor of downsamples. Above this value downsamples are filtered out.\nrequired\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nint\nThe number corresponding to a level\n\n\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.level_properties(level)\nMetadata about the given slide level\n\n\n\nbioimg.openslide.TileDBOpenSlide.read_level(level, to_original_axes=False)\nReturn an image containing the contents of the specified level as NumPy array.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nlevel\nint\nthe level number\nrequired\n\n\nto_original_axes\nbool\nIf True return the image in the original axes, otherwise return it in YXC (height, width, channel) axes.\nFalse\n\n\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.read_level_dask(level, to_original_axes=False)\nReturn an image containing the contents of the specified level as Dask array.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nlevel\nint\nthe level number\nrequired\n\n\nto_original_axes\nbool\nIf True return the image in the original axes, otherwise return it in YXC (height, width, channel) axes.\nFalse\n\n\n\n\n\n\n\nbioimg.openslide.TileDBOpenSlide.read_region(location, level, size)\nReturn an image containing the contents of the specified region as NumPy array.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nlocation\nTuple[int, int]\n(x, y) tuple giving the top left pixel in the level 0 reference frame\nrequired\n\n\nlevel\nint\nthe level number\nrequired\n\n\nsize\nTuple[int, int]\n(width, height) tuple giving the region size\nrequired\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nnp.ndarray\n3D (height, width, channel) Numpy array"
+  },
+  {
+    "objectID": "documentation/api/from_bioimg.html",
+    "href": "documentation/api/from_bioimg.html",
+    "title": "from_bioimg",
+    "section": "",
+    "text": "bioimg.wrappers.from_bioimg(src, dest, converter=Converters.OMETIFF, *, verbose=False, exclude_metadata=False, tile_scale=1, **kwargs)\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the ingestion of different file formats\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path for the file to be ingested .tiff, .zarr, *.svs etc..\nrequired\n\n\ndest\nstr\nThe destination path where the TileDB image will be stored\nrequired\n\n\nconverter\nConverters\nThe converter type to be used (tentative) soon automatically detected\nConverters.OMETIFF\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom ingestion behaviour\n{}\n\n\n\n\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nType[ImageConverter]\nThe converter class that was used for the ingestion"
+  },
+  {
+    "objectID": "documentation/api/from_bioimg.html#parameters",
+    "href": "documentation/api/from_bioimg.html#parameters",
+    "title": "from_bioimg",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path for the file to be ingested .tiff, .zarr, *.svs etc..\nrequired\n\n\ndest\nstr\nThe destination path where the TileDB image will be stored\nrequired\n\n\nconverter\nConverters\nThe converter type to be used (tentative) soon automatically detected\nConverters.OMETIFF\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom ingestion behaviour\n{}"
+  },
+  {
+    "objectID": "documentation/api/from_bioimg.html#returns",
+    "href": "documentation/api/from_bioimg.html#returns",
+    "title": "from_bioimg",
+    "section": "",
+    "text": "Type\nDescription\n\n\n\n\nType[ImageConverter]\nThe converter class that was used for the ingestion"
+  },
+  {
+    "objectID": "documentation/api/ome_tiff.OMETiffConverter.html",
+    "href": "documentation/api/ome_tiff.OMETiffConverter.html",
+    "title": "ome_tiff.OMETiffConverter",
+    "section": "",
+    "text": "bioimg.converters.ome_tiff.OMETiffConverter()\nConverter of Tiff-supported images to TileDB Groups of Arrays\n\n\n\n\n\nName\nDescription\n\n\n\n\nfrom_tiledb\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\nto_tiledb\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\nbioimg.converters.ome_tiff.OMETiffConverter.from_tiledb(input_path, output_path, *, level_min=0, attr=ATTR_NAME, config=None, output_config=None, scratch_space=DEFAULT_SCRATCH_SPACE, log=None, **writer_kwargs)\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\ninput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\noutput_path\nstr\npath to the image\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels\n0\n\n\nattr\nstr\nattribute name for backwards compatiblity support\nATTR_NAME\n\n\nconfig\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of source\nNone\n\n\noutput_config\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of destination\nNone\n\n\nscratch_space\nstr\nshared memory or cache space for cloud random access export support\nDEFAULT_SCRATCH_SPACE\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\n\n\n\n\n\nbioimg.converters.ome_tiff.OMETiffConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsource\nUnion[str, ImageReader]\npath to the input image or ImageReader object\nrequired\n\n\noutput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels.\n0\n\n\ntiles\nOptional[Mapping[str, int]]\nA mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.\nNone\n\n\ntile_scale\nint\nThe scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.\n1\n\n\npreserve_axes\nbool\nIf true, preserve the axes order of the original image.\nFalse\n\n\nchunked\nbool\nIf true, convert one tile at a time instead of the whole image. Note: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.\nFalse\n\n\nmax_workers\nint\nMaximum number of threads that can be used for conversion. Applicable only if chunked=True.\n0\n\n\nexclude_metadata\nbool\nIf true, drop original metadata of the images and exclude them from being ingested.\nFalse\n\n\ncompressor\nOptional[Union[Mapping[int, Any], Any]]\nTileDB compression filter mapping for each level\nNone\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\nreader_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the _ImageReaderType constructor.\nNone\n\n\npyramid_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See skimage.transform.warp for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.\nNone"
+  },
+  {
+    "objectID": "documentation/api/ome_tiff.OMETiffConverter.html#methods",
+    "href": "documentation/api/ome_tiff.OMETiffConverter.html#methods",
+    "title": "ome_tiff.OMETiffConverter",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\nfrom_tiledb\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\nto_tiledb\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\nbioimg.converters.ome_tiff.OMETiffConverter.from_tiledb(input_path, output_path, *, level_min=0, attr=ATTR_NAME, config=None, output_config=None, scratch_space=DEFAULT_SCRATCH_SPACE, log=None, **writer_kwargs)\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\ninput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\noutput_path\nstr\npath to the image\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels\n0\n\n\nattr\nstr\nattribute name for backwards compatiblity support\nATTR_NAME\n\n\nconfig\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of source\nNone\n\n\noutput_config\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of destination\nNone\n\n\nscratch_space\nstr\nshared memory or cache space for cloud random access export support\nDEFAULT_SCRATCH_SPACE\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\n\n\n\n\n\nbioimg.converters.ome_tiff.OMETiffConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsource\nUnion[str, ImageReader]\npath to the input image or ImageReader object\nrequired\n\n\noutput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels.\n0\n\n\ntiles\nOptional[Mapping[str, int]]\nA mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.\nNone\n\n\ntile_scale\nint\nThe scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.\n1\n\n\npreserve_axes\nbool\nIf true, preserve the axes order of the original image.\nFalse\n\n\nchunked\nbool\nIf true, convert one tile at a time instead of the whole image. Note: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.\nFalse\n\n\nmax_workers\nint\nMaximum number of threads that can be used for conversion. Applicable only if chunked=True.\n0\n\n\nexclude_metadata\nbool\nIf true, drop original metadata of the images and exclude them from being ingested.\nFalse\n\n\ncompressor\nOptional[Union[Mapping[int, Any], Any]]\nTileDB compression filter mapping for each level\nNone\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\nreader_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the _ImageReaderType constructor.\nNone\n\n\npyramid_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See skimage.transform.warp for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.\nNone"
+  },
+  {
+    "objectID": "documentation/api/ome_zarr.OMEZarrConverter.html",
+    "href": "documentation/api/ome_zarr.OMEZarrConverter.html",
+    "title": "ome_zarr.OMEZarrConverter",
+    "section": "",
+    "text": "bioimg.converters.ome_zarr.OMEZarrConverter()\nConverter of Zarr-supported images to TileDB Groups of Arrays\n\n\n\n\n\nName\nDescription\n\n\n\n\nfrom_tiledb\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\nto_tiledb\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\nbioimg.converters.ome_zarr.OMEZarrConverter.from_tiledb(input_path, output_path, *, level_min=0, attr=ATTR_NAME, config=None, output_config=None, scratch_space=DEFAULT_SCRATCH_SPACE, log=None, **writer_kwargs)\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\ninput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\noutput_path\nstr\npath to the image\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels\n0\n\n\nattr\nstr\nattribute name for backwards compatiblity support\nATTR_NAME\n\n\nconfig\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of source\nNone\n\n\noutput_config\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of destination\nNone\n\n\nscratch_space\nstr\nshared memory or cache space for cloud random access export support\nDEFAULT_SCRATCH_SPACE\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\n\n\n\n\n\nbioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsource\nUnion[str, ImageReader]\npath to the input image or ImageReader object\nrequired\n\n\noutput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels.\n0\n\n\ntiles\nOptional[Mapping[str, int]]\nA mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.\nNone\n\n\ntile_scale\nint\nThe scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.\n1\n\n\npreserve_axes\nbool\nIf true, preserve the axes order of the original image.\nFalse\n\n\nchunked\nbool\nIf true, convert one tile at a time instead of the whole image. Note: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.\nFalse\n\n\nmax_workers\nint\nMaximum number of threads that can be used for conversion. Applicable only if chunked=True.\n0\n\n\nexclude_metadata\nbool\nIf true, drop original metadata of the images and exclude them from being ingested.\nFalse\n\n\ncompressor\nOptional[Union[Mapping[int, Any], Any]]\nTileDB compression filter mapping for each level\nNone\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\nreader_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the _ImageReaderType constructor.\nNone\n\n\npyramid_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See skimage.transform.warp for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.\nNone"
+  },
+  {
+    "objectID": "documentation/api/ome_zarr.OMEZarrConverter.html#methods",
+    "href": "documentation/api/ome_zarr.OMEZarrConverter.html#methods",
+    "title": "ome_zarr.OMEZarrConverter",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\nfrom_tiledb\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\nto_tiledb\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\nbioimg.converters.ome_zarr.OMEZarrConverter.from_tiledb(input_path, output_path, *, level_min=0, attr=ATTR_NAME, config=None, output_config=None, scratch_space=DEFAULT_SCRATCH_SPACE, log=None, **writer_kwargs)\nConvert a TileDB Group of Arrays back to other format images, one per level\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\ninput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\noutput_path\nstr\npath to the image\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels\n0\n\n\nattr\nstr\nattribute name for backwards compatiblity support\nATTR_NAME\n\n\nconfig\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of source\nNone\n\n\noutput_config\nUnion[tiledb.Config, Mapping[str, Any]]\ntiledb configuration either a dict or a tiledb.Config of destination\nNone\n\n\nscratch_space\nstr\nshared memory or cache space for cloud random access export support\nDEFAULT_SCRATCH_SPACE\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\n\n\n\n\n\nbioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)\nConvert an image to a TileDB Group of Arrays, one per level.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsource\nUnion[str, ImageReader]\npath to the input image or ImageReader object\nrequired\n\n\noutput_path\nstr\npath to the TileDB group of arrays\nrequired\n\n\nlevel_min\nint\nminimum level of the image to be converted. By default set to 0 to convert all levels.\n0\n\n\ntiles\nOptional[Mapping[str, int]]\nA mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.\nNone\n\n\ntile_scale\nint\nThe scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.\n1\n\n\npreserve_axes\nbool\nIf true, preserve the axes order of the original image.\nFalse\n\n\nchunked\nbool\nIf true, convert one tile at a time instead of the whole image. Note: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.\nFalse\n\n\nmax_workers\nint\nMaximum number of threads that can be used for conversion. Applicable only if chunked=True.\n0\n\n\nexclude_metadata\nbool\nIf true, drop original metadata of the images and exclude them from being ingested.\nFalse\n\n\ncompressor\nOptional[Union[Mapping[int, Any], Any]]\nTileDB compression filter mapping for each level\nNone\n\n\nlog\nOptional[Union[bool, logging.Logger]]\nverbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.\nNone\n\n\nreader_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the _ImageReaderType constructor.\nNone\n\n\npyramid_kwargs\nOptional[Mapping[str, Any]]\nKeyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See skimage.transform.warp for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.\nNone"
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "import os\nimport cv2\nimport matplotlib.pylab as pylab\nimport tiledb\n\n\nfrom tiledb.bioimg.converters.ome_zarr import OMEZarrConverter\nfrom tiledb.bioimg.openslide import TileDBOpenSlide\n\n\n\n\nimage_id = 0\nsrc = f\"../tests/data/CMU-1-Small-Region.ome.zarr/{image_id}\"\ndest = f\"../tests/data/CMU-1-Small-Region.ome.zarr.{image_id}.tiledb\"\nif not os.path.exists(dest):\n    OMEZarrConverter.to_tiledb(src, dest, level_min=0)\n\n\n\n\n\na = tiledb.open(os.path.join(dest,\"l_0.tdb\"))\na.schema\n\n\n\n\n\n\n\nDomain\n\n\n\n\n\nName\nDomain\nTile\nData Type\nIs Var-length\nFilters\n\n\nC\n(0, 2)\n3\nuint32\nFalse\n-\n\n\nY\n(0, 2966)\n1024\nuint32\nFalse\n-\n\n\nX\n(0, 2219)\n1024\nuint32\nFalse\n-\n\n\n\n\n\nAttributes\n\n\n\n\n\n\n\n\n\n\n\n\nName\nData Type\nIs Var-Len\nIs Nullable\nFilters\n\n\nintensity\nuint8\nFalse\nFalse\n\n\n\n\nName\nOption\nLevel\n\n\nZstdFilter\nlevel\n0\n\n\n\n\n\n\n\n\n\nCell Order\n\n\nrow-major\n\n\nTile Order\n\n\nrow-major\n\n\nCapacity\n\n\n10000\n\n\nSparse\n\n\nFalse\n\n\n\n\n\n\n\n\n\nslide = TileDBOpenSlide(dest)\nprint(\"level_count:\", slide.level_count)\nprint(\"dimensions:\", slide.dimensions)\nprint(\"level_dimensions:\", slide.level_dimensions)\nprint(\"level_downsamples:\", slide.level_downsamples)\nprint(\"levels:\", slide.levels)\nprint(\"group_properties:\", slide.properties)\n\nlevel_count: 2\ndimensions: (2220, 2967)\nlevel_dimensions: ((2220, 2967), (574, 768))\nlevel_downsamples: (1.0, 3.865438534407666)\nlevels: (0, 1)\ngroup_properties: {'axes': 'TCZYX', 'channels': '[\"Channel 0\", \"Channel 1\", \"Channel 2\"]', 'dataset_type': 'BIOIMG', 'fmt_version': 1, 'json_zarrwriter_kwargs': '{\"axes\": [{\"name\": \"t\", \"type\": \"time\"}, {\"name\": \"c\", \"type\": \"channel\"}, {\"name\": \"z\", \"type\": \"space\"}, {\"unit\": \"micrometer\", \"name\": \"y\", \"type\": \"space\"}, {\"unit\": \"micrometer\", \"name\": \"x\", \"type\": \"space\"}], \"coordinate_transformations\": [[{\"scale\": [1.0, 1.0, 1.0, 0.499, 0.499], \"type\": \"scale\"}], [{\"scale\": [1.0, 1.0, 1.0, 0.998, 0.998], \"type\": \"scale\"}]], \"name\": \"\", \"metadata\": {\"method\": \"loci.common.image.SimpleImageScaler\", \"version\": \"Bio-Formats 6.10.1\"}, \"omero\": {\"channels\": [{\"color\": \"FF0000\", \"coefficient\": 1, \"active\": true, \"label\": \"Channel 0\", \"window\": {\"min\": 0.0, \"max\": 255.0, \"start\": 0.0, \"end\": 255.0}, \"family\": \"linear\", \"inverted\": false}, {\"color\": \"00FF00\", \"coefficient\": 1, \"active\": true, \"label\": \"Channel 1\", \"window\": {\"min\": 0.0, \"max\": 255.0, \"start\": 0.0, \"end\": 255.0}, \"family\": \"linear\", \"inverted\": false}, {\"color\": \"0000FF\", \"coefficient\": 1, \"active\": true, \"label\": \"Channel 2\", \"window\": {\"min\": 0.0, \"max\": 255.0, \"start\": 0.0, \"end\": 255.0}, \"family\": \"linear\", \"inverted\": false}], \"rdefs\": {\"defaultT\": 0, \"model\": \"color\", \"defaultZ\": 0}}}', 'levels': '[{\"level\": 0, \"name\": \"l_0.tdb\", \"axes\": \"CYX\", \"shape\": [3, 2967, 2220]}, {\"level\": 1, \"name\": \"l_1.tdb\", \"axes\": \"CYX\", \"shape\": [3, 768, 574]}]', 'pixel_depth': 1, 'pkg_version': '0.1.1.dev14+dirty'}\n\n\n\n\n\n\nimg3d = slide.read_level(0)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\npylab.imshow(norm_img3d)\n\n\n\n\n\n\n\n\n\n\n\n\nimg3d = slide.read_region((200,200), 0, slide.dimensions)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\n\n\npylab.imshow(norm_img3d)\n\n\n\n\n\n\n\n\n\n\n\n\nprint(slide.level_properties(0))\n\n{'json_zarray': '{\"chunks\": [1, 1, 1, 1024, 1024], \"compressor\": {\"clevel\": 5, \"blocksize\": 0, \"shuffle\": 1, \"cname\": \"lz4\", \"id\": \"blosc\"}, \"dtype\": \"|u1\", \"fill_value\": 0, \"filters\": null, \"order\": \"C\", \"shape\": [1, 3, 1, 2967, 2220], \"dimension_separator\": \"/\", \"zarr_format\": 2}', 'level': 0}",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html#convert-ome-zarr-to-tiledb-slide",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html#convert-ome-zarr-to-tiledb-slide",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "image_id = 0\nsrc = f\"../tests/data/CMU-1-Small-Region.ome.zarr/{image_id}\"\ndest = f\"../tests/data/CMU-1-Small-Region.ome.zarr.{image_id}.tiledb\"\nif not os.path.exists(dest):\n    OMEZarrConverter.to_tiledb(src, dest, level_min=0)",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html#slide-group-contents",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html#slide-group-contents",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "a = tiledb.open(os.path.join(dest,\"l_0.tdb\"))\na.schema\n\n\n\n\n\n\n\nDomain\n\n\n\n\n\nName\nDomain\nTile\nData Type\nIs Var-length\nFilters\n\n\nC\n(0, 2)\n3\nuint32\nFalse\n-\n\n\nY\n(0, 2966)\n1024\nuint32\nFalse\n-\n\n\nX\n(0, 2219)\n1024\nuint32\nFalse\n-\n\n\n\n\n\nAttributes\n\n\n\n\n\n\n\n\n\n\n\n\nName\nData Type\nIs Var-Len\nIs Nullable\nFilters\n\n\nintensity\nuint8\nFalse\nFalse\n\n\n\n\nName\nOption\nLevel\n\n\nZstdFilter\nlevel\n0\n\n\n\n\n\n\n\n\n\nCell Order\n\n\nrow-major\n\n\nTile Order\n\n\nrow-major\n\n\nCapacity\n\n\n10000\n\n\nSparse\n\n\nFalse",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html#tiledb-slide-information",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html#tiledb-slide-information",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "slide = TileDBOpenSlide(dest)\nprint(\"level_count:\", slide.level_count)\nprint(\"dimensions:\", slide.dimensions)\nprint(\"level_dimensions:\", slide.level_dimensions)\nprint(\"level_downsamples:\", slide.level_downsamples)\nprint(\"levels:\", slide.levels)\nprint(\"group_properties:\", slide.properties)\n\nlevel_count: 2\ndimensions: (2220, 2967)\nlevel_dimensions: ((2220, 2967), (574, 768))\nlevel_downsamples: (1.0, 3.865438534407666)\nlevels: (0, 1)\ngroup_properties: {'axes': 'TCZYX', 'channels': '[\"Channel 0\", \"Channel 1\", \"Channel 2\"]', 'dataset_type': 'BIOIMG', 'fmt_version': 1, 'json_zarrwriter_kwargs': '{\"axes\": [{\"name\": \"t\", \"type\": \"time\"}, {\"name\": \"c\", \"type\": \"channel\"}, {\"name\": \"z\", \"type\": \"space\"}, {\"unit\": \"micrometer\", \"name\": \"y\", \"type\": \"space\"}, {\"unit\": \"micrometer\", \"name\": \"x\", \"type\": \"space\"}], \"coordinate_transformations\": [[{\"scale\": [1.0, 1.0, 1.0, 0.499, 0.499], \"type\": \"scale\"}], [{\"scale\": [1.0, 1.0, 1.0, 0.998, 0.998], \"type\": \"scale\"}]], \"name\": \"\", \"metadata\": {\"method\": \"loci.common.image.SimpleImageScaler\", \"version\": \"Bio-Formats 6.10.1\"}, \"omero\": {\"channels\": [{\"color\": \"FF0000\", \"coefficient\": 1, \"active\": true, \"label\": \"Channel 0\", \"window\": {\"min\": 0.0, \"max\": 255.0, \"start\": 0.0, \"end\": 255.0}, \"family\": \"linear\", \"inverted\": false}, {\"color\": \"00FF00\", \"coefficient\": 1, \"active\": true, \"label\": \"Channel 1\", \"window\": {\"min\": 0.0, \"max\": 255.0, \"start\": 0.0, \"end\": 255.0}, \"family\": \"linear\", \"inverted\": false}, {\"color\": \"0000FF\", \"coefficient\": 1, \"active\": true, \"label\": \"Channel 2\", \"window\": {\"min\": 0.0, \"max\": 255.0, \"start\": 0.0, \"end\": 255.0}, \"family\": \"linear\", \"inverted\": false}], \"rdefs\": {\"defaultT\": 0, \"model\": \"color\", \"defaultZ\": 0}}}', 'levels': '[{\"level\": 0, \"name\": \"l_0.tdb\", \"axes\": \"CYX\", \"shape\": [3, 2967, 2220]}, {\"level\": 1, \"name\": \"l_1.tdb\", \"axes\": \"CYX\", \"shape\": [3, 768, 574]}]', 'pixel_depth': 1, 'pkg_version': '0.1.1.dev14+dirty'}",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html#reading-slide-whole-levels",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html#reading-slide-whole-levels",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "img3d = slide.read_level(0)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\npylab.imshow(norm_img3d)",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html#read-a-region-of-a-level",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html#read-a-region-of-a-level",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "img3d = slide.read_region((200,200), 0, slide.dimensions)\nnorm_img3d = cv2.normalize(src=img3d, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)\n\n\npylab.imshow(norm_img3d)",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  },
+  {
+    "objectID": "documentation/examples/OMEZarr-Converter-Demo.html#read-level-properties",
+    "href": "documentation/examples/OMEZarr-Converter-Demo.html#read-level-properties",
+    "title": "OME Zarr",
+    "section": "",
+    "text": "print(slide.level_properties(0))\n\n{'json_zarray': '{\"chunks\": [1, 1, 1, 1024, 1024], \"compressor\": {\"clevel\": 5, \"blocksize\": 0, \"shuffle\": 1, \"cname\": \"lz4\", \"id\": \"blosc\"}, \"dtype\": \"|u1\", \"fill_value\": 0, \"filters\": null, \"order\": \"C\", \"shape\": [1, 3, 1, 2967, 2220], \"dimension_separator\": \"/\", \"zarr_format\": 2}', 'level': 0}",
+    "crumbs": [
+      "Home page",
+      "Examples",
+      "OME Zarr"
+    ]
+  }
+]
