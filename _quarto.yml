@@ -1,0 +1,107 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - "documentation/index.md"
+    - "documentation/"
+
+format:
+  html:
+    include-in-header:
+      - file: quarto-materials/getTheme.html
+    theme:
+      light:
+        - quarto-materials/_variables.scss
+    mainfont: Inter var, sans-serif
+    fontsize: 1rem
+    linkcolor: '#4d9fff'
+    strip-comments: true
+    toc: true
+    toc-expand: true
+    notebook-links: false
+    code-copy: true
+    code-overflow: wrap
+    css: quarto-materials/tiledb.scss
+    include-after-body: quarto-materials/react.html
+    page-layout: full
+    grid:
+      sidebar-width: 280px
+      margin-width: 0px
+      body-width: 10000px
+
+quartodoc:
+    style: pkgdown
+    parser: "sphinx"
+    package: tiledb
+    dir: "documentation/api"
+    renderer:
+      style: markdown
+      display_name: relative
+    sections:
+        - title: "Converters"
+          desc: ""
+          package: tiledb.bioimg.converters
+          options:
+            include_inherited: true
+          contents:
+            - name: ome_tiff.OMETiffConverter
+            - name: ome_zarr.OMEZarrConverter
+            - name: openslide.OpenSlideConverter
+
+        - title: "TileDBOpenslide"
+          desc: ""
+          package: tiledb.bioimg.openslide
+          contents:
+            - name: TileDBOpenSlide
+
+        - title: "Ingestion"
+          desc: ""
+          package: tiledb.bioimg.wrappers
+          contents:
+            - name: from_bioimg
+
+        - title: "Exporation"
+          desc: ""
+          package: tiledb.bioimg.wrappers
+          contents:
+            - name: to_bioimg
+
+website:
+  favicon: "images/favicon.ico"
+  site-url: https://tiledb-inc.github.io/tiledb-quarto-template/
+  repo-url: https://github.com/TileDB-Inc/tiledb-quarto-template
+
+  repo-actions: [issue]
+  page-navigation: true
+  navbar:
+    background: light
+    logo: "quarto-materials/tiledb-logo.png"
+    collapse-below: lg
+    left:
+      - text: "Home page"
+        href: "https://tiledb.com"
+      - text: "Login"
+        href: "https://cloud.tiledb.com/auth/login"
+      - text: "Contact us"
+        href: "https://tiledb.com/contact"
+      - text: "Repo"
+        href: "https://github.com/TileDB-Inc/TileDB-BioImaging"
+
+  sidebar:
+    - style: "floating"
+      collapse-level: 2
+      align: left
+      contents:
+
+        - section: "Overview"
+          contents:
+            - href: "documentation/index.qmd"
+#
+        - section: "Examples"
+          contents:
+            - href: "documentation/examples/OMETiff-Converter-Demo.qmd"
+            - href: "documentation/examples/OMEZarr-Converter-Demo.qmd"
+#
+        - section: "API Reference"
+          contents:
+            - href: "documentation/api/index.qmd"
