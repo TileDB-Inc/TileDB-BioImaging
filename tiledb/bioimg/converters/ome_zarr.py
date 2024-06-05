@@ -12,6 +12,7 @@ from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
 from tiledb.cc import WebpInputFormat
+from tiledb import Config, Ctx
 
 from .. import WHITE_RGB
 from ..helpers import get_logger_wrapper, get_rgba
@@ -23,6 +24,8 @@ class OMEZarrReader(ImageReader):
     def __init__(
         self,
         input_path: str,
+        config: Optional[Config] = None,
+        ctx: Optional[Ctx] = None,
         logger: Optional[logging.Logger] = None,
     ):
         """
@@ -31,6 +34,9 @@ class OMEZarrReader(ImageReader):
         :param input_path: The path to the Zarr image
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
+        storage_options = {'key': config.get('vfs.s3.access_aws_access_key_id', None),
+                           'secret': config.get('vfs.s3.aws_secret_access_key', None)}
+        store = zarr.storage.FSStore(input_path, check=True, create=True, **storage_options)
         self._root_node = next(Reader(ZarrLocation(input_path))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
