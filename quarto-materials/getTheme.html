@@ -1,0 +1,12 @@
+<script>
+  const queryString = window.location.search; const urlParams = new
+  URLSearchParams(queryString); const paramsTheme = urlParams.get("theme");
+  const DEFAULT_DATA_THEME = "Light";
+  const capitalizedParamsThemeFirstLetter = paramsTheme ? 
+  paramsTheme.charAt(0).toUpperCase() + paramsTheme.slice(1) : null;
+  const theme = capitalizedParamsThemeFirstLetter ?? 
+  window.localStorage.getItem("DATA-THEME") ?? DEFAULT_DATA_THEME;
+  if (paramsTheme) window.localStorage.setItem("DATA-THEME",
+  capitalizedParamsThemeFirstLetter);
+  document.documentElement.setAttribute("data-theme", theme);
+</script>

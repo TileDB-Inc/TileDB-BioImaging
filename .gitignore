@@ -5,7 +5,6 @@
 build/
 dist/
 *.DS_Store
-docs/_build/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -16,3 +15,10 @@ tiledb/bioimg/version.py
 
 # Unit test / coverage reports
 .coverage
+
+# Docs generated files
+/.quarto/
+docs/
+documentation/api
+documentation/examples/*Demo_files
+objects.json
