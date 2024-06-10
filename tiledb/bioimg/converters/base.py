@@ -494,7 +494,7 @@ class ImageConverter:
                 original_metadata = reader.original_metadata
 
         with rw_group:
-            rw_group.w_group.meta.clear().update(
+            rw_group.w_group.meta.update(
                 reader.group_metadata,
                 axes=reader.axes.dims,
                 pixel_depth=jsonpickle.encode(
