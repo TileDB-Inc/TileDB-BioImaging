@@ -3,6 +3,7 @@ import os
 from typing import Any, Dict, Optional, Sequence, Tuple, cast
 
 import numpy as np
+from numpy._typing import NDArray
 
 from . import WIN_OPENSLIDE_PATH
 
@@ -130,15 +131,10 @@ class OpenSlideReader(ImageReader):
     def original_metadata(self) -> Dict[str, Any]:
         return {"SVS": list(self._osd.properties.items())}
 
-    def iter_mem_contig_tiles(
-        self, level: int, chunk_target_size: int = 256
-    ) -> Iterator[Tuple[slice, ...]]:
-        raise NotImplementedError()
-
-    def level_image_experimental(
-        self, level: int, tile: Tuple[slice, ...]
-    ) -> np.ndarray:
-        raise NotImplementedError()
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Optional[Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
+        return None
 
 
 class OpenSlideConverter(ImageConverter):

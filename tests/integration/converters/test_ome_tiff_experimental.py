@@ -10,6 +10,8 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
 
+# We need to expand on the test files. Most of the test files we have currently are not memory
+# contiguous and the ones that are not RGB files to test the different compressors
 @pytest.mark.parametrize("filename,num_series", [("UTM2GTIF.tiff", 1)])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])
@@ -20,6 +22,7 @@ from tiledb.cc import WebpInputFormat
 def test_ome_tiff_converter_exclude_original_metadata(
     tmp_path, filename, num_series, preserve_axes, chunked, max_workers, compressor
 ):
+    # The image is not RGB to use the WbeP compressor
     if isinstance(compressor, tiledb.WebpFilter) and filename == "UTM2GTIF.tiff":
         pytest.skip(f"WebPFilter cannot be applied to {filename}")
 

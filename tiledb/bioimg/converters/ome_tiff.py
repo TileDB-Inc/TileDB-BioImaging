@@ -22,18 +22,20 @@ import psutil
 import tifffile
 from numpy._typing import NDArray
 
-from tiledb.bioimg.converters.io import as_array
 from tiledb.cc import WebpInputFormat
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
+from .io import as_array
 from .metadata import qpi_image_meta, qpi_original_meta
 from .tiff_helpers import get_chunks, get_pages_memory_order
 
 
 class OMETiffReader(ImageReader):
+    INFLATION_RATIO = 2
+
     def __init__(
         self,
         input_path: str,
@@ -338,7 +340,7 @@ class OMETiffReader(ImageReader):
 
     def optimal_reader(
         self, level: int, max_workers: int = 0
-    ) -> Union[None, Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
+    ) -> Optional[Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
         # Get the pages the hold the data for the requested level
         pages = self._series.levels[level].pages
 
@@ -358,7 +360,7 @@ class OMETiffReader(ImageReader):
         # Inflate the chunk size to account for copies during transformations, and while decoding
         size = (
             self.level_dtype(level=level).itemsize
-            * 2
+            * self.INFLATION_RATIO
             * math.prod(
                 [
                     (

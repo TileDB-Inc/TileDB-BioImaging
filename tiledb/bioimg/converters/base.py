@@ -143,14 +143,16 @@ class ImageReader(ABC):
     def original_metadata(self) -> Dict[str, Any]:
         """Return the metadata of the original file."""
 
+    @abstractmethod
     def optimal_reader(
         self, level: int, max_workers: int = 0
     ) -> Union[None, Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
         """
         Return an image tile iterator with optimal memory access pattern.
 
+        :param level: The overview to read from
+        :param max_workers: The number of thread to spawn to read from the file
         """
-        return None
 
 
 class ImageWriter(ABC):
@@ -492,7 +494,7 @@ class ImageConverter:
                 original_metadata = reader.original_metadata
 
         with rw_group:
-            rw_group.w_group.meta.update(
+            rw_group.w_group.meta.clear().update(
                 reader.group_metadata,
                 axes=reader.axes.dims,
                 pixel_depth=jsonpickle.encode(

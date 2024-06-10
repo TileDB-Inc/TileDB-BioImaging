@@ -2,12 +2,23 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 
 import numpy
 import numpy as np
 import zarr
 from numcodecs import Blosc
+from numpy._typing import NDArray
 from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
 from ome_zarr.writer import write_multiscale
 
@@ -162,19 +173,10 @@ class OMEZarrReader(ImageReader):
 
         return metadata
 
-    def iter_mem_contig_tiles(
-        self, level: int, chunk_target_size: int = 256
-    ) -> Iterator[Tuple[slice, ...]]:
-        raise NotImplementedError(
-            "Zarr reader does not support memory contiguous access"
-        )
-
-    def level_image_experimental(
-        self, level: int, tile: Tuple[slice, ...]
-    ) -> np.ndarray:
-        raise NotImplementedError(
-            "Zarr reader does not support memory contiguous access"
-        )
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Optional[Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
+        return None
 
 
 class OMEZarrWriter(ImageWriter):

@@ -13,6 +13,7 @@ from typing import (
 from numpy._typing import NDArray
 from tifffile import TiffPage
 from tifffile.tifffile import (
+    COMPRESSION,
     TiffFrame,
 )
 
@@ -36,7 +37,12 @@ def as_array(
         keyframe.decode  # init TiffPage.decode function under lock
 
     decodeargs: Dict[str, Any] = {"_fullsize": bool(False)}
-    if keyframe.compression in {6, 7, 34892, 33007}:  # JPEG
+    if keyframe.compression in {
+        COMPRESSION.OJPEG,
+        COMPRESSION.JPEG,
+        COMPRESSION.JPEG_LOSSY,
+        COMPRESSION.ALT_JPEG,
+    }:  # JPEG
         decodeargs["jpegtables"] = page.jpegtables
         decodeargs["jpegheader"] = keyframe.jpegheader
 
