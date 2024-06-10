@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from numpy._typing import NDArray
