@@ -5,7 +5,7 @@ openslide = ["openslide-python"]
 tiff = ["tifffile", "imagecodecs"]
 cloud = ["tiledb-cloud"]
 
-full = sorted({*zarr, *openslide, *tiff, *cloud})
+full = sorted({*zarr, *openslide, *tiff})
 setuptools.setup(
     setup_requires=["setuptools_scm"],
     use_scm_version={
@@ -19,6 +19,7 @@ setuptools.setup(
         "tqdm",
         "scikit-image",
         "jsonpickle",
+        "requires",
     ],
     extras_require={
         "zarr": zarr,
