@@ -9,9 +9,6 @@ Python package for:
 - converting images stored in popular Biomedical Imaging formats to groups of TileDB arrays (& vice versa)
 - exposing an expressive and efficient API (powered by TileDB) for querying such data.
 
-**Note**: this project is in an early stage and under heavy development.
-Breaking changes to the underlying data format and the API are to be expected.
-
 ## Features
 
 ### Ingestion to TileDB Groups of Arrays
