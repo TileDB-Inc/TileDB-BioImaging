@@ -4,7 +4,16 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple, Optional
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 from urllib.parse import urlparse
 
 import numpy as np
@@ -12,6 +21,7 @@ import numpy as np
 import tiledb
 from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
@@ -79,7 +89,11 @@ class ReadWriteGroup:
 
 
 def open_bioimg(
-    uri: str, mode: str = "r", attr: str = ATTR_NAME, config: Config = None, ctx: Optional[Ctx] = None
+    uri: str,
+    mode: str = "r",
+    attr: str = ATTR_NAME,
+    config: Config = None,
+    ctx: Optional[Ctx] = None,
 ) -> tiledb.Array:
     return tiledb.open(
         uri, mode=mode, attr=attr if mode == "r" else None, config=config, ctx=ctx
@@ -141,7 +155,9 @@ def get_axes_mapper(
     return axes_mapper, dim_names, tiles
 
 
-def iter_levels_meta(group: tiledb.Group, config: Config = None, ctx: Optional[Ctx] = None) -> Iterator[Mapping[str, Any]]:
+def iter_levels_meta(
+    group: tiledb.Group, config: Config = None, ctx: Optional[Ctx] = None
+) -> Iterator[Mapping[str, Any]]:
     for o in group:
         with open_bioimg(o.uri, config=config, ctx=ctx) as array:
             try:
@@ -326,3 +342,21 @@ def get_logger_wrapper(
     )
 
     return logger
+
+
+def translate_config_to_s3fs(
+    config: tiledb.Config, ctx: tiledb.Ctx
+) -> Mapping[str, Any]:
+    ctx = _get_ctx(ctx, config)
+    cfg = ctx.config()
+    storage_options = {
+        "key": cfg.get("vfs.s3.aws_access_key_id", None) or None,
+        "secret": cfg.get("vfs.s3.aws_secret_access_key", None) or None,
+        "token": cfg.get("vfs.s3.aws_session_token", None) or None,
+        "endpoint_url": cfg.get("vfs.s3.endpoint_override", "") or None,
+        "max_concurrency": int(
+            cfg.get("vfs.s3.max_parallel_ops", cfg.get("sm.io_concurrency_level"))
+        ),
+        "client_kwargs": {"region_name": cfg.get("vfs.s3.region", "") or None},
+    }
+    return storage_options

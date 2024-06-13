@@ -7,8 +7,9 @@ import jsonpickle as json
 import numpy as np
 import tifffile
 
-from tiledb.cc import WebpInputFormat
 from tiledb import VFS, Config, Ctx
+from tiledb.cc import WebpInputFormat
+
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
 from .axes import Axes
@@ -37,7 +38,7 @@ class OMETiffReader(ImageReader):
         # Use VFS for all paths local or remote for reading the input image
         self._input_path = input_path
         self._vfs = VFS(config=config, ctx=ctx)
-        self._vfs_fh = self._vfs.open(input_path, mode='rb')
+        self._vfs_fh = self._vfs.open(input_path, mode="rb")
         self._tiff = tifffile.TiffFile(self._vfs_fh)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]

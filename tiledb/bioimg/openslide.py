@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from operator import attrgetter
-from typing import Any, Mapping, MutableMapping, Sequence, Tuple, Union, Optional
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -31,8 +31,14 @@ class TileDBOpenSlide:
         )
         return cls(uri, attr=attr)
 
-    def __init__(self, uri: str, *, attr: str = ATTR_NAME, config: Config = None, ctx: Optional[Ctx] = None,
-):
+    def __init__(
+        self,
+        uri: str,
+        *,
+        attr: str = ATTR_NAME,
+        config: Config = None,
+        ctx: Optional[Ctx] = None,
+    ):
         """Open this TileDBOpenSlide.
 
         :param uri: uri of a tiledb.Group containing the image
@@ -42,7 +48,9 @@ class TileDBOpenSlide:
         pixel_depth = dict(json.loads(pixel_depth)) if pixel_depth else {}
         self._levels = sorted(
             (
-                TileDBOpenSlideLevel(o.uri, pixel_depth, attr=attr, config=config, ctx=ctx)
+                TileDBOpenSlideLevel(
+                    o.uri, pixel_depth, attr=attr, config=config, ctx=ctx
+                )
                 for o in self._group
             ),
             key=attrgetter("level"),
