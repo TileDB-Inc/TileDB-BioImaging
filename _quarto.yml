@@ -2,7 +2,7 @@ project:
   type: website
   output-dir: docs
   render:
-    - "documentation/index.md"
+    - "documentation/index.qmd"
     - "documentation/"
 
 format:
