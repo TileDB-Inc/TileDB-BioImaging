@@ -479,7 +479,7 @@ class ImageConverter:
         with rw_group:
             rw_group.w_group.meta.update(
                 reader.group_metadata,
-                axes=reader.axes.dims,
+                axes=repr(reader.axes),
                 pixel_depth=jsonpickle.encode(
                     dict(iter_pixel_depths_meta({**compressors, **scaled_compressors})),
                     unpicklable=False,
@@ -537,11 +537,11 @@ def _convert_level_to_tiledb(
     # We need to calculate the min-max values per channel
     # First find the indices of all axes except 'C' needed for numpy amin and amax
     min_max_indices = tuple(
-        idx for idx, char in enumerate(source_axes.dims) if char != "C"
+        idx for idx, char in enumerate(source_axes.to_str()) if char != "C"
     )
 
     # Find the number of channels
-    channel_index = source_axes.dims.find("C")
+    channel_index = source_axes.to_str().find("C")
     channel_count = source_shape[channel_index] if channel_index > -1 else 1
 
     # Initialize a numpy 2D array to hold the min-max values per channel
@@ -557,12 +557,12 @@ def _convert_level_to_tiledb(
     channel_min_max[:, 1] = np.repeat(min_value, channel_count)
 
     level_metadata["axes"] = {
-        "originalAxes": [*reader.axes.dims],
+        "originalAxes": [*reader.axes.to_str()],
         "originalShape": reader.level_shape(level),
         "storedAxes": dim_names,
         "storedShape": dim_shape,
         "axesMapping": get_axes_translation(
-            compressor.get(level, tiledb.ZstdFilter(level=0)), reader.axes.dims
+            compressor.get(level, tiledb.ZstdFilter(level=0)), reader.axes.to_str()
         ),
     }
 
@@ -644,7 +644,7 @@ def _create_image_pyramid(
     preserve_axes: bool,
     pyramid_kwargs: Mapping[str, Any],
 ) -> Tuple[Mapping[int, tiledb.Filter], Mapping[str, Any]]:
-    scaler = Scaler(reader.level_shape(base_level), reader.axes.dims, **pyramid_kwargs)
+    scaler = Scaler(reader.level_shape(base_level), reader.axes.to_str(), **pyramid_kwargs)
 
     levels_metadata: MutableMapping[str, Any] = {"axes": []}
 
@@ -670,12 +670,12 @@ def _create_image_pyramid(
 
         levels_metadata["axes"].append(
             {
-                "originalAxes": [*reader.axes.dims],
+                "originalAxes": [*reader.axes.to_str()],
                 "originalShape": dim_shape,
                 "storedAxes": dim_names,
                 "storedShape": axes_mapper.map_shape(dim_shape),
                 "axesMapping": get_axes_translation(
-                    scaler.compressors[level], reader.axes.dims
+                    scaler.compressors[level], reader.axes.to_str()
                 ),
             }
         )
