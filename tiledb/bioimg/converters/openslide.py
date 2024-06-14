@@ -13,23 +13,39 @@ if hasattr(os, "add_dll_directory"):
 else:
     import openslide as osd
 
+from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
-from ..helpers import get_logger_wrapper, iter_color
+from ..helpers import cache_filepath, get_logger_wrapper, is_remote_protocol, iter_color
+from . import DEFAULT_SCRATCH_SPACE
 from .axes import Axes
 from .base import ImageConverter, ImageReader
 
 
 class OpenSlideReader(ImageReader):
-    def __init__(self, input_path: str, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        input_path: str,
+        logger: Optional[logging.Logger] = None,
+        config: Optional[Config] = None,
+        ctx: Optional[Ctx] = None,
+        scratch_space: str = DEFAULT_SCRATCH_SPACE,
+    ):
         """
         OpenSlide image reader
-
         :param input_path: The path to the OpenSlide image
 
         """
+        self._ctx = _get_ctx(ctx, config)
+        self._cfg = self._ctx.config()
         self._logger = get_logger_wrapper(False) if not logger else logger
-        self._osd = osd.OpenSlide(input_path)
+        resolved_path = input_path
+        if is_remote_protocol(input_path):
+            resolved_path = cache_filepath(
+                input_path, config, ctx, self._logger, scratch_space
+            )
+        self._osd = osd.OpenSlide(resolved_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._osd.close()

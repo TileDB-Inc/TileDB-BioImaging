@@ -21,11 +21,12 @@ import numpy as np
 import tiledb
 from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
-from tiledb.highlevel import _get_ctx
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
 from .version import version_tuple
+
+SUPPORTED_PROTOCOLS = ("s3://", "gcs://", "azure://")
 
 
 class ReadWriteGroup:
@@ -344,11 +345,7 @@ def get_logger_wrapper(
     return logger
 
 
-def translate_config_to_s3fs(
-    config: tiledb.Config, ctx: tiledb.Ctx
-) -> Mapping[str, Any]:
-    ctx = _get_ctx(ctx, config)
-    cfg = ctx.config()
+def translate_config_to_s3fs(cfg: tiledb.Config) -> Mapping[str, Any]:
     storage_options = {
         "key": cfg.get("vfs.s3.aws_access_key_id", None) or None,
         "secret": cfg.get("vfs.s3.aws_secret_access_key", None) or None,
@@ -360,3 +357,20 @@ def translate_config_to_s3fs(
         "client_kwargs": {"region_name": cfg.get("vfs.s3.region", "") or None},
     }
     return storage_options
+
+
+def cache_filepath(
+    filename: str, cfg: Config, ctx: Ctx, logger: logging.Logger, scratch: str
+) -> str:
+    vfs = tiledb.VFS(config=cfg, ctx=ctx)
+    cached = os.path.join(scratch, os.path.basename(filename))
+    if logger:
+        logger.debug(f"Scratch space temp destination uri: {cached}")
+    with vfs.open(filename, "rb") as remote:
+        with open(cached, "wb") as local:
+            local.write(remote.read())
+    return cached
+
+
+def is_remote_protocol(uri: str) -> bool:
+    return uri.startswith(SUPPORTED_PROTOCOLS)

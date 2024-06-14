@@ -13,6 +13,7 @@ from ome_zarr.writer import write_multiscale
 
 from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
 from .. import WHITE_RGB
 from ..helpers import get_logger_wrapper, get_rgba, translate_config_to_s3fs
@@ -33,7 +34,9 @@ class OMEZarrReader(ImageReader):
         :param input_path: The path to the Zarr image
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
-        storage_options = translate_config_to_s3fs(config, ctx)
+        self._ctx = _get_ctx(ctx, config)
+        self._cfg = self._ctx.config()
+        storage_options = translate_config_to_s3fs(self._cfg)
         input_fh = zarr.storage.FSStore(
             input_path, check=True, create=True, **storage_options
         )
