@@ -11,10 +11,18 @@ domain = tiledb.Domain(
 
 def test_dim_range():
     dims = list(domain)
-    assert dim_range(dims[0]) == range(0, 10, 3)
-    assert dim_range(dims[1]) == range(0, 15, 5)
-    assert dim_range(dims[2]) == range(0, 7, 4)
-    assert dim_range(dims[3]) == range(0, 3, 3)
+    assert dim_range(
+        (int(dims[0].domain[0]), int(dims[0].domain[1]), int(dims[0].tile))
+    ) == range(0, 10, 3)
+    assert dim_range(
+        (int(dims[1].domain[0]), int(dims[1].domain[1]), int(dims[1].tile))
+    ) == range(0, 15, 5)
+    assert dim_range(
+        (int(dims[2].domain[0]), int(dims[2].domain[1]), int(dims[2].tile))
+    ) == range(0, 7, 4)
+    assert dim_range(
+        (int(dims[3].domain[0]), int(dims[3].domain[1]), int(dims[3].tile))
+    ) == range(0, 3, 3)
 
 
 def test_iter_slices():
