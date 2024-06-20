@@ -2,14 +2,23 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
 import numpy
 import numpy as np
-import zarr
-from numcodecs import Blosc
-from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
-from ome_zarr.writer import write_multiscale
+
+try:
+    import zarr
+    from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
+    from ome_zarr.writer import write_multiscale
+    from zarr.codecs import Blosc
+except ImportError as err:
+    warnings.warn(
+        "OMEZarr Converter requires 'ome-zarr' package. "
+        "You can install 'tiledb-bioimg' with the 'zarr' or 'full' flag"
+    )
+    raise err
 
 from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat

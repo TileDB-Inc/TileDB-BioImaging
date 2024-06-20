@@ -5,7 +5,15 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import jsonpickle as json
 import numpy as np
-import tifffile
+
+try:
+    import tifffile
+except ImportError as err:
+    warnings.warn(
+        "OMETiff Converter requires 'tifffile' package. "
+        "You can install 'tiledb-bioimg' with the 'tiff' or 'full' flag"
+    )
+    raise err
 
 from tiledb import VFS, Config, Ctx
 from tiledb.cc import WebpInputFormat
