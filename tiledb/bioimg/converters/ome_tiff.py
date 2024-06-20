@@ -9,6 +9,7 @@ import tifffile
 
 from tiledb import VFS, Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
@@ -21,6 +22,7 @@ class OMETiffReader(ImageReader):
     def __init__(
         self,
         input_path: str,
+        *,
         logger: Optional[logging.Logger] = None,
         config: Optional[Config] = None,
         ctx: Optional[Ctx] = None,
@@ -37,7 +39,9 @@ class OMETiffReader(ImageReader):
 
         # Use VFS for all paths local or remote for reading the input image
         self._input_path = input_path
-        self._vfs = VFS(config=config, ctx=ctx)
+        self._ctx = _get_ctx(ctx, config)
+        self._cfg = self._ctx.config()
+        self._vfs = VFS(config=self._cfg, ctx=self._ctx)
         self._vfs_fh = self._vfs.open(input_path, mode="rb")
         self._tiff = tifffile.TiffFile(self._vfs_fh)
         # XXX ignore all but the first series

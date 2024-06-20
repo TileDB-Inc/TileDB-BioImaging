@@ -25,6 +25,7 @@ class OMEZarrReader(ImageReader):
     def __init__(
         self,
         input_path: str,
+        *,
         logger: Optional[logging.Logger] = None,
         config: Optional[Config] = None,
         ctx: Optional[Ctx] = None,

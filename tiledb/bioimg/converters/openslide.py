@@ -27,6 +27,7 @@ class OpenSlideReader(ImageReader):
     def __init__(
         self,
         input_path: str,
+        *,
         logger: Optional[logging.Logger] = None,
         config: Optional[Config] = None,
         ctx: Optional[Ctx] = None,
@@ -40,11 +41,12 @@ class OpenSlideReader(ImageReader):
         self._ctx = _get_ctx(ctx, config)
         self._cfg = self._ctx.config()
         self._logger = get_logger_wrapper(False) if not logger else logger
-        resolved_path = input_path
         if is_remote_protocol(input_path):
             resolved_path = cache_filepath(
                 input_path, config, ctx, self._logger, scratch_space
             )
+        else:
+            resolved_path = input_path
         self._osd = osd.OpenSlide(resolved_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

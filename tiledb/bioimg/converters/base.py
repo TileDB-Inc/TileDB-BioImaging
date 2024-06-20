@@ -58,7 +58,15 @@ DEFAULT_SCRATCH_SPACE = "/dev/shm"
 
 class ImageReader(ABC):
     @abstractmethod
-    def __init__(self, input_path: str, logger: logging.Logger, **kwargs: Any):
+    def __init__(
+        self,
+        input_path: str,
+        *,
+        logger: Optional[logging.Logger],
+        config: Optional[tiledb.Config] = None,
+        ctx: Optional[tiledb.Ctx] = None,
+        **kwargs: Any,
+    ):
         """Initialize this ImageReader"""
 
     def __enter__(self) -> ImageReader:
@@ -359,7 +367,7 @@ class ImageConverter:
             reader = source
         elif cls._ImageReaderType is not None:
             reader = cls._ImageReaderType(
-                source, logger, **reader_kwargs if reader_kwargs else {}
+                source, logger=logger, **reader_kwargs if reader_kwargs else {}
             )
         else:
             raise NotImplementedError(f"{cls} does not support importing")
