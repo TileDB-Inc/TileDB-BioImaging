@@ -27,9 +27,9 @@ else:
             "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
         )
         raise err
+from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
 from tiledb.highlevel import _get_ctx
-from tiledb import Config, Ctx
 
 from ..helpers import cache_filepath, get_logger_wrapper, is_remote_protocol, iter_color
 from . import DEFAULT_SCRATCH_SPACE

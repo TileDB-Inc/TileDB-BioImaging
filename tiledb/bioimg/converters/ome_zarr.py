@@ -10,9 +10,9 @@ import numpy as np
 
 try:
     import zarr
-    from zarr.codecs import Blosc
     from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
     from ome_zarr.writer import write_multiscale
+    from zarr.codecs import Blosc
 except ImportError as err:
     warnings.warn(
         "OMEZarr Converter requires 'ome-zarr' package. "
