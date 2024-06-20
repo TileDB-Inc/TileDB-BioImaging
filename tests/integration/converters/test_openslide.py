@@ -26,7 +26,7 @@ from tiledb.cc import WebpInputFormat
     ],
 )
 def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, compressor):
-    input_path = get_path("CMU-1-Small-Region.svs")
+    input_path = str(get_path("CMU-1-Small-Region.svs"))
     output_path = str(tmp_path)
     OpenSlideConverter.to_tiledb(
         input_path,
@@ -80,7 +80,7 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, comp
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
 def test_openslide_converter_group_metadata(tmp_path, preserve_axes):
-    input_path = get_path("CMU-1-Small-Region.svs")
+    input_path = str(get_path("CMU-1-Small-Region.svs"))
     output_path = str(tmp_path)
     OpenSlideConverter.to_tiledb(input_path, output_path, preserve_axes=preserve_axes)
 

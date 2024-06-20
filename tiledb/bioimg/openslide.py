@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from operator import attrgetter
-from typing import Any, Mapping, MutableMapping, Sequence, Tuple, Union
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -14,7 +14,7 @@ except ImportError:
 import json
 
 import tiledb
-from tiledb import Config
+from tiledb import Config, Ctx
 
 from . import ATTR_NAME
 from .converters.axes import Axes
@@ -31,18 +31,26 @@ class TileDBOpenSlide:
         )
         return cls(uri, attr=attr)
 
-    def __init__(self, uri: str, *, attr: str = ATTR_NAME, config: Config = None):
+    def __init__(
+        self,
+        uri: str,
+        *,
+        attr: str = ATTR_NAME,
+        config: Config = None,
+        ctx: Optional[Ctx] = None,
+    ):
         """Open this TileDBOpenSlide.
 
         :param uri: uri of a tiledb.Group containing the image
         """
-        self._config = config
-        self._group = tiledb.Group(uri, config=config)
+        self._group = tiledb.Group(uri, config=config, ctx=ctx)
         pixel_depth = self._group.meta.get("pixel_depth", "")
         pixel_depth = dict(json.loads(pixel_depth)) if pixel_depth else {}
         self._levels = sorted(
             (
-                TileDBOpenSlideLevel(o.uri, pixel_depth, attr=attr, config=config)
+                TileDBOpenSlideLevel(
+                    o.uri, pixel_depth, attr=attr, config=config, ctx=ctx
+                )
                 for o in self._group
             ),
             key=attrgetter("level"),
@@ -170,9 +178,9 @@ class TileDBOpenSlideLevel:
         *,
         attr: str,
         config: Config = None,
+        ctx: Optional[Ctx] = None,
     ):
-        self._config = config
-        self._tdb = open_bioimg(uri, attr=attr, config=config)
+        self._tdb = open_bioimg(uri, attr=attr, config=config, ctx=ctx)
         self._pixel_depth = pixel_depth.get(str(self.level), 1)
 
     @property

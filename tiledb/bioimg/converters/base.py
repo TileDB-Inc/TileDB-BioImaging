@@ -58,7 +58,15 @@ DEFAULT_SCRATCH_SPACE = "/dev/shm"
 
 class ImageReader(ABC):
     @abstractmethod
-    def __init__(self, input_path: str, logger: logging.Logger, **kwargs: Any):
+    def __init__(
+        self,
+        input_path: str,
+        *,
+        logger: Optional[logging.Logger],
+        config: Optional[tiledb.Config] = None,
+        ctx: Optional[tiledb.Ctx] = None,
+        **kwargs: Any,
+    ):
         """Initialize this ImageReader"""
 
     def __enter__(self) -> ImageReader:
@@ -304,44 +312,45 @@ class ImageConverter:
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> Type[ImageConverter]:
         """
-        Convert an image to a TileDB Group of Arrays, one per level.
+                Convert an image to a TileDB Group of Arrays, one per level.
 
-        :param source: path to the input image or ImageReader object
-        :param output_path: path to the TileDB group of arrays
-        :param level_min: minimum level of the image to be converted. By default set to 0
-            to convert all levels.
-        :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
-            the (maximum) tile for this dimension.
-        :param tile_scale: The scaling factor applied to each tile during I/O.
-            Larger scale factors will result in less I/O operations.
-        :param preserve_axes: If true, preserve the axes order of the original image.
-        :param chunked: If true, convert one tile at a time instead of the whole image.
-            **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
-            for levels>0, even though the converted images look visually identical to the
-            original ones.
-        :param max_workers: Maximum number of threads that can be used for conversion.
-            Applicable only if chunked=True.
-        :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
-        :param compressor: TileDB compression filter mapping for each level
-        :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
-            If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
-            DEBUG logging level.
-        :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor.
-        :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
-            generating downsampled versions of the base level. Valid keyword arguments are:
-            scale_factors (Required): The downsampling factor for each level
-            scale_axes (Optional): Default "XY". The axes which will be downsampled
-            chunked (Optional): Default False. If true the image is split into chunks and
-                each one is independently downsampled. If false the entire image is
-                downsampled at once, but it requires more memory.
-            progressive (Optional): Default False. If true each downsampled image is
-                generated using the previous level. If false for every downsampled image
-                the level_min is used, but it requires more memory.
-            order (Optional): Default 1. The order of the spline interpolation. The order
-                has to be in the range 0-5. See `skimage.transform.warp` for detail.
-            max_workers (Optional): Default None. The maximum number of workers for
-                chunked downsampling. If None, it will default to the number of processors
-                on the machine, multiplied by 5.
+                :param source: path to the input image or ImageReader object
+                :param output_path: path to the TileDB group of arrays
+                :param level_min: minimum level of the image to be converted. By default set to 0
+                    to convert all levels.
+                :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
+                    the (maximum) tile for this dimension.
+                :param tile_scale: The scaling factor applied to each tile during I/O.
+                    Larger scale factors will result in less I/O operations.
+                :param preserve_axes: If true, preserve the axes order of the original image.
+                :param chunked: If true, convert one tile at a time instead of the whole image.
+                    **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
+                    for levels>0, even though the converted images look visually identical to the
+                    original ones.
+                :param max_workers: Maximum number of threads that can be used for conversion.
+                    Applicable only if chunked=True.
+                :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
+                :param compressor: TileDB compression filter mapping for each level
+                :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
+                    If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
+                    DEBUG logging level.
+                :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor. Allows passing configuration
+                    parameters like tiledb.Config or/and tiledb.Ctx.
+        See Also        :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for
+                    generating downsampled versions of the base level. Valid keyword arguments are:
+                    scale_factors (Required): The downsampling factor for each level
+                    scale_axes (Optional): Default "XY". The axes which will be downsampled
+                    chunked (Optional): Default False. If true the image is split into chunks and
+                        each one is independently downsampled. If false the entire image is
+                        downsampled at once, but it requires more memory.
+                    progressive (Optional): Default False. If true each downsampled image is
+                        generated using the previous level. If false for every downsampled image
+                        the level_min is used, but it requires more memory.
+                    order (Optional): Default 1. The order of the spline interpolation. The order
+                        has to be in the range 0-5. See `skimage.transform.warp` for detail.
+                    max_workers (Optional): Default None. The maximum number of workers for
+                        chunked downsampling. If None, it will default to the number of processors
+                        on the machine, multiplied by 5.
         """
 
         if log:
@@ -358,7 +367,7 @@ class ImageConverter:
             reader = source
         elif cls._ImageReaderType is not None:
             reader = cls._ImageReaderType(
-                source, logger, **reader_kwargs if reader_kwargs else {}
+                source, logger=logger, **reader_kwargs if reader_kwargs else {}
             )
         else:
             raise NotImplementedError(f"{cls} does not support importing")

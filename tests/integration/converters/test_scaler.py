@@ -13,25 +13,23 @@ def test_scaler(tmp_path, scale_factors, chunked, max_workers, progressive):
     ground_path = str(tmp_path / "ground")
     test_path = str(tmp_path / "test")
 
-    with open(input_path, "rb") as f:
-        OMETiffConverter.to_tiledb(
-            f,
-            ground_path,
-            pyramid_kwargs={"scale_factors": scale_factors},
-        )
+    OMETiffConverter.to_tiledb(
+        input_path,
+        ground_path,
+        pyramid_kwargs={"scale_factors": scale_factors},
+    )
 
-    with open(input_path, "rb") as f:
-        OMETiffConverter.to_tiledb(
-            f,
-            test_path,
-            pyramid_kwargs={
-                "scale_factors": scale_factors,
-                "chunked": chunked,
-                "progressive": progressive,
-                "order": 1,
-                "max_workers": max_workers,
-            },
-        )
+    OMETiffConverter.to_tiledb(
+        input_path,
+        test_path,
+        pyramid_kwargs={
+            "scale_factors": scale_factors,
+            "chunked": chunked,
+            "progressive": progressive,
+            "order": 1,
+            "max_workers": max_workers,
+        },
+    )
 
     with TileDBOpenSlide(ground_path) as ground, TileDBOpenSlide(test_path) as test:
         assert ground.level_count == test.level_count

@@ -4,37 +4,49 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 from urllib.parse import urlparse
 
 import numpy as np
 
 import tiledb
-from tiledb import Config
+from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
 from .version import version_tuple
 
+SUPPORTED_PROTOCOLS = ("s3://", "gcs://", "azure://")
+
 
 class ReadWriteGroup:
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, ctx: Optional[Ctx] = None):
         parsed_uri = urlparse(uri)
         # normalize uri if it's a local path (e.g. ../..foo/bar)
 
         # Windows paths produce single letter scheme matching the drive letter
         # Unix absolute path produce an empty scheme
+        self._ctx = ctx
         if len(parsed_uri.scheme) < 2 or parsed_uri.scheme == "file":
             uri = str(Path(parsed_uri.path).resolve()).replace("\\", "/")
-        if tiledb.object_type(uri) != "group":
-            tiledb.group_create(uri)
+        if tiledb.object_type(uri, ctx=ctx) != "group":
+            tiledb.group_create(uri, ctx=ctx)
         self._uri = uri if uri.endswith("/") else uri + "/"
         self._is_cloud = parsed_uri.scheme == "tiledb"
 
     def __enter__(self) -> ReadWriteGroup:
-        self.r_group = tiledb.Group(self._uri, "r")
-        self.w_group = tiledb.Group(self._uri, "w")
+        self.r_group = tiledb.Group(self._uri, "r", ctx=self._ctx)
+        self.w_group = tiledb.Group(self._uri, "w", ctx=self._ctx)
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -49,7 +61,7 @@ class ReadWriteGroup:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
             if not tiledb.array_exists(uri):
-                tiledb.Array.create(uri, schema)
+                tiledb.Array.create(uri, schema, ctx=self._ctx)
                 create = True
             else:
                 # The array exists, but it's not added as group member with the given name.
@@ -78,10 +90,14 @@ class ReadWriteGroup:
 
 
 def open_bioimg(
-    uri: str, mode: str = "r", attr: str = ATTR_NAME, config: Config = None
+    uri: str,
+    mode: str = "r",
+    attr: str = ATTR_NAME,
+    config: Config = None,
+    ctx: Optional[Ctx] = None,
 ) -> tiledb.Array:
     return tiledb.open(
-        uri, mode=mode, attr=attr if mode == "r" else None, config=config
+        uri, mode=mode, attr=attr if mode == "r" else None, config=config, ctx=ctx
     )
 
 
@@ -140,9 +156,11 @@ def get_axes_mapper(
     return axes_mapper, dim_names, tiles
 
 
-def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
+def iter_levels_meta(
+    group: tiledb.Group, config: Config = None, ctx: Optional[Ctx] = None
+) -> Iterator[Mapping[str, Any]]:
     for o in group:
-        with open_bioimg(o.uri) as array:
+        with open_bioimg(o.uri, config=config, ctx=ctx) as array:
             try:
                 level = array.meta["level"]
             except KeyError as exc:
@@ -325,3 +343,34 @@ def get_logger_wrapper(
     )
 
     return logger
+
+
+def translate_config_to_s3fs(cfg: tiledb.Config) -> Mapping[str, Any]:
+    storage_options = {
+        "key": cfg.get("vfs.s3.aws_access_key_id", None) or None,
+        "secret": cfg.get("vfs.s3.aws_secret_access_key", None) or None,
+        "token": cfg.get("vfs.s3.aws_session_token", None) or None,
+        "endpoint_url": cfg.get("vfs.s3.endpoint_override", "") or None,
+        "max_concurrency": int(
+            cfg.get("vfs.s3.max_parallel_ops", cfg.get("sm.io_concurrency_level"))
+        ),
+        "client_kwargs": {"region_name": cfg.get("vfs.s3.region", "") or None},
+    }
+    return storage_options
+
+
+def cache_filepath(
+    filename: str, cfg: Config, ctx: Ctx, logger: logging.Logger, scratch: str
+) -> str:
+    vfs = tiledb.VFS(config=cfg, ctx=ctx)
+    cached = os.path.join(scratch, os.path.basename(filename))
+    if logger:
+        logger.debug(f"Scratch space temp destination uri: {cached}")
+    with vfs.open(filename, "rb") as remote:
+        with open(cached, "wb") as local:
+            local.write(remote.read())
+    return cached
+
+
+def is_remote_protocol(uri: str) -> bool:
+    return uri.startswith(SUPPORTED_PROTOCOLS)
