@@ -325,108 +325,33 @@ ul.task-list li input[type="checkbox"] {
 <section id="tiledb.bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb" class="level3">
 <h3 class="anchored" data-anchor-id="tiledb.bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb">to_tiledb</h3>
 <p><code>bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)</code></p>
-<p>Convert an image to a TileDB Group of Arrays, one per level.</p>
-<section id="parameters-1" class="level4">
-<h4 class="anchored" data-anchor-id="parameters-1">Parameters</h4>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 1%">
-<col style="width: 4%">
-<col style="width: 92%">
-<col style="width: 1%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Type</th>
-<th>Description</th>
-<th>Default</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>source</code></td>
-<td>Union[str, ImageReader]</td>
-<td>path to the input image or ImageReader object</td>
-<td><em>required</em></td>
-</tr>
-<tr class="even">
-<td><code>output_path</code></td>
-<td>str</td>
-<td>path to the TileDB group of arrays</td>
-<td><em>required</em></td>
-</tr>
-<tr class="odd">
-<td><code>level_min</code></td>
-<td>int</td>
-<td>minimum level of the image to be converted. By default set to 0 to convert all levels.</td>
-<td><code>0</code></td>
-</tr>
-<tr class="even">
-<td><code>tiles</code></td>
-<td>Optional[Mapping[str, int]]</td>
-<td>A mapping from dimension name (one of ‘T’, ‘C’, ‘Z’, ‘Y’, ‘X’) to the (maximum) tile for this dimension.</td>
-<td><code>None</code></td>
-</tr>
-<tr class="odd">
-<td><code>tile_scale</code></td>
-<td>int</td>
-<td>The scaling factor applied to each tile during I/O. Larger scale factors will result in less I/O operations.</td>
-<td><code>1</code></td>
-</tr>
-<tr class="even">
-<td><code>preserve_axes</code></td>
-<td>bool</td>
-<td>If true, preserve the axes order of the original image.</td>
-<td><code>False</code></td>
-</tr>
-<tr class="odd">
-<td><code>chunked</code></td>
-<td>bool</td>
-<td>If true, convert one tile at a time instead of the whole image. <strong>Note</strong>: The OpenSlideConverter may not be 100% lossless with chunked=True for levels&gt;0, even though the converted images look visually identical to the original ones.</td>
-<td><code>False</code></td>
-</tr>
-<tr class="even">
-<td><code>max_workers</code></td>
-<td>int</td>
-<td>Maximum number of threads that can be used for conversion. Applicable only if chunked=True.</td>
-<td><code>0</code></td>
-</tr>
-<tr class="odd">
-<td><code>exclude_metadata</code></td>
-<td>bool</td>
-<td>If true, drop original metadata of the images and exclude them from being ingested.</td>
-<td><code>False</code></td>
-</tr>
-<tr class="even">
-<td><code>compressor</code></td>
-<td>Optional[Union[Mapping[int, Any], Any]]</td>
-<td>TileDB compression filter mapping for each level</td>
-<td><code>None</code></td>
-</tr>
-<tr class="odd">
-<td><code>log</code></td>
-<td>Optional[Union[bool, logging.Logger]]</td>
-<td>verbose logging, defaults to None. Allows passing custom logging.Logger or boolean. If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in DEBUG logging level.</td>
-<td><code>None</code></td>
-</tr>
-<tr class="even">
-<td><code>reader_kwargs</code></td>
-<td>Optional[Mapping[str, Any]]</td>
-<td>Keyword arguments passed to the _ImageReaderType constructor.</td>
-<td><code>None</code></td>
-</tr>
-<tr class="odd">
-<td><code>pyramid_kwargs</code></td>
-<td>Optional[Mapping[str, Any]]</td>
-<td>Keyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See <code>skimage.transform.warp</code> for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.</td>
-<td><code>None</code></td>
-</tr>
-</tbody>
-</table>
+<pre><code>    Convert an image to a TileDB Group of Arrays, one per level.
+
+    :param source: path to the input image or ImageReader object
+    :param output_path: path to the TileDB group of arrays
+    :param level_min: minimum level of the image to be converted. By default set to 0
+        to convert all levels.
+    :param tiles: A mapping from dimension name (one of 'T', 'C', 'Z', 'Y', 'X') to
+        the (maximum) tile for this dimension.
+    :param tile_scale: The scaling factor applied to each tile during I/O.
+        Larger scale factors will result in less I/O operations.
+    :param preserve_axes: If true, preserve the axes order of the original image.
+    :param chunked: If true, convert one tile at a time instead of the whole image.
+        **Note**: The OpenSlideConverter may not be 100% lossless with chunked=True
+        for levels&gt;0, even though the converted images look visually identical to the
+        original ones.
+    :param max_workers: Maximum number of threads that can be used for conversion.
+        Applicable only if chunked=True.
+    :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
+    :param compressor: TileDB compression filter mapping for each level
+    :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
+        If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
+        DEBUG logging level.
+    :param reader_kwargs: Keyword arguments passed to the _ImageReaderType constructor. Allows passing configuration
+        parameters like tiledb.Config or/and tiledb.Ctx.</code></pre>
+<p>See Also :param pyramid_kwargs: Keyword arguments passed to the scaler constructor for generating downsampled versions of the base level. Valid keyword arguments are: scale_factors (Required): The downsampling factor for each level scale_axes (Optional): Default “XY”. The axes which will be downsampled chunked (Optional): Default False. If true the image is split into chunks and each one is independently downsampled. If false the entire image is downsampled at once, but it requires more memory. progressive (Optional): Default False. If true each downsampled image is generated using the previous level. If false for every downsampled image the level_min is used, but it requires more memory. order (Optional): Default 1. The order of the spline interpolation. The order has to be in the range 0-5. See <code>skimage.transform.warp</code> for detail. max_workers (Optional): Default None. The maximum number of workers for chunked downsampling. If None, it will default to the number of processors on the machine, multiplied by 5.</p>
 
 
-</section>
 </section>
 </section>
 </section>
