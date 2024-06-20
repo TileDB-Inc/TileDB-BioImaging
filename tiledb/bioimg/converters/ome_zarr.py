@@ -10,7 +10,7 @@ import numpy as np
 
 try:
     import zarr
-    from numcodecs import Blosc
+    from zarr.codecs import Blosc
     from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
     from ome_zarr.writer import write_multiscale
 except ImportError as err:
