@@ -61,7 +61,6 @@ jobs:
       shell: "bash -l {0}"
       run: |
         pip install --no-cache-dir --upgrade tifffile "imagecodecs>=2023.7.10"
-        pip install scikit-image==0.24.0rc1
         pip install .[full]
 
     - name: Run tests with coverage
