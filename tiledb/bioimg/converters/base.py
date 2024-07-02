@@ -46,6 +46,7 @@ from ..helpers import (
     iter_pixel_depths_meta,
     open_bioimg,
     resolve_path,
+    validate_ingestion,
 )
 from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
@@ -577,7 +578,8 @@ def _convert_level_to_tiledb(
 
     # get or create TileDB array uri
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
-    if created:
+
+    if created or not validate_ingestion(uri):
         # write image and metadata to TileDB array
         with open_bioimg(uri, "w") as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
