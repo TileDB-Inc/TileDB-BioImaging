@@ -8,6 +8,7 @@ from typing import (
     Any,
     Dict,
     Iterator,
+    List,
     Mapping,
     MutableMapping,
     Optional,
@@ -87,6 +88,36 @@ class ReadWriteGroup:
             else:
                 self.w_group.add(name, name, relative=True)
         return uri, create
+
+
+def validate_ingestion(uri: str) -> bool:
+    """
+    This function validates that they array has been stored properly
+    by checking the existence of array fragments and
+    comparing the schema of the array with the non-empty domain of the array.
+
+    Parameters
+    ----------
+    uri: The uri of the array to validate
+
+    Returns boolean
+    -------
+    """
+    fragments_list_info = tiledb.array_fragments(uri)
+    if not len(fragments_list_info):
+        # If no fragments are present
+        return False
+    else:
+        with tiledb.open(uri) as validation_array:
+            ned = fragments_list_info.nonempty_domain
+            consolidated_ranges = merge_ned_ranges(ned)
+            domains = [d.domain for d in validation_array.schema.domain]
+            # Check that each one of the consolidated ranges matches the corresponding
+            # domain
+            return all(
+                len(cr) == 1 and cr[0] == dom
+                for cr, dom in zip(consolidated_ranges, domains)
+            )
 
 
 def open_bioimg(
@@ -374,3 +405,53 @@ def cache_filepath(
 
 def is_remote_protocol(uri: str) -> bool:
     return uri.startswith(SUPPORTED_PROTOCOLS)
+
+
+def merge_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """
+    Merge overlapping or consecutive ranges.
+
+    Parameters:
+    ranges (list of tuples): List of range tuples (start, end).
+
+    Returns:
+    list of tuples: Merged list of range tuples.
+    """
+    if not ranges:
+        return []
+
+    # Sort ranges by the starting value
+    ranges.sort()
+    merged_ranges = [ranges[0]]
+
+    for current_start, current_end in ranges[1:]:
+        last_start, last_end = merged_ranges[-1]
+        if current_start <= last_end + 1:  # Check if ranges overlap or are consecutive
+            merged_ranges[-1] = (last_start, max(last_end, current_end))
+        else:
+            merged_ranges.append((current_start, current_end))
+
+    return merged_ranges
+
+
+def merge_ned_ranges(
+    input_ranges: Tuple[Tuple[Tuple[int, int], ...], ...]
+) -> Tuple[List[Tuple[int, int]], ...]:
+    """
+    Merge ranges for each axis independently from a given input of ranges.
+
+    Parameters:
+    input_ranges (tuple of tuples): Input ranges for multiple axes.
+
+    Returns:
+    tuple of lists: Merged ranges for each axis.
+    """
+    num_axes = len(input_ranges[0])  # Determine the number of axes from the first tuple
+    ranges_per_axis = [
+        [axis_range[i] for axis_range in input_ranges] for i in range(num_axes)
+    ]
+
+    # Merge ranges for each axis
+    merged_ranges_per_axis = [merge_ranges(ranges) for ranges in ranges_per_axis]
+
+    return tuple(merged_ranges_per_axis)
