@@ -1,11 +1,13 @@
 from pathlib import Path
 
+import random
 import numpy as np
 from skimage.metrics import structural_similarity
 
 import tiledb
 from tiledb.bioimg import ATTR_NAME
 from tiledb.cc import WebpInputFormat
+from tiledb.bioimg.helpers import merge_ned_ranges
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -80,3 +82,32 @@ def get_path(uri):
 def assert_image_similarity(im1, im2, min_threshold=0.95, channel_axis=-1, win_size=11):
     s = structural_similarity(im1, im2, channel_axis=channel_axis, win_size=win_size)
     assert s >= min_threshold, (s, min_threshold, im1.shape)
+
+
+def generate_test_case(num_axes, num_ranges, max_value):
+    """
+    Generate a test case with a given number of axes and ranges.
+
+    Parameters:
+    num_axes (int): Number of axes.
+    num_ranges (int): Number of ranges.
+    max_value (int): Maximum value for range endpoints.
+
+    Returns:
+    tuple: A tuple containing the generated input and the expected output.
+    """
+    input_ranges = []
+
+    for _ in range(num_ranges):
+        ranges = []
+        for _ in range(num_axes):
+            start = random.randint(0, max_value - 1)
+            end = random.randint(start, max_value)
+            ranges.append((start, end))
+        input_ranges.append(tuple(ranges))
+
+    input_ranges = tuple(input_ranges)
+
+    expected_output = merge_ned_ranges(input_ranges)
+
+    return input_ranges, expected_output

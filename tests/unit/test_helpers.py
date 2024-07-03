@@ -7,7 +7,10 @@ from tiledb.bioimg.helpers import (
     get_pixel_depth,
     get_rgba,
     iter_color,
+    merge_ned_ranges,
 )
+
+from .. import generate_test_case
 
 
 def test_color_iterator():
@@ -44,3 +47,12 @@ def test_get_pixel_depth():
     with pytest.raises(ValueError) as err:
         get_pixel_depth(webp_filter)
         assert "Invalid WebpInputFormat" in str(err)
+
+
+@pytest.mark.parametrize(
+    "num_axes, num_ranges, max_value",
+    [(5, 10, 100), (3, 20, 50), (4, 15, 200), (6, 25, 300)],
+)
+def test_validate_ingestion(num_axes, num_ranges, max_value):
+    input_ranges, expected_output = generate_test_case(num_axes, num_ranges, max_value)
+    assert merge_ned_ranges(input_ranges) == expected_output
