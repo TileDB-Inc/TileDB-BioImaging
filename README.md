@@ -38,6 +38,22 @@ Python package for:
 
       pip install -e '.[full]'
 
+## Windows Installation
+
+After installing `Openslide` you should make sure that you create a link between your installation path and
+the following default path `C:\openslide-win64\ `.
+
+```cmd
+mklink /D C:\openslide-win64\ [your-installation-path]\openslide-win64-20221217\
+```
+
+You can install the latest versions of `Openslide` for windows using the pre-built packages
+found in the project's github page:
+`https://github.com/openslide/openslide-bin/releases`
+
+or in their website:
+`https://openslide.org/download/`
+
 
 ## Examples
 How to convert imaging data from standard biomedical formats to group of TileDB arrays.
