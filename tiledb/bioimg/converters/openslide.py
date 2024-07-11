@@ -67,6 +67,10 @@ class OpenSlideReader(ImageReader):
         self._osd.close()
 
     @property
+    def ctx(self) -> Ctx:
+        return self._ctx
+
+    @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
 

@@ -62,6 +62,10 @@ class OMETiffReader(ImageReader):
         self._vfs.close(file=self._vfs_fh)
 
     @property
+    def ctx(self) -> Ctx:
+        return self._ctx
+
+    @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
 

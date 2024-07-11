@@ -15,6 +15,7 @@ import json
 
 import tiledb
 from tiledb import Config, Ctx
+from tiledb.highlevel import _get_ctx
 
 from . import ATTR_NAME
 from .converters.axes import Axes
@@ -43,7 +44,9 @@ class TileDBOpenSlide:
 
         :param uri: uri of a tiledb.Group containing the image
         """
-        self._group = tiledb.Group(uri, config=config, ctx=ctx)
+        self._ctx = _get_ctx(ctx, config)
+        self._cfg = self._ctx.config()
+        self._group = tiledb.Group(uri, ctx=self._ctx)
         pixel_depth = self._group.meta.get("pixel_depth", "")
         pixel_depth = dict(json.loads(pixel_depth)) if pixel_depth else {}
         self._levels = sorted(

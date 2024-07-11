@@ -55,6 +55,10 @@ class OMEZarrReader(ImageReader):
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
     @property
+    def ctx(self) -> Ctx:
+        return self._ctx()
+
+    @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
 

@@ -50,11 +50,9 @@ from ..helpers import (
 )
 from ..openslide import TileDBOpenSlide
 from ..version import version as PKG_VERSION
-from . import DATASET_TYPE, FMT_VERSION
+from . import DATASET_TYPE, DEFAULT_SCRATCH_SPACE, FMT_VERSION
 from .axes import Axes
 from .tiles import iter_tiles, num_tiles
-
-DEFAULT_SCRATCH_SPACE = "/dev/shm"
 
 
 class ImageReader(ABC):
@@ -75,6 +73,11 @@ class ImageReader(ABC):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         pass
+
+    @property
+    @abstractmethod
+    def ctx(self) -> tiledb.Ctx:
+        """The logger of this image reader."""
 
     @property
     @abstractmethod
@@ -379,7 +382,7 @@ class ImageConverter:
             max_tiles.update(tiles)
         logger.debug(f"Updated max tiles:{max_tiles}")
 
-        rw_group = ReadWriteGroup(output_path)
+        rw_group = ReadWriteGroup(output_path, ctx=reader.ctx)
 
         metadata = {}
         original_metadata = {}
@@ -498,7 +501,10 @@ class ImageConverter:
                 fmt_version=FMT_VERSION,
                 channels=json.dumps(reader.channels),
                 levels=jsonpickle.encode(
-                    sorted(iter_levels_meta(rw_group.r_group), key=itemgetter("level")),
+                    sorted(
+                        iter_levels_meta(rw_group.r_group, ctx=reader.ctx),
+                        key=itemgetter("level"),
+                    ),
                     unpicklable=False,
                 ),
                 metadata=jsonpickle.encode(metadata, unpicklable=False),
@@ -579,9 +585,9 @@ def _convert_level_to_tiledb(
     # get or create TileDB array uri
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
 
-    if created or not validate_ingestion(uri):
+    if created or not validate_ingestion(uri, ctx=reader.ctx):
         # write image and metadata to TileDB array
-        with open_bioimg(uri, "w") as out_array:
+        with open_bioimg(uri, "w", ctx=reader.ctx) as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
             inv_axes_mapper = axes_mapper.inverse
             if chunked:
