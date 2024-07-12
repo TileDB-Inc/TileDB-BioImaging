@@ -175,7 +175,7 @@ class OMEZarrReader(ImageReader):
 
     def optimal_reader(
         self, level: int, max_workers: int = 0
-    ) -> Optional[Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
+    ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
         return None
 
 

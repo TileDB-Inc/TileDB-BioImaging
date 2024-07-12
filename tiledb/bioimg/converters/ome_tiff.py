@@ -1,8 +1,6 @@
 import decimal
 import logging
-import math
 import warnings
-from functools import cached_property
 from typing import (
     Any,
     Dict,
@@ -16,9 +14,7 @@ from typing import (
 )
 
 import jsonpickle as json
-import numpy
 import numpy as np
-import psutil
 import tifffile
 from numpy._typing import NDArray
 
@@ -30,7 +26,6 @@ from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 from .io import as_array
 from .metadata import qpi_image_meta, qpi_original_meta
-from .tiff_helpers import get_chunks, get_pages_memory_order
 
 
 class OMETiffReader(ImageReader):
@@ -334,140 +329,34 @@ class OMETiffReader(ImageReader):
 
         return metadata
 
-    @cached_property
-    def memory_order(self) -> Mapping[int, Tuple[str, ...]]:
-        return get_pages_memory_order(self._tiff)
-
     def optimal_reader(
         self, level: int, max_workers: int = 0
-    ) -> Optional[Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
+    ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
         # Get the pages the hold the data for the requested level
         pages = self._series.levels[level].pages
 
-        # Check if all pages in the level can be read by the optimal reader
-        if any(True for page in pages if len(self.memory_order[page.hash]) == 0):
-            return None
-
-        # Use system info to tune reader config
-        cpu_count = psutil.cpu_count() if max_workers == 0 else max_workers
-        available_memory = psutil.virtual_memory().available / 2**20
-
-        # Use first page as the baseline for calculate minimum memory requirements per thread
-        # Get the axes permutation to match the chunks memory order
-        page_order = [pages[0].axes.index(i) for i in self.memory_order[pages[0].hash]]
-
-        # Calculate uncompressed size per chunk
-        # Inflate the chunk size to account for copies during transformations, and while decoding
-        size = (
-            self.level_dtype(level=level).itemsize
-            * self.INFLATION_RATIO
-            * math.prod(
-                [
-                    (
-                        pages[0].chunks[i]
-                        if i == page_order[0]
-                        else pages[0].chunks[i] * pages[0].chunked[i]
-                    )
-                    for i in range(len(pages[0].axes))
-                ]
-            )
-            / 2**20
-        )
-
-        # Calculate the number of chunks per thread that can fit in memory
-        chunks_per_thread = max(
-            math.floor(math.ceil(available_memory / size) / cpu_count), 1
-        )
-
-        # Calculate number of chunks of current level
-        num_read_ops = sum(
-            [
-                sum(
-                    [
-                        1
-                        for _ in range(
-                            0, page.chunked[page_order[0]], chunks_per_thread
-                        )
-                    ]
-                )
-                for page in pages
-            ]
-        )
-
         # construct a generator function to read the image in optimal order
         def chunk_iterator() -> Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]:
-            for idx, page in zip(
-                get_chunks(self.level_shape(level)[: -len(pages[0].axes)]), pages
-            ):
+            for idx, page in enumerate(pages):
 
-                # Get the axes permutation to match the chunks memory order
-                order = [page.axes.index(i) for i in self.memory_order[page.hash]]
+                for data, offset in as_array(page, logger=get_logger_wrapper()):
 
-                # Calculate how many chunks are per row in the memory order major dimension
-                chunks_per_row = math.prod([page.chunked[i] for i in order[1:]])
+                    if len(pages) > 1:
+                        # This is a multipage image, so we need to expand the data shape to accommodate for that
+                        # and also prepend the page index to the offset
 
-                # Calculate the size of the temporary buffer to store the decoded image chunks
-                chunk_shape = tuple(
-                    (
-                        page.chunks[i] * chunks_per_thread
-                        if i == order[0]
-                        else page.chunks[i] * page.chunked[i]
-                    )
-                    for i in range(len(page.axes))
-                )
+                        offset = (idx,) + offset
+                        data.reshape((1,) + data.shape)
 
-                chunks = get_chunks(
-                    shape=tuple(page.chunked[p] for p in order), permutation=order
-                )
-                strides = [
-                    math.prod(page.chunked[i + 1 :]) for i in range(len(page.chunked))
-                ]
-                indices = [
-                    sum([chunk[i] * strides[i] for i in range(len(chunk))])
-                    for chunk in chunks
-                ]
+                        print(offset, data.shape)
 
-                for i in range(0, page.chunked[order[0]], chunks_per_thread):
-                    buffer = numpy.zeros(
-                        shape=chunk_shape, dtype=self.level_dtype(level)
-                    )
-                    as_array(
-                        page,
-                        buffer,
-                        indices,
-                        order,
-                        i * chunks_per_row,
-                        chunks_per_row * chunks_per_thread,
-                    )
+                    slices: Tuple[slice, ...] = ()
+                    for i in range(len(offset)):
+                        slices = slices + (slice(offset[i], offset[i] + data.shape[i]),)
 
-                    global_index = tuple(slice(j, j + 1) for j in idx) + tuple(
-                        (
-                            slice(
-                                i * page.chunks[j],
-                                min(
-                                    (i + chunks_per_thread) * page.chunks[j],
-                                    page.shape[j],
-                                ),
-                            )
-                            if j == order[0]
-                            else slice(0, page.shape[j])
-                        )
-                        for j in range(len(page.axes))
-                    )
+                    yield slices, data
 
-                    expanded_shape = (
-                        tuple(
-                            1 for _ in range(len(self.axes.dims[: -len(pages[0].axes)]))
-                        )
-                        + buffer.shape
-                    )
-                    local_slice = tuple(
-                        slice(0, i.stop - i.start) for i in global_index
-                    )
-
-                    yield global_index, buffer.reshape(expanded_shape)[local_slice]
-
-        return num_read_ops, chunk_iterator()
+        return chunk_iterator()
 
 
 class OMETiffWriter(ImageWriter):

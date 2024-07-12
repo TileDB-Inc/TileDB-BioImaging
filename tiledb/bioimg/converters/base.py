@@ -5,7 +5,7 @@ import logging
 import os
 import warnings
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from operator import itemgetter
 from typing import (
     Any,
@@ -146,7 +146,7 @@ class ImageReader(ABC):
     @abstractmethod
     def optimal_reader(
         self, level: int, max_workers: int = 0
-    ) -> Union[None, Tuple[int, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]]:
+    ) -> Union[None, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
         """
         Return an image tile iterator with optimal memory access pattern.
 
@@ -594,7 +594,6 @@ def _convert_level_to_tiledb(
             if chunked:
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
                 mapper = getattr(ex, "map", map)
-
                 opt_reader = reader.optimal_reader(level=level, max_workers=max_workers)
 
                 if experimental_reader and opt_reader is not None:
@@ -611,20 +610,23 @@ def _convert_level_to_tiledb(
                             data, axis=min_max_indices
                         )
 
-                    for tile_min, tile_max in tqdm(
-                        mapper(
-                            tile_to_tiledb_exp,
-                            opt_reader[1],
-                        ),
-                        desc=f"Ingesting level {level}",
-                        total=opt_reader[0],
-                        unit="tiles",
-                    ):
-                        # Find the global min-max values from all tiles
-                        compute_channel_minmax(channel_min_max, tile_min, tile_max)
-                        pass
                     if ex:
+
+                        def process(fut: Future[Tuple[np.ndarray, ...]]) -> None:
+                            t_min, t_max = fut.result()
+                            compute_channel_minmax(channel_min_max, t_min, t_max)
+
+                        futures = []
+                        for tile in opt_reader:
+                            future = ex.submit(tile_to_tiledb_exp, tile)
+                            future.add_done_callback(process)
+                            futures.append(future)
+
                         ex.shutdown()
+                    else:
+                        for tile in opt_reader:
+                            t_min, t_max = tile_to_tiledb_exp(tile)
+                            compute_channel_minmax(channel_min_max, t_min, t_max)
                 else:
 
                     def tile_to_tiledb(
