@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -612,15 +613,23 @@ def _convert_level_to_tiledb(
 
                     if ex:
 
+                        should_fetch_next = threading.Event()
+                        should_fetch_next.clear()
+
                         def process(fut: Future[Tuple[np.ndarray, ...]]) -> None:
                             t_min, t_max = fut.result()
                             compute_channel_minmax(channel_min_max, t_min, t_max)
 
-                        futures = []
+                            if ex._work_queue.qsize() < 10:  # type: ignore
+                                should_fetch_next.set()
+
                         for tile in opt_reader:
                             future = ex.submit(tile_to_tiledb_exp, tile)
                             future.add_done_callback(process)
-                            futures.append(future)
+
+                            if ex._work_queue.qsize() > 20:
+                                should_fetch_next.clear()
+                                should_fetch_next.wait()
 
                         ex.shutdown()
                     else:
