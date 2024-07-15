@@ -85,9 +85,7 @@ def as_array(
                 keyframe.imagelength - y_offset * tilelength,
                 tilelength,
             )
-            z_size = min(
-                keyframe.imagedepth - z_offset * tiledepth, tiledepth
-            )
+            z_size = min(keyframe.imagedepth - z_offset * tiledepth, tiledepth)
 
             buffer = numpy.zeros(
                 shape=(1, z_size, y_size, x_size, keyframe.samplesperpixel),
@@ -113,11 +111,7 @@ def as_array(
             shape = shape + (keyframe.samplesperpixel,) if "S" in page.axes else shape
 
             offset = (z_offset * tiledepth,) if "Z" in page.axes else ()
-            offset = (
-                offset + (y_offset * tilelength,)
-                if "Y" in page.axes
-                else offset
-            )
+            offset = offset + (y_offset * tilelength,) if "Y" in page.axes else offset
             offset = offset + (0,) if "X" in page.axes else offset
             offset = offset + (0,) if "S" in page.axes else offset
 
@@ -126,13 +120,9 @@ def as_array(
         while (offsets := has_column(segment_cache, page)) is not None:
             x_offset, z_offset = offsets
 
-            x_size = min(
-                keyframe.imagewidth - x_offset * tilewidth, tilewidth
-            )
+            x_size = min(keyframe.imagewidth - x_offset * tilewidth, tilewidth)
             y_size = keyframe.imagelength
-            z_size = min(
-                keyframe.imagedepth - z_offset * tiledepth, tiledepth
-            )
+            z_size = min(keyframe.imagedepth - z_offset * tiledepth, tiledepth)
 
             buffer = numpy.zeros(
                 shape=(1, z_size, y_size, x_size, keyframe.samplesperpixel),
@@ -159,11 +149,7 @@ def as_array(
 
             offset = (z_offset * tiledepth,) if "Z" in page.axes else ()
             offset = offset + (0,) if "Y" in page.axes else offset
-            offset = (
-                offset + (x_offset * tilewidth,)
-                if "X" in page.axes
-                else offset
-            )
+            offset = offset + (x_offset * tilewidth,) if "X" in page.axes else offset
             offset = offset + (0,) if "S" in page.axes else offset
 
             yield buffer.reshape(shape), offset
