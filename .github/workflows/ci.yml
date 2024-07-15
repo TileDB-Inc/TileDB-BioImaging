@@ -6,7 +6,7 @@ jobs:
   build:
     name: ${{ matrix.sys.os }}
     runs-on: ${{ matrix.sys.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       matrix:
         sys:
