@@ -1,5 +1,6 @@
 import decimal
 import logging
+import math
 import warnings
 from typing import (
     Any,
@@ -334,21 +335,19 @@ class OMETiffReader(ImageReader):
     ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
         # Get the pages the hold the data for the requested level
         pages = self._series.levels[level].pages
+        extra_dims = pages.shape[:len(pages.axes) - len(pages[0].axes)] + (1,)
 
         # construct a generator function to read the image in optimal order
         def chunk_iterator() -> Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]:
             for idx, page in enumerate(pages):
-
                 for data, offset in as_array(page, logger=get_logger_wrapper()):
+                    extra_offsets = ()
+                    for i in range(len(extra_dims) - 1):
+                        dim_index = (idx // math.prod(extra_dims[i + 1:])) % extra_dims[i]
+                        extra_offsets = extra_offsets + (dim_index,)
+                        data.shape = (1,) + data.shape
 
-                    if len(pages) > 1:
-                        # This is a multipage image, so we need to expand the data shape to accommodate for that
-                        # and also prepend the page index to the offset
-
-                        offset = (idx,) + offset
-                        data.reshape((1,) + data.shape)
-
-                        print(offset, data.shape)
+                    offset = extra_offsets + offset
 
                     slices: Tuple[slice, ...] = ()
                     for i in range(len(offset)):
