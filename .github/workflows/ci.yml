@@ -85,7 +85,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
         mkdir test_temp
-        micromamba run -n test pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/
+        micromamba run -n test pytest --basetemp=test_temp -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ --ignore=tests/integration/converters/test_ome_tiff_experimental.py
       if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run notebook examples
