@@ -154,7 +154,42 @@ def as_array(
 
             yield buffer.reshape(shape), offset
 
-        # TODO: Add depth first ingestion
+        while (offsets := has_depth(segment_cache, page)) is not None:
+            x_offset, y_offset = offsets
+
+            x_size = min(keyframe.imagewidth - x_offset * tilewidth, tilewidth)
+            y_size = min(keyframe.imagelength - y_offset * tilelength, tilelength)
+            z_size = keyframe.imagedepth
+
+            buffer = numpy.zeros(
+                shape=(1, z_size, y_size, x_size, keyframe.samplesperpixel),
+                dtype=page.dtype,
+            )
+
+            for z_offset in range(z_chunks):
+                idx = z_offset * y_chunks * x_chunks + y_offset * x_chunks + x_offset
+                data, (_, z, y, x, s), size = keyframe.decode(
+                    *segment_cache[idx], **decodeargs
+                )
+                buffer[0, 0 : size[0], y : y + size[1], 0 : size[2]] = data[
+                    : keyframe.imagedepth - z,
+                    : keyframe.imagelength - y,
+                    : keyframe.imagewidth - x,
+                ]
+
+                segment_cache[idx] = None
+
+            shape = (z_size,) if "Z" in page.axes else ()
+            shape = shape + (y_size,) if "Y" in page.axes else shape
+            shape = shape + (x_size,) if "X" in page.axes else shape
+            shape = shape + (keyframe.samplesperpixel,) if "S" in page.axes else shape
+
+            offset = (0,) if "Z" in page.axes else ()
+            offset = offset + (y_offset * tilelength,) if "Y" in page.axes else offset
+            offset = offset + (x_offset * tilewidth,) if "X" in page.axes else offset
+            offset = offset + (0,) if "S" in page.axes else offset
+
+            yield buffer.reshape(shape), offset
 
 
 def has_row(
