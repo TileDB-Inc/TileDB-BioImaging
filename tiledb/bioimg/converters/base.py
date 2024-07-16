@@ -58,7 +58,7 @@ from .axes import Axes
 from .tiles import iter_tiles, num_tiles
 
 
-class ImageReader(ABC):
+class ImageReader(Protocol):
     @abstractmethod
     def __init__(
         self,
@@ -175,7 +175,7 @@ class ImageReader(ABC):
         """
 
 
-class ImageWriter(ABC):
+class ImageWriter(Protocol):
     @abstractmethod
     def __init__(self, output_path: str, logger: logging.Logger, **kwargs: Any):
         """Initialize this ImageWriter"""
