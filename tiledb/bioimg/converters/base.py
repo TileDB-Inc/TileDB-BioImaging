@@ -55,9 +55,10 @@ from .axes import Axes
 from .tiles import iter_tiles, num_tiles
 
 DEFAULT_SCRATCH_SPACE = "/dev/shm"
+from typing import Protocol
 
 
-class ImageReader(ABC):
+class ImageReader(Protocol):
     @abstractmethod
     def __init__(
         self,
@@ -151,7 +152,7 @@ class ImageReader(ABC):
         """Return the metadata of the original file."""
 
 
-class ImageWriter(ABC):
+class ImageWriter(Protocol):
     @abstractmethod
     def __init__(self, output_path: str, logger: logging.Logger, **kwargs: Any):
         """Initialize this ImageWriter"""
