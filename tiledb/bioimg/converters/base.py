@@ -319,7 +319,7 @@ class ImageConverter:
         exclude_metadata: bool = False,
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
         log: Optional[Union[bool, logging.Logger]] = None,
-        reader_kwargs: Optional[Mapping[str, Any]] = None,
+        reader_kwargs: Optional[MutableMapping[str, Any]] = None,
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> Type[ImageConverter]:
         """
@@ -369,6 +369,15 @@ class ImageConverter:
         else:
             default_verbose = False
             logger = get_logger_wrapper(default_verbose)
+
+        # Backwards compatibility config v0.2.13
+        if reader_kwargs:
+            common_cfg = reader_kwargs.get("config", None)
+            if common_cfg:
+                # Overwrite the source and destination configs with the common
+                reader_kwargs["source_config"] = reader_kwargs[
+                    "dest_config"
+                ] = common_cfg
 
         if isinstance(source, ImageReader):
             if cls._ImageReaderType != source.__class__:
