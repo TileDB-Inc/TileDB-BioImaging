@@ -24,7 +24,7 @@ from tifffile.tifffile import (
 
 
 def as_array(
-    page: Union[TiffPage, TiffFrame], logger: Logger
+    page: Union[TiffPage, TiffFrame], logger: Logger, buffer_size: Optional[int] = None
 ) -> Iterator[Tuple[NDArray[Any], Tuple[int, ...]]]:
     keyframe = page.keyframe  # self or keyframe
     fh = page.parent.filehandle
@@ -64,7 +64,9 @@ def as_array(
         tilelength = keyframe.rowsperstrip
         tiledepth = 1  # TODO: Find 3D striped image to test
 
-    for segment in fh.read_segments(page.dataoffsets, page.databytecounts, lock=lock):
+    for segment in fh.read_segments(
+        page.dataoffsets, page.databytecounts, lock=lock, buffersize=buffer_size
+    ):
         x_index = segment[1] % x_chunks
         y_index = (segment[1] // x_chunks) % y_chunks
         z_index = segment[1] // (y_chunks * x_chunks)

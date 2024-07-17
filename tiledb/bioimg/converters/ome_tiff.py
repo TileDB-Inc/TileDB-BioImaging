@@ -37,6 +37,7 @@ class OMETiffReader(ImageReader):
         input_path: str,
         logger: Optional[logging.Logger] = None,
         extra_tags: Sequence[Union[str, int]] = (),
+        buffer_size: Optional[int] = None,
     ):
         """
         OME-TIFF image reader
@@ -46,6 +47,7 @@ class OMETiffReader(ImageReader):
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
         self._extra_tags = extra_tags
+        self._buffer_size = buffer_size
         self._tiff = tifffile.TiffFile(input_path)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
@@ -340,7 +342,9 @@ class OMETiffReader(ImageReader):
         # construct a generator function to read the image in optimal order
         def chunk_iterator() -> Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]:
             for idx, page in enumerate(pages):
-                for data, offset in as_array(page, logger=get_logger_wrapper()):
+                for data, offset in as_array(
+                    page, logger=get_logger_wrapper(), buffer_size=self._buffer_size
+                ):
                     extra_offsets: Tuple[int, ...] = ()
                     for i in range(len(extra_dims) - 1):
                         dim_index = (

@@ -313,6 +313,7 @@ class ImageConverter:
         max_workers: int = 0,
         exclude_metadata: bool = False,
         experimental_reader: bool = False,
+        experimental_queue_limit: Tuple[int, int] = (10, 20),
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
         log: Optional[Union[bool, logging.Logger]] = None,
         reader_kwargs: Optional[Mapping[str, Any]] = None,
@@ -339,6 +340,8 @@ class ImageConverter:
         :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
         :param experimental_reader: If true, use the experimental tiff reader optimized for s3 reads.
             Experimental feature, use with caution
+        :param experimental_queue_limit: When using the experimental reader, define the minimum and maximum number of
+            pending tiles waiting to be written to TileDB.
         :param compressor: TileDB compression filter mapping for each level
         :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
             If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
@@ -442,6 +445,7 @@ class ImageConverter:
                 max_workers=max_workers,
                 compressor=compressors,
                 experimental_reader=experimental_reader,
+                experimental_queue_limits=experimental_queue_limit,
             )
             logger.debug(f"Convert arguments : {convert_kwargs}")
 
@@ -527,6 +531,7 @@ def _convert_level_to_tiledb(
     max_workers: int,
     compressor: Mapping[int, tiledb.Filter],
     experimental_reader: bool,
+    experimental_queue_limits: Tuple[int, int],
 ) -> Mapping[str, Any]:
     level_metadata: MutableMapping[str, Any] = {}
 
@@ -612,7 +617,6 @@ def _convert_level_to_tiledb(
                         )
 
                     if ex:
-
                         should_fetch_next = threading.Event()
                         should_fetch_next.clear()
 
@@ -620,14 +624,14 @@ def _convert_level_to_tiledb(
                             t_min, t_max = fut.result()
                             compute_channel_minmax(channel_min_max, t_min, t_max)
 
-                            if ex._work_queue.qsize() < 10:  # type: ignore
+                            if ex._work_queue.qsize() < experimental_queue_limits[0]:  # type: ignore
                                 should_fetch_next.set()
 
                         for tile in opt_reader:
                             future = ex.submit(tile_to_tiledb_exp, tile)
                             future.add_done_callback(process)
 
-                            if ex._work_queue.qsize() > 20:
+                            if ex._work_queue.qsize() > experimental_queue_limits[1]:
                                 should_fetch_next.clear()
                                 should_fetch_next.wait()
 
