@@ -62,8 +62,10 @@ class ImageReader(ABC):
         input_path: str,
         *,
         logger: Optional[logging.Logger],
-        config: Optional[tiledb.Config] = None,
-        ctx: Optional[tiledb.Ctx] = None,
+        source_config: Optional[tiledb.Config] = None,
+        source_ctx: Optional[tiledb.Ctx] = None,
+        dest_config: Optional[tiledb.Config] = None,
+        dest_ctx: Optional[tiledb.Config] = None,
         **kwargs: Any,
     ):
         """Initialize this ImageReader"""
@@ -76,8 +78,13 @@ class ImageReader(ABC):
 
     @property
     @abstractmethod
-    def ctx(self) -> tiledb.Ctx:
-        """The logger of this image reader."""
+    def source_ctx(self) -> tiledb.Ctx:
+        """The ctx of the source path of this image reader."""
+
+    @property
+    @abstractmethod
+    def dest_ctx(self) -> tiledb.Ctx:
+        """The ctx of the dest path of this image reader."""
 
     @property
     @abstractmethod
@@ -382,7 +389,7 @@ class ImageConverter:
             max_tiles.update(tiles)
         logger.debug(f"Updated max tiles:{max_tiles}")
 
-        rw_group = ReadWriteGroup(output_path, ctx=reader.ctx)
+        rw_group = ReadWriteGroup(output_path, ctx=reader.dest_ctx)
 
         metadata = {}
         original_metadata = {}
@@ -502,7 +509,7 @@ class ImageConverter:
                 channels=json.dumps(reader.channels),
                 levels=jsonpickle.encode(
                     sorted(
-                        iter_levels_meta(rw_group.r_group, ctx=reader.ctx),
+                        iter_levels_meta(rw_group.r_group, ctx=reader.dest_ctx),
                         key=itemgetter("level"),
                     ),
                     unpicklable=False,
@@ -585,9 +592,9 @@ def _convert_level_to_tiledb(
     # get or create TileDB array uri
     uri, created = rw_group.get_or_create(f"l_{level}.tdb", schema)
 
-    if created or not validate_ingestion(uri, ctx=reader.ctx):
+    if created or not validate_ingestion(uri, ctx=reader.dest_ctx):
         # write image and metadata to TileDB array
-        with open_bioimg(uri, "w", ctx=reader.ctx) as out_array:
+        with open_bioimg(uri, "w", ctx=reader.dest_ctx) as out_array:
             out_array.meta.update(reader.level_metadata(level), level=level)
             inv_axes_mapper = axes_mapper.inverse
             if chunked:

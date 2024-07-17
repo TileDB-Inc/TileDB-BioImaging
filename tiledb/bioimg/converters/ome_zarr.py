@@ -36,17 +36,21 @@ class OMEZarrReader(ImageReader):
         input_path: str,
         *,
         logger: Optional[logging.Logger] = None,
-        config: Optional[Config] = None,
-        ctx: Optional[Ctx] = None,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
     ):
         """
         OME-Zarr image reader
         :param input_path: The path to the Zarr image
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
-        self._ctx = _get_ctx(ctx, config)
-        self._cfg = self._ctx.config()
-        storage_options = translate_config_to_s3fs(self._cfg)
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
+        storage_options = translate_config_to_s3fs(self._source_cfg)
         input_fh = zarr.storage.FSStore(
             input_path, check=True, create=True, **storage_options
         )
@@ -55,8 +59,12 @@ class OMEZarrReader(ImageReader):
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
     @property
-    def ctx(self) -> Ctx:
-        return self._ctx
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:
