@@ -43,8 +43,10 @@ class OpenSlideReader(ImageReader):
         input_path: str,
         *,
         logger: Optional[logging.Logger] = None,
-        config: Optional[Config] = None,
-        ctx: Optional[Ctx] = None,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
     ):
         """
@@ -52,12 +54,14 @@ class OpenSlideReader(ImageReader):
         :param input_path: The path to the OpenSlide image
 
         """
-        self._ctx = _get_ctx(ctx, config)
-        self._cfg = self._ctx.config()
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
         self._logger = get_logger_wrapper(False) if not logger else logger
         if is_remote_protocol(input_path):
             resolved_path = cache_filepath(
-                input_path, config, ctx, self._logger, scratch_space
+                input_path, source_config, source_ctx, self._logger, scratch_space
             )
         else:
             resolved_path = input_path
@@ -65,6 +69,14 @@ class OpenSlideReader(ImageReader):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._osd.close()
+
+    @property
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:

@@ -32,8 +32,10 @@ class OMETiffReader(ImageReader):
         input_path: str,
         *,
         logger: Optional[logging.Logger] = None,
-        config: Optional[Config] = None,
-        ctx: Optional[Ctx] = None,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
         extra_tags: Sequence[Union[str, int]] = (),
     ):
         """
@@ -47,9 +49,11 @@ class OMETiffReader(ImageReader):
 
         # Use VFS for all paths local or remote for reading the input image
         self._input_path = input_path
-        self._ctx = _get_ctx(ctx, config)
-        self._cfg = self._ctx.config()
-        self._vfs = VFS(config=self._cfg, ctx=self._ctx)
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
+        self._vfs = VFS(config=self._source_cfg, ctx=self._source_ctx)
         self._vfs_fh = self._vfs.open(input_path, mode="rb")
         self._tiff = tifffile.TiffFile(self._vfs_fh)
         # XXX ignore all but the first series
@@ -60,6 +64,14 @@ class OMETiffReader(ImageReader):
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
         self._vfs.close(file=self._vfs_fh)
+
+    @property
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:

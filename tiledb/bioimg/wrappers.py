@@ -47,7 +47,18 @@ def from_bioimg(
     :param kwargs: keyword arguments for custom ingestion behaviour
     :return: The converter class that was used for the ingestion
     """
+
     logger = get_logger_wrapper(verbose)
+    reader_kwargs = kwargs.get("reader_kwargs", {})
+
+    # Get the config for the source
+    reader_kwargs["source_config"] = kwargs.pop("source_config", None)
+
+    # Get the config for the destination (if exists) otherwise match it with source config
+    reader_kwargs["dest_config"] = kwargs.pop(
+        "dest_config", reader_kwargs["source_config"]
+    )
+
     if converter is Converters.OMETIFF:
         if not _tiff_exc:
             logger.info("Converting OME-TIFF file")
@@ -57,6 +68,7 @@ def from_bioimg(
                 log=logger,
                 exclude_metadata=exclude_metadata,
                 tile_scale=tile_scale,
+                reader_kwargs=reader_kwargs,
                 **kwargs,
             )
         else:
@@ -70,6 +82,7 @@ def from_bioimg(
                 log=logger,
                 exclude_metadata=exclude_metadata,
                 tile_scale=tile_scale,
+                reader_kwargs=reader_kwargs,
                 **kwargs,
             )
         else:
@@ -83,6 +96,7 @@ def from_bioimg(
                 log=logger,
                 exclude_metadata=exclude_metadata,
                 tile_scale=tile_scale,
+                reader_kwargs=reader_kwargs,
                 **kwargs,
             )
         else:

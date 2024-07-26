@@ -61,7 +61,7 @@ class ReadWriteGroup:
         else:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
-            if not tiledb.array_exists(uri):
+            if not tiledb.array_exists(uri, ctx=self._ctx):
                 tiledb.Array.create(uri, schema, ctx=self._ctx)
                 create = True
             else:
@@ -90,7 +90,7 @@ class ReadWriteGroup:
         return uri, create
 
 
-def validate_ingestion(uri: str) -> bool:
+def validate_ingestion(uri: str, ctx: tiledb.Ctx = None) -> bool:
     """
     This function validates that they array has been stored properly
     by checking the existence of array fragments and
@@ -103,12 +103,12 @@ def validate_ingestion(uri: str) -> bool:
     Returns boolean
     -------
     """
-    fragments_list_info = tiledb.array_fragments(uri)
+    fragments_list_info = tiledb.array_fragments(uri, ctx=ctx)
     if not len(fragments_list_info):
         # If no fragments are present
         return False
     else:
-        with tiledb.open(uri) as validation_array:
+        with tiledb.open(uri, ctx=ctx) as validation_array:
             ned = fragments_list_info.nonempty_domain
             consolidated_ranges = merge_ned_ranges(ned)
             domains = [d.domain for d in validation_array.schema.domain]
