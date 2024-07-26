@@ -56,7 +56,7 @@ class OMEZarrReader(ImageReader):
 
     @property
     def ctx(self) -> Ctx:
-        return self._ctx()
+        return self._ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:
