@@ -124,7 +124,7 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
 
     OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
     OMETiffConverter.to_tiledb(
-        vfs.open(input_path, "rb"),
+        input_path,
         str(experimental_path),
         tiles=tiles,
         experimental_reader=True,

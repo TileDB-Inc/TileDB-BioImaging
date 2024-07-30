@@ -9,9 +9,6 @@ Python package for:
 - converting images stored in popular Biomedical Imaging formats to groups of TileDB arrays (& vice versa)
 - exposing an expressive and efficient API (powered by TileDB) for querying such data.
 
-**Note**: this project is in an early stage and under heavy development.
-Breaking changes to the underlying data format and the API are to be expected.
-
 ## Features
 
 ### Ingestion to TileDB Groups of Arrays
@@ -40,6 +37,22 @@ Breaking changes to the underlying data format and the API are to be expected.
       cd TileDB-BioImaging
 
       pip install -e '.[full]'
+
+## Windows Installation
+
+After installing `Openslide` you should make sure that you create a link between your installation path and
+the following default path `C:\openslide-win64\ `.
+
+```cmd
+mklink /D C:\openslide-win64\ [your-installation-path]\openslide-win64-20221217\
+```
+
+You can install the latest versions of `Openslide` for windows using the pre-built packages
+found in the project's github page:
+`https://github.com/openslide/openslide-bin/releases`
+
+or in their website:
+`https://openslide.org/download/`
 
 
 ## Examples

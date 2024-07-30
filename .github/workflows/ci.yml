@@ -19,7 +19,10 @@ jobs:
 
     env:
       run_coverage: ${{ github.ref == 'refs/heads/main' }}
-    
+
+    outputs:
+      coverage: ${{ steps.stats.outputs.coverage }}
+
     steps:
     - uses: actions/checkout@v2
 
@@ -46,8 +49,8 @@ jobs:
         choco install wget --no-progress
         wget https://github.com/openslide/openslide-winbuild/releases/download/v20221217/openslide-win64-20221217.zip
         7z x openslide-win64-20221217.zip -oD:\openslide\
-        mklink /D D:\openslide-win64\ D:\openslide\openslide-win64-20221217\
-        cd D:\openslide-win64\
+        mklink /D C:\openslide-win64\ D:\openslide\openslide-win64-20221217\
+        cd C:\openslide-win64\
         dir
         set openslide_path=%cd%
         echo %openslide_path%
@@ -74,7 +77,7 @@ jobs:
         pytest -v --cov=tiledb --cov-report=term-missing --durations=0 tests/ > coverage.txt
         exit_code=$?
         TEST_COVERAGE="$(grep '^TOTAL' coverage.txt | awk -v N=4 '{print $N}')"
-        echo "COVERAGE=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+        echo "coverage=$TEST_COVERAGE" >> $GITHUB_OUTPUT
         exit $exit_code
       if: ${{ matrix.sys.os != 'windows-latest' }}
 
@@ -101,6 +104,6 @@ jobs:
         gistID: 32d48185733a4e7375e80e3e35fab452
         filename: gist_bioimg.json
         label: Test Coverage
-        message: ${{ steps.stats.outputs.COVERAGE }}
+        message: ${{ steps.stats.outputs.coverage }}
         color: green
         namedLogo: pytest

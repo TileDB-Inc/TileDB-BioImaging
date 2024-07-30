@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from typing import (
     Any,
     Dict,
@@ -16,16 +17,26 @@ from typing import (
 
 import numpy
 import numpy as np
-import zarr
-from numcodecs import Blosc
 from numpy._typing import NDArray
-from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
-from ome_zarr.writer import write_multiscale
 
+try:
+    import zarr
+    from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
+    from ome_zarr.writer import write_multiscale
+    from zarr.codecs import Blosc
+except ImportError as err:
+    warnings.warn(
+        "OMEZarr Converter requires 'ome-zarr' package. "
+        "You can install 'tiledb-bioimg' with the 'zarr' or 'full' flag"
+    )
+    raise err
+
+from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
 from .. import WHITE_RGB
-from ..helpers import get_logger_wrapper, get_rgba
+from ..helpers import get_logger_wrapper, get_rgba, translate_config_to_s3fs
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
 
@@ -34,17 +45,37 @@ class OMEZarrReader(ImageReader):
     def __init__(
         self,
         input_path: str,
+        *,
         logger: Optional[logging.Logger] = None,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
     ):
         """
         OME-Zarr image reader
-
         :param input_path: The path to the Zarr image
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
-        self._root_node = next(Reader(ZarrLocation(input_path))())
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
+        storage_options = translate_config_to_s3fs(self._source_cfg)
+        input_fh = zarr.storage.FSStore(
+            input_path, check=True, create=True, **storage_options
+        )
+        self._root_node = next(Reader(ZarrLocation(input_fh))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
+
+    @property
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:

@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, cast
 
 import numpy as np
@@ -10,30 +11,73 @@ from . import WIN_OPENSLIDE_PATH
 if hasattr(os, "add_dll_directory"):
     # Python >= 3.8 on Windows
     with os.add_dll_directory(WIN_OPENSLIDE_PATH):
-        import openslide as osd
+        try:
+            import openslide as osd
+        except ImportError as err:
+            warnings.warn(
+                "Openslide Converter requires 'openslide-python' package. "
+                "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
+            )
+            raise err
 else:
-    import openslide as osd
-
+    try:
+        import openslide as osd
+    except ImportError as err:
+        warnings.warn(
+            "Openslide Converter requires 'openslide-python' package. "
+            "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
+        )
+        raise err
+from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
-from ..helpers import get_logger_wrapper, iter_color
+from ..helpers import cache_filepath, get_logger_wrapper, is_remote_protocol, iter_color
+from . import DEFAULT_SCRATCH_SPACE
 from .axes import Axes
 from .base import ImageConverter, ImageReader
 
 
 class OpenSlideReader(ImageReader):
-    def __init__(self, input_path: str, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self,
+        input_path: str,
+        *,
+        logger: Optional[logging.Logger] = None,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
+        scratch_space: str = DEFAULT_SCRATCH_SPACE,
+    ):
         """
         OpenSlide image reader
-
         :param input_path: The path to the OpenSlide image
 
         """
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
         self._logger = get_logger_wrapper(False) if not logger else logger
-        self._osd = osd.OpenSlide(input_path)
+        if is_remote_protocol(input_path):
+            resolved_path = cache_filepath(
+                input_path, source_config, source_ctx, self._logger, scratch_space
+            )
+        else:
+            resolved_path = input_path
+        self._osd = osd.OpenSlide(resolved_path)
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._osd.close()
+
+    @property
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:

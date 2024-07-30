@@ -16,10 +16,20 @@ from typing import (
 
 import jsonpickle as json
 import numpy as np
-import tifffile
 from numpy._typing import NDArray
 
+try:
+    import tifffile
+except ImportError as err:
+    warnings.warn(
+        "OMETiff Converter requires 'tifffile' package. "
+        "You can install 'tiledb-bioimg' with the 'tiff' or 'full' flag"
+    )
+    raise err
+
+from tiledb import VFS, Config, Ctx
 from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
@@ -30,12 +40,15 @@ from .metadata import qpi_image_meta, qpi_original_meta
 
 
 class OMETiffReader(ImageReader):
-    INFLATION_RATIO = 2
-
     def __init__(
         self,
         input_path: str,
+        *,
         logger: Optional[logging.Logger] = None,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
         extra_tags: Sequence[Union[str, int]] = (),
         buffer_size: Optional[int] = None,
     ):
@@ -48,7 +61,16 @@ class OMETiffReader(ImageReader):
         self._logger = get_logger_wrapper(False) if not logger else logger
         self._extra_tags = extra_tags
         self._buffer_size = buffer_size
-        self._tiff = tifffile.TiffFile(input_path)
+
+        # Use VFS for all paths local or remote for reading the input image
+        self._input_path = input_path
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
+        self._vfs = VFS(config=self._source_cfg, ctx=self._source_ctx)
+        self._vfs_fh = self._vfs.open(input_path, mode="rb")
+        self._tiff = tifffile.TiffFile(self._vfs_fh)
         # XXX ignore all but the first series
         self._series = self._tiff.series[0]
         omexml = self._tiff.ome_metadata
@@ -56,6 +78,15 @@ class OMETiffReader(ImageReader):
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
+        self._vfs.close(file=self._vfs_fh)
+
+    @property
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
 
     @property
     def logger(self) -> Optional[logging.Logger]:

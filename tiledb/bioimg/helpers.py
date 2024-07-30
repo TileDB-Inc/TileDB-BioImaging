@@ -4,37 +4,50 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterator, Mapping, MutableMapping, Sequence, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 from urllib.parse import urlparse
 
 import numpy as np
 
 import tiledb
-from tiledb import Config
+from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
 from .version import version_tuple
 
+SUPPORTED_PROTOCOLS = ("s3://", "gcs://", "azure://")
+
 
 class ReadWriteGroup:
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, ctx: Optional[Ctx] = None):
         parsed_uri = urlparse(uri)
         # normalize uri if it's a local path (e.g. ../..foo/bar)
 
         # Windows paths produce single letter scheme matching the drive letter
         # Unix absolute path produce an empty scheme
+        self._ctx = ctx
         if len(parsed_uri.scheme) < 2 or parsed_uri.scheme == "file":
             uri = str(Path(parsed_uri.path).resolve()).replace("\\", "/")
-        if tiledb.object_type(uri) != "group":
-            tiledb.group_create(uri)
+        if tiledb.object_type(uri, ctx=ctx) != "group":
+            tiledb.group_create(uri, ctx=ctx)
         self._uri = uri if uri.endswith("/") else uri + "/"
         self._is_cloud = parsed_uri.scheme == "tiledb"
 
     def __enter__(self) -> ReadWriteGroup:
-        self.r_group = tiledb.Group(self._uri, "r")
-        self.w_group = tiledb.Group(self._uri, "w")
+        self.r_group = tiledb.Group(self._uri, "r", ctx=self._ctx)
+        self.w_group = tiledb.Group(self._uri, "w", ctx=self._ctx)
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -48,27 +61,28 @@ class ReadWriteGroup:
         else:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
-            if not tiledb.array_exists(uri):
-                tiledb.Array.create(uri, schema)
-                create = True
-            else:
-                # The array exists, but it's not added as group member with the given name.
-                # It is possible though that it was added as an anonymous member.
-                # In this case we should remove the member, using as key either the uri
-                # (if added with relative=False) or the name (if added with relative=True).
-                for ref in uri, name:
-                    try:
-                        self.w_group.remove(ref)
-                    except tiledb.TileDBError:
-                        pass
-                    else:
-                        # Attempting to remove and then re-add a member with the same name
-                        # fails with "[TileDB::Group] Error: Cannot add group member,
-                        # member already set for removal.". To work around this we need to
-                        # close the write group (to flush the removal) and and reopen it
-                        # (to allow the add operation)
-                        self.w_group.close()
-                        self.w_group.open("w")
+            with tiledb.scope_ctx(self._ctx):
+                if not tiledb.array_exists(uri):
+                    tiledb.Array.create(uri, schema, ctx=self._ctx)
+                    create = True
+                else:
+                    # The array exists, but it's not added as group member with the given name.
+                    # It is possible though that it was added as an anonymous member.
+                    # In this case we should remove the member, using as key either the uri
+                    # (if added with relative=False) or the name (if added with relative=True).
+                    for ref in uri, name:
+                        try:
+                            self.w_group.remove(ref)
+                        except tiledb.TileDBError:
+                            pass
+                        else:
+                            # Attempting to remove and then re-add a member with the same name
+                            # fails with "[TileDB::Group] Error: Cannot add group member,
+                            # member already set for removal.". To work around this we need to
+                            # close the write group (to flush the removal) and and reopen it
+                            # (to allow the add operation)
+                            self.w_group.close()
+                            self.w_group.open("w")
             # register the uri with the given name
             if self._is_cloud:
                 self.w_group.add(uri, name, relative=False)
@@ -77,11 +91,45 @@ class ReadWriteGroup:
         return uri, create
 
 
+def validate_ingestion(uri: str, ctx: tiledb.Ctx = None) -> bool:
+    """
+    This function validates that they array has been stored properly
+    by checking the existence of array fragments and
+    comparing the schema of the array with the non-empty domain of the array.
+
+    Parameters
+    ----------
+    uri: The uri of the array to validate
+
+    Returns boolean
+    -------
+    """
+    fragments_list_info = tiledb.array_fragments(uri, ctx=ctx)
+    if not len(fragments_list_info):
+        # If no fragments are present
+        return False
+    else:
+        with tiledb.open(uri, ctx=ctx) as validation_array:
+            ned = fragments_list_info.nonempty_domain
+            consolidated_ranges = merge_ned_ranges(ned)
+            domains = [d.domain for d in validation_array.schema.domain]
+            # Check that each one of the consolidated ranges matches the corresponding
+            # domain
+            return all(
+                len(cr) == 1 and cr[0] == dom
+                for cr, dom in zip(consolidated_ranges, domains)
+            )
+
+
 def open_bioimg(
-    uri: str, mode: str = "r", attr: str = ATTR_NAME, config: Config = None
+    uri: str,
+    mode: str = "r",
+    attr: str = ATTR_NAME,
+    config: Config = None,
+    ctx: Optional[Ctx] = None,
 ) -> tiledb.Array:
     return tiledb.open(
-        uri, mode=mode, attr=attr if mode == "r" else None, config=config
+        uri, mode=mode, attr=attr if mode == "r" else None, config=config, ctx=ctx
     )
 
 
@@ -140,9 +188,11 @@ def get_axes_mapper(
     return axes_mapper, dim_names, tiles
 
 
-def iter_levels_meta(group: tiledb.Group) -> Iterator[Mapping[str, Any]]:
+def iter_levels_meta(
+    group: tiledb.Group, config: Config = None, ctx: Optional[Ctx] = None
+) -> Iterator[Mapping[str, Any]]:
     for o in group:
-        with open_bioimg(o.uri) as array:
+        with open_bioimg(o.uri, config=config, ctx=ctx) as array:
             try:
                 level = array.meta["level"]
             except KeyError as exc:
@@ -325,3 +375,84 @@ def get_logger_wrapper(
     )
 
     return logger
+
+
+def translate_config_to_s3fs(cfg: tiledb.Config) -> Mapping[str, Any]:
+    storage_options = {
+        "key": cfg.get("vfs.s3.aws_access_key_id", None) or None,
+        "secret": cfg.get("vfs.s3.aws_secret_access_key", None) or None,
+        "token": cfg.get("vfs.s3.aws_session_token", None) or None,
+        "endpoint_url": cfg.get("vfs.s3.endpoint_override", "") or None,
+        "max_concurrency": int(
+            cfg.get("vfs.s3.max_parallel_ops", cfg.get("sm.io_concurrency_level"))
+        ),
+        "client_kwargs": {"region_name": cfg.get("vfs.s3.region", "") or None},
+    }
+    return storage_options
+
+
+def cache_filepath(
+    filename: str, cfg: Config, ctx: Ctx, logger: logging.Logger, scratch: str
+) -> str:
+    vfs = tiledb.VFS(config=cfg, ctx=ctx)
+    cached = os.path.join(scratch, os.path.basename(filename))
+    if logger:
+        logger.debug(f"Scratch space temp destination uri: {cached}")
+    with vfs.open(filename, "rb") as remote:
+        with open(cached, "wb") as local:
+            local.write(remote.read())
+    return cached
+
+
+def is_remote_protocol(uri: str) -> bool:
+    return uri.startswith(SUPPORTED_PROTOCOLS)
+
+
+def merge_ranges(ranges: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """
+    Merge overlapping or consecutive ranges.
+
+    Parameters:
+    ranges (list of tuples): List of range tuples (start, end).
+
+    Returns:
+    list of tuples: Merged list of range tuples.
+    """
+    if not ranges:
+        return []
+
+    # Sort ranges by the starting value
+    ranges.sort()
+    merged_ranges = [ranges[0]]
+
+    for current_start, current_end in ranges[1:]:
+        last_start, last_end = merged_ranges[-1]
+        if current_start <= last_end + 1:  # Check if ranges overlap or are consecutive
+            merged_ranges[-1] = (last_start, max(last_end, current_end))
+        else:
+            merged_ranges.append((current_start, current_end))
+
+    return merged_ranges
+
+
+def merge_ned_ranges(
+    input_ranges: Tuple[Tuple[Tuple[int, int], ...], ...]
+) -> Tuple[List[Tuple[int, int]], ...]:
+    """
+    Merge ranges for each axis independently from a given input of ranges.
+
+    Parameters:
+    input_ranges (tuple of tuples): Input ranges for multiple axes.
+
+    Returns:
+    tuple of lists: Merged ranges for each axis.
+    """
+    num_axes = len(input_ranges[0])  # Determine the number of axes from the first tuple
+    ranges_per_axis = [
+        [axis_range[i] for axis_range in input_ranges] for i in range(num_axes)
+    ]
+
+    # Merge ranges for each axis
+    merged_ranges_per_axis = [merge_ranges(ranges) for ranges in ranges_per_axis]
+
+    return tuple(merged_ranges_per_axis)
