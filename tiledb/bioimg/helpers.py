@@ -61,27 +61,28 @@ class ReadWriteGroup:
         else:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
-            if not tiledb.array_exists(uri, ctx=self._ctx):
-                tiledb.Array.create(uri, schema, ctx=self._ctx)
-                create = True
-            else:
-                # The array exists, but it's not added as group member with the given name.
-                # It is possible though that it was added as an anonymous member.
-                # In this case we should remove the member, using as key either the uri
-                # (if added with relative=False) or the name (if added with relative=True).
-                for ref in uri, name:
-                    try:
-                        self.w_group.remove(ref)
-                    except tiledb.TileDBError:
-                        pass
-                    else:
-                        # Attempting to remove and then re-add a member with the same name
-                        # fails with "[TileDB::Group] Error: Cannot add group member,
-                        # member already set for removal.". To work around this we need to
-                        # close the write group (to flush the removal) and and reopen it
-                        # (to allow the add operation)
-                        self.w_group.close()
-                        self.w_group.open("w")
+            with tiledb.scope_ctx(self._ctx):
+                if not tiledb.array_exists(uri):
+                    tiledb.Array.create(uri, schema, ctx=self._ctx)
+                    create = True
+                else:
+                    # The array exists, but it's not added as group member with the given name.
+                    # It is possible though that it was added as an anonymous member.
+                    # In this case we should remove the member, using as key either the uri
+                    # (if added with relative=False) or the name (if added with relative=True).
+                    for ref in uri, name:
+                        try:
+                            self.w_group.remove(ref)
+                        except tiledb.TileDBError:
+                            pass
+                        else:
+                            # Attempting to remove and then re-add a member with the same name
+                            # fails with "[TileDB::Group] Error: Cannot add group member,
+                            # member already set for removal.". To work around this we need to
+                            # close the write group (to flush the removal) and and reopen it
+                            # (to allow the add operation)
+                            self.w_group.close()
+                            self.w_group.open("w")
             # register the uri with the given name
             if self._is_cloud:
                 self.w_group.add(uri, name, relative=False)
