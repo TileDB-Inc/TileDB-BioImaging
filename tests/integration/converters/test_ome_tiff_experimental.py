@@ -120,7 +120,6 @@ def test_ome_tiff_converter_artificial_rountrip(tmp_path, filename, dims, tiles)
     tiledb_path = tmp_path / "to_tiledb"
     experimental_path = tmp_path / "_experimental"
     output_path = tmp_path / "from_tiledb"
-    vfs = tiledb.VFS()
 
     OMETiffConverter.to_tiledb(input_path, str(tiledb_path), tiles=tiles)
     OMETiffConverter.to_tiledb(
