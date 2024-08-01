@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.5.55">
+<meta name="generator" content="quarto-1.5.56">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -324,7 +324,7 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="tiledb.bioimg.converters.openslide.OpenSlideConverter.to_tiledb" class="level3">
 <h3 class="anchored" data-anchor-id="tiledb.bioimg.converters.openslide.OpenSlideConverter.to_tiledb">to_tiledb</h3>
-<p><code>bioimg.converters.openslide.OpenSlideConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)</code></p>
+<p><code>bioimg.converters.openslide.OpenSlideConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, experimental_reader=False, experimental_queue_limit=(10, 20), compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)</code></p>
 <pre><code>    Convert an image to a TileDB Group of Arrays, one per level.
 
     :param source: path to the input image or ImageReader object
@@ -343,6 +343,10 @@ ul.task-list li input[type="checkbox"] {
     :param max_workers: Maximum number of threads that can be used for conversion.
         Applicable only if chunked=True.
     :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
+    :param experimental_reader: If true, use the experimental tiff reader optimized for s3 reads.
+        Experimental feature, use with caution
+    :param experimental_queue_limit: When using the experimental reader, define the minimum and maximum number of
+        pending tiles waiting to be written to TileDB.
     :param compressor: TileDB compression filter mapping for each level
     :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
         If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
