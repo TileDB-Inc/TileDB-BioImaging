@@ -1,9 +1,10 @@
 import logging
 import os
 import warnings
-from typing import Any, Dict, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, cast
 
 import numpy as np
+from numpy._typing import NDArray
 
 from . import WIN_OPENSLIDE_PATH
 
@@ -173,6 +174,11 @@ class OpenSlideReader(ImageReader):
     @property
     def original_metadata(self) -> Dict[str, Any]:
         return {"SVS": list(self._osd.properties.items())}
+
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
+        return None
 
 
 class OpenSlideConverter(ImageConverter):

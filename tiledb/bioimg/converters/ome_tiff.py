@@ -1,10 +1,22 @@
 import decimal
 import logging
+import math
 import warnings
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import jsonpickle as json
 import numpy as np
+from numpy._typing import NDArray
 
 try:
     import tifffile
@@ -23,6 +35,7 @@ from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
 from .axes import Axes
 from .base import ImageConverter, ImageReader, ImageWriter
+from .io import as_array
 from .metadata import qpi_image_meta, qpi_original_meta
 
 
@@ -37,6 +50,7 @@ class OMETiffReader(ImageReader):
         dest_config: Optional[Config] = None,
         dest_ctx: Optional[Ctx] = None,
         extra_tags: Sequence[Union[str, int]] = (),
+        buffer_size: Optional[int] = None,
     ):
         """
         OME-TIFF image reader
@@ -46,6 +60,7 @@ class OMETiffReader(ImageReader):
         """
         self._logger = get_logger_wrapper(False) if not logger else logger
         self._extra_tags = extra_tags
+        self._buffer_size = buffer_size
 
         # Use VFS for all paths local or remote for reading the input image
         self._input_path = input_path
@@ -246,9 +261,11 @@ class OMETiffReader(ImageReader):
                     channel_metadata = {
                         "id": channel.get("ID", f"{idx}"),
                         "name": channel.get("Name", f"Channel {idx}"),
-                        "color": get_rgba(channel["Color"])
-                        if "Color" in channel
-                        else next(color_generator),
+                        "color": (
+                            get_rgba(channel["Color"])
+                            if "Color" in channel
+                            else next(color_generator)
+                        ),
                     }
                     if "EmissionWavelength" in channel:
                         channel_metadata["emissionWavelength"] = channel[
@@ -346,6 +363,37 @@ class OMETiffReader(ImageReader):
 
         return metadata
 
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
+        # Get the pages the hold the data for the requested level
+        pages = self._series.levels[level].pages
+        extra_dims = pages.shape[: len(pages.axes) - len(pages[0].axes)] + (1,)
+
+        # construct a generator function to read the image in optimal order
+        def chunk_iterator() -> Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]:
+            for idx, page in enumerate(pages):
+                for data, offset in as_array(
+                    page, logger=get_logger_wrapper(), buffer_size=self._buffer_size
+                ):
+                    extra_offsets: Tuple[int, ...] = ()
+                    for i in range(len(extra_dims) - 1):
+                        dim_index = (
+                            idx // math.prod(extra_dims[i + 1 :])
+                        ) % extra_dims[i]
+                        extra_offsets = extra_offsets + (dim_index,)
+                        data.shape = (1,) + data.shape
+
+                    offset = extra_offsets + offset
+
+                    slices: Tuple[slice, ...] = ()
+                    for i in range(len(offset)):
+                        slices = slices + (slice(offset[i], offset[i] + data.shape[i]),)
+
+                    yield slices, data
+
+        return chunk_iterator()
+
 
 class OMETiffWriter(ImageWriter):
     def __init__(self, output_path: str, logger: logging.Logger, ome: bool = True):
@@ -407,9 +455,9 @@ class OMETiffWriter(ImageWriter):
                         ),
                         "f",
                     )
-                    writer_metadata["metadata"][
-                        f"PhysicalSize{dim}Unit"
-                    ] = group_metadata.get(f"physicalSize{dim}Unit", "µm")
+                    writer_metadata["metadata"][f"PhysicalSize{dim}Unit"] = (
+                        group_metadata.get(f"physicalSize{dim}Unit", "µm")
+                    )
 
             if "T" in original_axes:
                 writer_metadata["metadata"]["TimeIncrement"] = format(

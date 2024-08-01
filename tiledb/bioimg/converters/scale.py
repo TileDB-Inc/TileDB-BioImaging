@@ -44,9 +44,11 @@ class Scaler(object):
             if chunked:
                 if progressive:
                     dim_factors = [
-                        scale_factor / previous_scale_factor
-                        if axis in scale_axes
-                        else 1
+                        (
+                            scale_factor / previous_scale_factor
+                            if axis in scale_axes
+                            else 1
+                        )
                         for axis in base_axes
                     ]
                     previous_scale_factor = scale_factor

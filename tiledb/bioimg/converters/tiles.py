@@ -1,31 +1,51 @@
 import itertools as it
-from typing import Iterator, Tuple
-
-import numpy as np
+from typing import Iterator, MutableSequence, Sequence, Tuple, Union
 
 import tiledb
 
 
-def iter_tiles(domain: tiledb.Domain, scale: int = 1) -> Iterator[Tuple[slice, ...]]:
+def iter_tiles(
+    domain: Union[tiledb.Domain, Sequence[Tuple[int, int, int]]], scale: int = 1
+) -> Iterator[Tuple[slice, ...]]:
+    transformed_domain: MutableSequence[Tuple[int, int, int]] = []
+
+    if isinstance(domain, tiledb.Domain):
+        for dim in domain:
+            transformed_domain.append(
+                (int(dim.domain[0]), int(dim.domain[1]), int(dim.tile) * scale)
+            )
+    else:
+        for dim in domain:
+            transformed_domain.append((dim[0], dim[1], dim[2] * scale))
+
     """Generate all the non-overlapping tiles that cover the given TileDB domain."""
-    return it.product(
-        *map(iter_slices, map(dim_range, domain, [scale for _ in range(domain.ndim)]))
-    )
+    return it.product(*map(iter_slices, map(dim_range, transformed_domain)))
 
 
-def num_tiles(domain: tiledb.Domain, scale: int = 1) -> int:
+def num_tiles(
+    domain: Union[tiledb.Domain, Sequence[Tuple[int, int, int]]], scale: int = 1
+) -> int:
     """Compute the number of non-overlapping tiles that cover the given TileDB domain."""
+    transformed_domain: MutableSequence[Tuple[int, int, int]] = []
+
+    if isinstance(domain, tiledb.Domain):
+        for dim in domain:
+            transformed_domain.append(
+                (int(dim.domain[0]), int(dim.domain[1]), int(dim.tile) * scale)
+            )
+    else:
+        for dim in domain:
+            transformed_domain.append((dim[0], dim[1], dim[2] * scale))
+
     n = 1
-    for dim in domain:
-        n *= len(dim_range(dim, scale=scale))
+    for dim in transformed_domain:
+        n *= len(dim_range(dim))
     return n
 
 
-def dim_range(dim: tiledb.Dim, scale: int = 1) -> range:
+def dim_range(dim: Tuple[int, int, int]) -> range:
     """Get the range of the given tiledb dimension with step equal to the dimension tile."""
-    return range(
-        int(dim.domain[0]), int(dim.domain[1]) + 1, dim.tile.astype(np.int64) * scale
-    )
+    return range(dim[0], dim[1] + 1, dim[2])
 
 
 def iter_slices(r: range) -> Iterator[slice]:

@@ -3,10 +3,21 @@ from __future__ import annotations
 import json
 import logging
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 
 import numpy
 import numpy as np
+from numpy._typing import NDArray
 
 try:
     import zarr
@@ -192,6 +203,11 @@ class OMEZarrReader(ImageReader):
             metadata["ZARR"].setdefault(key, value)
 
         return metadata
+
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
+        return None
 
 
 class OMEZarrWriter(ImageWriter):

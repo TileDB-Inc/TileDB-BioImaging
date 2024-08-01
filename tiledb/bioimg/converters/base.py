@@ -3,13 +3,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import warnings
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from operator import itemgetter
 from typing import (
     Any,
     Dict,
+    Iterator,
     Mapping,
     MutableMapping,
     Optional,
@@ -21,6 +23,7 @@ from typing import (
 
 import jsonpickle
 import numpy as np
+from numpy._typing import NDArray
 from tqdm import tqdm
 
 from .scale import Scaler
@@ -160,6 +163,17 @@ class ImageReader(ABC):
     def original_metadata(self) -> Dict[str, Any]:
         """Return the metadata of the original file."""
 
+    @abstractmethod
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Union[None, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
+        """
+        Return an image tile iterator with optimal memory access pattern.
+
+        :param level: The overview to read from
+        :param max_workers: The number of thread to spawn to read from the file
+        """
+
 
 class ImageWriter(ABC):
     @abstractmethod
@@ -249,7 +263,7 @@ class ImageConverter:
 
         # Initializes the logger depending on the API path chosen
         if log:
-            logger = get_logger_wrapper(log) if type(log) is bool else log
+            logger = get_logger_wrapper(log) if isinstance(log, bool) else log
         else:
             default_verbose = False
             logger = get_logger_wrapper(default_verbose)
@@ -317,6 +331,8 @@ class ImageConverter:
         chunked: bool = False,
         max_workers: int = 0,
         exclude_metadata: bool = False,
+        experimental_reader: bool = False,
+        experimental_queue_limit: Tuple[int, int] = (10, 20),
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
         log: Optional[Union[bool, logging.Logger]] = None,
         reader_kwargs: Optional[MutableMapping[str, Any]] = None,
@@ -341,6 +357,10 @@ class ImageConverter:
                 :param max_workers: Maximum number of threads that can be used for conversion.
                     Applicable only if chunked=True.
                 :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
+                :param experimental_reader: If true, use the experimental tiff reader optimized for s3 reads.
+                    Experimental feature, use with caution
+                :param experimental_queue_limit: When using the experimental reader, define the minimum and maximum number of
+                    pending tiles waiting to be written to TileDB.
                 :param compressor: TileDB compression filter mapping for each level
                 :param log: verbose logging, defaults to None. Allows passing custom logging.Logger or boolean.
                     If None or bool=False it initiates an INFO level logging. If bool=True then a logger is instantiated in
@@ -365,7 +385,7 @@ class ImageConverter:
         """
 
         if log:
-            logger = get_logger_wrapper(log) if type(log) is bool else log
+            logger = get_logger_wrapper(log) if isinstance(log, bool) else log
         else:
             default_verbose = False
             logger = get_logger_wrapper(default_verbose)
@@ -375,9 +395,9 @@ class ImageConverter:
             common_cfg = reader_kwargs.get("config", None)
             if common_cfg:
                 # Overwrite the source and destination configs with the common
-                reader_kwargs["source_config"] = reader_kwargs[
-                    "dest_config"
-                ] = common_cfg
+                reader_kwargs["source_config"] = reader_kwargs["dest_config"] = (
+                    common_cfg
+                )
 
         if isinstance(source, ImageReader):
             if cls._ImageReaderType != source.__class__:
@@ -453,6 +473,8 @@ class ImageConverter:
                 chunked=chunked,
                 max_workers=max_workers,
                 compressor=compressors,
+                experimental_reader=experimental_reader,
+                experimental_queue_limits=experimental_queue_limit,
             )
             logger.debug(f"Convert arguments : {convert_kwargs}")
 
@@ -540,6 +562,8 @@ def _convert_level_to_tiledb(
     chunked: bool,
     max_workers: int,
     compressor: Mapping[int, tiledb.Filter],
+    experimental_reader: bool,
+    experimental_queue_limits: Tuple[int, int],
 ) -> Mapping[str, Any]:
     level_metadata: MutableMapping[str, Any] = {}
 
@@ -607,32 +631,73 @@ def _convert_level_to_tiledb(
             out_array.meta.update(reader.level_metadata(level), level=level)
             inv_axes_mapper = axes_mapper.inverse
             if chunked:
-
-                def tile_to_tiledb(
-                    level_tile: Tuple[slice, ...]
-                ) -> Tuple[np.ndarray, ...]:
-                    source_tile = inv_axes_mapper.map_tile(level_tile)
-                    image = reader.level_image(level, source_tile)
-                    out_array[level_tile] = axes_mapper.map_array(image)
-
-                    # return a tuple containing the min-max values of the tile
-                    return np.amin(image, axis=min_max_indices), np.amax(
-                        image, axis=min_max_indices
-                    )
-
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
                 mapper = getattr(ex, "map", map)
-                for tile_min, tile_max in tqdm(
-                    mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
-                    desc=f"Ingesting level {level}",
-                    total=num_tiles(out_array.domain),
-                    unit="tiles",
-                ):
-                    # Find the global min-max values from all tiles
-                    compute_channel_minmax(channel_min_max, tile_min, tile_max)
-                    pass
-                if ex:
-                    ex.shutdown()
+                opt_reader = reader.optimal_reader(level=level, max_workers=max_workers)
+
+                if experimental_reader and opt_reader is not None:
+
+                    def tile_to_tiledb_exp(
+                        tile: Tuple[Tuple[slice, ...], NDArray[Any]]
+                    ) -> Tuple[np.ndarray, ...]:
+                        idx, data = tile
+                        array_tile = axes_mapper.map_tile(idx)
+                        out_array[array_tile] = axes_mapper.map_array(data)
+
+                        # return a tuple containing the min-max values of the tile
+                        return np.amin(data, axis=min_max_indices), np.amax(
+                            data, axis=min_max_indices
+                        )
+
+                    if ex:
+                        should_fetch_next = threading.Event()
+                        should_fetch_next.clear()
+
+                        def process(fut: Future[Tuple[np.ndarray, ...]]) -> None:
+                            t_min, t_max = fut.result()
+                            compute_channel_minmax(channel_min_max, t_min, t_max)
+
+                            if ex._work_queue.qsize() < experimental_queue_limits[0]:  # type: ignore
+                                should_fetch_next.set()
+
+                        for tile in opt_reader:
+                            future = ex.submit(tile_to_tiledb_exp, tile)
+                            future.add_done_callback(process)
+
+                            if ex._work_queue.qsize() > experimental_queue_limits[1]:
+                                should_fetch_next.clear()
+                                should_fetch_next.wait()
+
+                        ex.shutdown()
+                    else:
+                        for tile in opt_reader:
+                            t_min, t_max = tile_to_tiledb_exp(tile)
+                            compute_channel_minmax(channel_min_max, t_min, t_max)
+                else:
+
+                    def tile_to_tiledb(
+                        level_tile: Tuple[slice, ...]
+                    ) -> Tuple[np.ndarray, ...]:
+                        source_tile = inv_axes_mapper.map_tile(level_tile)
+                        image = reader.level_image(level, source_tile)
+                        out_array[level_tile] = axes_mapper.map_array(image)
+
+                        # return a tuple containing the min-max values of the tile
+                        return np.amin(image, axis=min_max_indices), np.amax(
+                            image, axis=min_max_indices
+                        )
+
+                    for tile_min, tile_max in tqdm(
+                        mapper(tile_to_tiledb, iter_tiles(out_array.domain)),
+                        desc=f"Ingesting level {level}",
+                        total=num_tiles(out_array.domain),
+                        unit="tiles",
+                    ):
+                        # Find the global min-max values from all tiles
+                        compute_channel_minmax(channel_min_max, tile_min, tile_max)
+                        pass
+                    if ex:
+                        ex.shutdown()
             else:
                 image = reader.level_image(level)
                 ex = ThreadPoolExecutor(max_workers) if max_workers else None
