@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Type
 
-from .converters.base import ImageConverter
+from .converters.base import ImageConverterMixin
 
 try:
     from .converters.ome_tiff import OMETiffConverter
@@ -36,7 +36,7 @@ def from_bioimg(
     exclude_metadata: bool = False,
     tile_scale: int = 1,
     **kwargs: Any,
-) -> Type[ImageConverter]:
+) -> Type[ImageConverterMixin[Any, Any]]:
     """
     This function is a wrapper and serves as an all-inclusive API for encapsulating the
     ingestion of different file formats
@@ -110,7 +110,7 @@ def to_bioimg(
     *,
     verbose: bool = False,
     **kwargs: Any,
-) -> Type[ImageConverter]:
+) -> Type[ImageConverterMixin[Any, Any]]:
     """
     This function is a wrapper and serves as an all-inclusive API for encapsulating the
     exportation of TileDB ingested bio-images back into different file formats

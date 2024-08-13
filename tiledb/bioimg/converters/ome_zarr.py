@@ -38,15 +38,15 @@ from tiledb.highlevel import _get_ctx
 from .. import WHITE_RGB
 from ..helpers import get_logger_wrapper, get_rgba, translate_config_to_s3fs
 from .axes import Axes
-from .base import ImageConverter, ImageReader, ImageWriter
+from .base import ImageConverterMixin
 
 
-class OMEZarrReader(ImageReader):
+class OMEZarrReader:
     def __init__(
         self,
         input_path: str,
-        *,
         logger: Optional[logging.Logger] = None,
+        *,
         source_config: Optional[Config] = None,
         source_ctx: Optional[Ctx] = None,
         dest_config: Optional[Config] = None,
@@ -68,6 +68,12 @@ class OMEZarrReader(ImageReader):
         self._root_node = next(Reader(ZarrLocation(input_fh))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
+
+    def __enter__(self) -> OMEZarrReader:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
 
     @property
     def source_ctx(self) -> Ctx:
@@ -210,7 +216,7 @@ class OMEZarrReader(ImageReader):
         return None
 
 
-class OMEZarrWriter(ImageWriter):
+class OMEZarrWriter:
     def __init__(self, output_path: str, logger: logging.Logger):
         """
         OME-Zarr image writer from TileDB
@@ -224,6 +230,9 @@ class OMEZarrWriter(ImageWriter):
         self._pyramid: List[np.ndarray] = []
         self._storage_options: List[Dict[str, Any]] = []
         self._group_metadata: Dict[str, Any] = {}
+
+    def __enter__(self) -> OMEZarrWriter:
+        return self
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         self._group_metadata = json.loads(metadata["json_zarrwriter_kwargs"])
@@ -268,7 +277,7 @@ class OMEZarrWriter(ImageWriter):
             self._group.attrs["omero"] = group_metadata["omero"]
 
 
-class OMEZarrConverter(ImageConverter):
+class OMEZarrConverter(ImageConverterMixin[OMEZarrReader, OMEZarrWriter]):
     """Converter of Zarr-supported images to TileDB Groups of Arrays"""
 
     _ImageReaderType = OMEZarrReader

@@ -8,8 +8,7 @@ import zarr
 import tiledb
 from tests import assert_image_similarity, get_path, get_schema
 from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
-from tiledb.bioimg.converters.ome_tiff import OMETiffReader
-from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter, OMEZarrReader
+from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.helpers import iter_color, open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
@@ -25,11 +24,11 @@ def test_ome_zarr_converter_source_reader_exception(
     tiff_path = get_path("CMU-1-Small-Region.ome.tiff")
     output_reader = tmp_path / "to_tiledb_reader"
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(FileExistsError) as excinfo:
         OMEZarrConverter.to_tiledb(
-            OMETiffReader(tiff_path), str(output_reader), preserve_axes=preserve_axes
+            tiff_path, str(output_reader), preserve_axes=preserve_axes
         )
-    assert "reader should match converter" in str(excinfo)
+    assert "FileExistsError" in str(excinfo)
 
 
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
@@ -46,7 +45,7 @@ def test_ome_zarr_converter_reader_source_consistent_output(
         input_path, str(output_path), preserve_axes=preserve_axes
     )
     OMEZarrConverter.to_tiledb(
-        OMEZarrReader(input_path), str(output_reader), preserve_axes=preserve_axes
+        input_path, str(output_reader), preserve_axes=preserve_axes
     )
 
     # check the first (highest) resolution layer only
@@ -62,7 +61,7 @@ def test_ome_zarr_converter_reader_source_consistent_output(
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
-    input_path = get_path("CMU-1-Small-Region.ome.zarr") / str(series_idx)
+    input_path = get_path("CMU-1-Small-Region.ome" ".zarr") / str(series_idx)
     OMEZarrConverter.to_tiledb(input_path, str(tmp_path), preserve_axes=preserve_axes)
 
     # check the first (highest) resolution layer only

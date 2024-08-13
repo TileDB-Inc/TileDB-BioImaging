@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import warnings
@@ -35,15 +37,15 @@ from tiledb.highlevel import _get_ctx
 from ..helpers import cache_filepath, get_logger_wrapper, is_remote_protocol, iter_color
 from . import DEFAULT_SCRATCH_SPACE
 from .axes import Axes
-from .base import ImageConverter, ImageReader
+from .base import ImageConverterMixin
 
 
-class OpenSlideReader(ImageReader):
+class OpenSlideReader:
     def __init__(
         self,
         input_path: str,
-        *,
         logger: Optional[logging.Logger] = None,
+        *,
         source_config: Optional[Config] = None,
         source_ctx: Optional[Ctx] = None,
         dest_config: Optional[Config] = None,
@@ -67,6 +69,9 @@ class OpenSlideReader(ImageReader):
         else:
             resolved_path = input_path
         self._osd = osd.OpenSlide(resolved_path)
+
+    def __enter__(self) -> OpenSlideReader:
+        return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._osd.close()
@@ -181,7 +186,7 @@ class OpenSlideReader(ImageReader):
         return None
 
 
-class OpenSlideConverter(ImageConverter):
+class OpenSlideConverter(ImageConverterMixin[OpenSlideReader, Any]):
     """Converter of OpenSlide-supported images to TileDB Groups of Arrays"""
 
     _ImageReaderType = OpenSlideReader
