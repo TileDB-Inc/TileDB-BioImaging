@@ -28,4 +28,20 @@ setuptools.setup(
         "cloud": cloud,
         "full": full,
     },
+    entry_points={
+        "bioimg.readers": [
+            "tiff_reader = tiledb.bioimg.converters.ome_tiff:OMETiffReader",
+            "zarr_reader = tiledb.bioimg.converters.ome_zarr:OMEZarrReader",
+            "osd_reader = tiledb.bioimg.converters.openslide:OpenSlideReader",
+        ],
+        "bioimg.writers": [
+            "tiff_writer = tiledb.bioimg.converters.ome_tiff:OMETiffWriter",
+            "zarr_writer = tiledb.bioimg.converters.ome_tiff:OMEZarrWriter",
+        ],
+        "bioimg.converters": [
+            "tiff_converter = tiledb.bioimg.converters.ome_tiff:OMETiffConverter",
+            "zarr_converter = tiledb.bioimg.converters.ome_zarr:OMEZarrConverter",
+            "osd_converter = tiledb.bioimg.converters.openslide:OpenSlideConverter",
+        ],
+    },
 )

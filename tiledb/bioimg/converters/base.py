@@ -240,7 +240,7 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
         log: Optional[Union[bool, logging.Logger]] = None,
         **writer_kwargs: Mapping[str, Any],
-    ) -> Type[ImageConverterMixin[Any, Any]]:
+    ) -> Type[ImageConverterMixin[TReader, TWriter]]:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level
         :param input_path: path to the TileDB group of arrays
@@ -334,7 +334,7 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
         log: Optional[Union[bool, logging.Logger]] = None,
         reader_kwargs: Optional[MutableMapping[str, Any]] = None,
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
-    ) -> Type[ImageConverterMixin[Any, Any]]:
+    ) -> Type[ImageConverterMixin[TReader, TWriter]]:
         """
                 Convert an image to a TileDB Group of Arrays, one per level.
 
