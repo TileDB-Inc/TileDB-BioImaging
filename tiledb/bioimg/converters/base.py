@@ -59,10 +59,14 @@ from . import DATASET_TYPE, DEFAULT_SCRATCH_SPACE, FMT_VERSION
 from .axes import Axes
 from .tiles import iter_tiles, num_tiles
 
+# Define covariant type variables
+TReader = TypeVar("TReader", bound="ImageReader")
+TWriter = TypeVar("TWriter", bound="ImageWriter")
+
 
 class ImageReader(Protocol):
 
-    def __enter__(self) -> ImageReader: ...
+    def __enter__(self: TReader) -> TReader: ...
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
@@ -164,7 +168,7 @@ class ImageReader(Protocol):
 
 class ImageWriter(Protocol):
 
-    def __enter__(self) -> ImageWriter: ...
+    def __enter__(self: TWriter) -> TWriter: ...
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
@@ -207,18 +211,15 @@ class ImageWriter(Protocol):
         ...
 
 
-# Define covariant type variables
-TReader = TypeVar("TReader", bound=ImageReader)
-TWriter = TypeVar("TWriter", bound=ImageWriter)
-
-
 class ImageConverter(Protocol[TReader, TWriter]):
     _ImageReaderType: Optional[Type[TReader]] = None
     _ImageWriterType: Optional[Type[TWriter]] = None
 
-    def from_tiledb(self) -> ImageConverter[TReader, TWriter]: ...
+    @classmethod
+    def from_tiledb(cls) -> ImageConverter[TReader, TWriter]: ...
 
-    def to_tiledb(self) -> ImageConverter[TReader, TWriter]: ...
+    @classmethod
+    def to_tiledb(cls) -> ImageConverter[TReader, TWriter]: ...
 
 
 class ImageConverterMixin(Generic[TReader, TWriter]):
@@ -283,9 +284,7 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
             output_config = config
 
         slide = TileDBOpenSlide(input_path, attr=attr, config=config)
-        writer = cls._ImageWriterType(
-            destination_uri, logger, **writer_kwargs if writer_kwargs else {}
-        )
+        writer = cls._ImageWriterType(destination_uri, logger, **(writer_kwargs or {}))
 
         with slide, writer:
             writer.write_group_metadata(slide.properties)

@@ -4,26 +4,29 @@ from importlib import util
 from typing import Any
 
 try:
-    util.find_spec(".converters.ome_tiff.OMETiffConverter")
+    util.find_spec("tifffile")
+    util.find_spec("imagecodecs")
 except ImportError as err_tiff:
     _tiff_exc = err_tiff
 else:
     _tiff_exc = None  # type: ignore
 try:
-    util.find_spec(".converters.ome_zarr.OMEZarrConverter")
+    util.find_spec("zarr")
+    util.find_spec("ome-zarr")
 except ImportError as err_zarr:
     _zarr_exc = err_zarr
 else:
     _zarr_exc = None  # type: ignore
 try:
-    util.find_spec(".converters.openslide.OpenSlideConverter")
+    util.find_spec("openslide")
+    util.find_spec("openslide-python")
 except ImportError as err_osd:
     _osd_exc = err_osd
 else:
     _osd_exc = None  # type: ignore
 
 from .helpers import get_logger_wrapper
-from .plugin_manager import PluginManager
+from .plugin_manager import load_converters
 from .types import Converters
 
 
@@ -65,9 +68,7 @@ def from_bioimg(
     reader_kwargs["dest_config"] = kwargs.pop(
         "dest_config", reader_kwargs["source_config"]
     )
-    pm = PluginManager()
-    converters = pm.load_converters()
-
+    converters = load_converters()
     if converter is Converters.OMETIFF:
         if not _tiff_exc:
             logger.info("Converting OME-TIFF file")
@@ -131,8 +132,7 @@ def to_bioimg(
     :return: None
     """
 
-    pm = PluginManager()
-    converters = pm.load_converters()
+    converters = load_converters()
     logger = get_logger_wrapper(verbose)
     if converter is Converters.OMETIFF:
         if not _tiff_exc:
