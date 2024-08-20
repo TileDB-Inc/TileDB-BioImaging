@@ -42,6 +42,9 @@ from .metadata import qpi_image_meta, qpi_original_meta
 
 
 class OMETiffReader:
+
+    _logger: logging.Logger
+
     def __init__(
         self,
         input_path: str,
@@ -96,10 +99,6 @@ class OMETiffReader:
     @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
-
-    @logger.setter
-    def logger(self, default_logger: logging.Logger) -> None:
-        self._logger = default_logger
 
     @property
     def axes(self) -> Axes:

@@ -42,6 +42,9 @@ from .base import ImageConverterMixin
 
 
 class OMEZarrReader:
+
+    _logger: logging.Logger
+
     def __init__(
         self,
         input_path: str,
@@ -86,10 +89,6 @@ class OMEZarrReader:
     @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
-
-    @logger.setter
-    def logger(self, default_logger: logging.Logger) -> None:
-        self._logger = default_logger
 
     @property
     def axes(self) -> Axes:

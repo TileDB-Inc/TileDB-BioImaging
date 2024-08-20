@@ -27,6 +27,7 @@ import jsonpickle
 import numpy as np
 from numpy._typing import NDArray
 from tqdm import tqdm
+from typing_extensions import Self
 
 from .scale import Scaler
 
@@ -65,8 +66,9 @@ TWriter = TypeVar("TWriter", bound="ImageWriter")
 
 
 class ImageReader(Protocol):
+    _logger: logging.Logger
 
-    def __enter__(self: TReader) -> TReader: ...
+    def __enter__(self) -> Self: ...
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
@@ -83,11 +85,6 @@ class ImageReader(Protocol):
     @property
     def logger(self) -> Optional[logging.Logger]:
         """The logger of this image reader."""
-        ...
-
-    @logger.setter
-    def logger(self, default_logger: logging.Logger) -> None:
-        """The setter for the logger of this image reader"""
         ...
 
     @property
@@ -168,7 +165,7 @@ class ImageReader(Protocol):
 
 class ImageWriter(Protocol):
 
-    def __enter__(self: TWriter) -> TWriter: ...
+    def __enter__(self) -> Self: ...
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
@@ -216,10 +213,10 @@ class ImageConverter(Protocol[TReader, TWriter]):
     _ImageWriterType: Optional[Type[TWriter]] = None
 
     @classmethod
-    def from_tiledb(cls) -> ImageConverter[TReader, TWriter]: ...
+    def from_tiledb(cls, input_path: str, output_path: str) -> Type[Self]: ...
 
     @classmethod
-    def to_tiledb(cls) -> ImageConverter[TReader, TWriter]: ...
+    def to_tiledb(cls, source: str, output_path: str) -> Type[Self]: ...
 
 
 class ImageConverterMixin(Generic[TReader, TWriter]):

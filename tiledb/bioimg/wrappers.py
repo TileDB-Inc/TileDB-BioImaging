@@ -1,29 +1,28 @@
 from __future__ import annotations
 
-from importlib import util
-from typing import Any
+import importlib.util
+from typing import Any, Optional
 
 try:
-    util.find_spec("tifffile")
-    util.find_spec("imagecodecs")
+    importlib.util.find_spec("tifffile")
+    importlib.util.find_spec("imagecodecs")
 except ImportError as err_tiff:
-    _tiff_exc = err_tiff
+    _tiff_exc: Optional[ImportError] = err_tiff
 else:
-    _tiff_exc = None  # type: ignore
+    _tiff_exc = None
 try:
-    util.find_spec("zarr")
-    util.find_spec("ome-zarr")
+    importlib.util.find_spec("zarr")
+    importlib.util.find_spec("ome-zarr")
 except ImportError as err_zarr:
-    _zarr_exc = err_zarr
+    _zarr_exc: Optional[ImportError] = err_zarr
 else:
-    _zarr_exc = None  # type: ignore
+    _zarr_exc = None
 try:
-    util.find_spec("openslide")
-    util.find_spec("openslide-python")
+    importlib.util.find_spec("openslide-python")
 except ImportError as err_osd:
-    _osd_exc = err_osd
+    _osd_exc: Optional[ImportError] = err_osd
 else:
-    _osd_exc = None  # type: ignore
+    _osd_exc = None
 
 from .helpers import get_logger_wrapper
 from .plugin_manager import load_converters
