@@ -1,35 +1,12 @@
 from __future__ import annotations
 
 import logging
-import os
-import warnings
 from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, cast
 
 import numpy as np
+import openslide as osd
 from numpy._typing import NDArray
 
-from . import WIN_OPENSLIDE_PATH
-
-if hasattr(os, "add_dll_directory"):
-    # Python >= 3.8 on Windows
-    with os.add_dll_directory(WIN_OPENSLIDE_PATH):
-        try:
-            import openslide as osd
-        except ImportError as err:
-            warnings.warn(
-                "Openslide Converter requires 'openslide-python' package. "
-                "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
-            )
-            raise err
-else:
-    try:
-        import openslide as osd
-    except ImportError as err:
-        warnings.warn(
-            "Openslide Converter requires 'openslide-python' package. "
-            "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
-        )
-        raise err
 from tiledb import Config, Ctx
 from tiledb.cc import WebpInputFormat
 from tiledb.highlevel import _get_ctx

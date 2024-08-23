@@ -1,7 +1,6 @@
 import json
 
 import numpy as np
-import openslide
 import PIL.Image
 import pytest
 
@@ -40,6 +39,8 @@ def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, comp
     with open_bioimg(str(tmp_path / "l_0.tdb")) as A:
         if not preserve_axes:
             assert A.schema == get_schema(2220, 2967, 4, compressor=compressor)
+
+    import openslide
 
     o = openslide.open_slide(input_path)
     with TileDBOpenSlide(output_path) as t:

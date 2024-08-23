@@ -17,13 +17,9 @@ except ImportError as err_zarr:
     _zarr_exc: Optional[ImportError] = err_zarr
 else:
     _zarr_exc = None
-try:
-    importlib.util.find_spec("openslide-python")
-except ImportError as err_osd:
-    _osd_exc: Optional[ImportError] = err_osd
-else:
-    _osd_exc = None
 
+
+from . import osd_exc
 from .helpers import get_logger_wrapper
 from .plugin_manager import load_converters
 from .types import Converters
@@ -97,7 +93,7 @@ def from_bioimg(
         else:
             raise _zarr_exc
     else:
-        if not _osd_exc:
+        if not osd_exc:
             logger.info("Converting Openslide")
             return converters["osd_converter"].to_tiledb(
                 source=src,
@@ -109,7 +105,7 @@ def from_bioimg(
                 **kwargs,
             )
         else:
-            raise _osd_exc
+            raise osd_exc
 
 
 def to_bioimg(
