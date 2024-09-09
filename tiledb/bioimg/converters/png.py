@@ -172,15 +172,37 @@ class PNGWriter(ImageWriter):
     def __init__(self, output_path: str, logger: logging.Logger):
         self._logger = logger
         self._output_path = output_path
-        self._writer = partial(Image.fromarray, mode=None)
+        self._group_metadata: Dict[str, Any] = {}
+        self._writer = partial(Image.fromarray, mode="RGB")
+
+    def compute_level_metadata(
+        self,
+        baseline: bool,
+        num_levels: int,
+        image_dtype: np.dtype,
+        group_metadata: Mapping[str, Any],
+        array_metadata: Mapping[str, Any],
+        **writer_kwargs: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+
+        writer_metadata: Dict[str, Any] = {}
+        original_mode = group_metadata.get("original_mode", "RGB")
+        writer_metadata["mode"] = original_mode
+        self._logger.debug(f"Writer metadata: {writer_metadata}")
+        return writer_metadata
+
+    def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        self._group_metadata = json.loads(metadata["json_write_kwargs"])
 
     def write_level_image(
         self,
         image: np.ndarray,
         metadata: Mapping[str, Any],
     ) -> None:
-        self._writer(image)
-        Image.save(self._output_path)
+
+        array_img = self._writer(image)
+        original_img = array_img.convert(metadata["mode"])
+        original_img.save(self._output_path, format="png")
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         pass
