@@ -109,7 +109,10 @@ class PNGReader(ImageReader):
                 "PNG images are not pyramidal and consist of only one level"
             )
         # Even after converting to RGB the size is not updated to 3d from 2d
-        l_shape = (*self._png.size, 3)
+        w, h = self._png.size
+
+        # Numpy shape is of the format (H, W, D) compared to Pillow (W, H, D)
+        l_shape = (h, w, 3)
         self._logger.debug(f"Level {level} shape: {l_shape}")
         return l_shape
 

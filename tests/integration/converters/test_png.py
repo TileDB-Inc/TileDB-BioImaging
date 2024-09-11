@@ -22,7 +22,6 @@ def test_png_converter(tmp_path):
     with TileDBOpenSlide(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 1
         schemas = get_schema(1080, 1080)
-
         # Storing the images as 3-channel images in CYX format
         # the slicing below using negative indexes to extract
         # the last two elements in schema's shape.
