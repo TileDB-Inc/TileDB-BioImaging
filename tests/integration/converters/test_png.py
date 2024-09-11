@@ -22,6 +22,10 @@ def test_png_converter(tmp_path):
     with TileDBOpenSlide(output_path) as t:
         assert len(tiledb.Group(output_path)) == t.level_count == 1
         schemas = get_schema(1080, 1080)
+
+        # Storing the images as 3-channel images in CYX format
+        # the slicing below using negative indexes to extract
+        # the last two elements in schema's shape.
         assert t.dimensions == schemas.shape[:-3:-1]
         for i in range(t.level_count):
             assert t.level_dimensions[i] == schemas.shape[:-3:-1]
@@ -44,14 +48,14 @@ def test_png_converter(tmp_path):
 @pytest.mark.parametrize("filename", ["A01_s1--cell_outlines.png"])
 def test_png_converter_group_metadata(tmp_path, filename):
     input_path = get_path(filename)
-    tiledb_path = tmp_path / "to_tiledb"
-    PNGConverter.to_tiledb(input_path, str(tiledb_path), preserve_axes=False)
+    tiledb_path = str(tmp_path / "to_tiledb")
+    PNGConverter.to_tiledb(input_path, tiledb_path, preserve_axes=False)
 
-    with TileDBOpenSlide(str(tiledb_path)) as t:
+    with TileDBOpenSlide(tiledb_path) as t:
         group_properties = t.properties
         assert group_properties["dataset_type"] == DATASET_TYPE
         assert group_properties["fmt_version"] == FMT_VERSION
-        assert isinstance(group_properties.get("pkg_version"), str)
+        assert isinstance(group_properties["pkg_version"], str)
         assert group_properties["axes"] == "XYC"
         assert group_properties["channels"] == json.dumps(["RED", "GREEN", "BLUE"])
 
@@ -96,16 +100,16 @@ def test_png_converter_roundtrip(
     tmp_path, filename, preserve_axes, chunked, compressor, lossless
 ):
     input_path = get_path(filename)
-    tiledb_path = tmp_path / "to_tiledb"
-    output_path = tmp_path / "from_tiledb"
+    tiledb_path = str(tmp_path / "to_tiledb")
+    output_path = str(tmp_path / "from_tiledb")
     PNGConverter.to_tiledb(
         input_path,
-        str(tiledb_path),
+        tiledb_path,
         preserve_axes=preserve_axes,
         chunked=chunked,
         compressor=compressor,
         log=False,
     )
     # Store it back to PNG
-    PNGConverter.from_tiledb(str(tiledb_path), str(output_path))
+    PNGConverter.from_tiledb(tiledb_path, output_path)
     compare_png(Image.open(input_path), Image.open(output_path), lossless=lossless)
