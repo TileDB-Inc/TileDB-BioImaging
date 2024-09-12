@@ -36,15 +36,16 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
                 lossless=compressor.lossless,
             )
     else:
-        dims.append(
-            tiledb.Dim(
-                "C",
-                (0, c_size - 1),
-                tile=c_size,
-                dtype=np.uint32,
-                filters=tiledb.FilterList([compressor]),
+        if c_size > 1:
+            dims.append(
+                tiledb.Dim(
+                    "C",
+                    (0, c_size - 1),
+                    tile=c_size,
+                    dtype=np.uint32,
+                    filters=tiledb.FilterList([compressor]),
+                )
             )
-        )
 
     dims.append(
         tiledb.Dim(

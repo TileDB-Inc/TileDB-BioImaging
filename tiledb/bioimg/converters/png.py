@@ -53,7 +53,7 @@ class PNGReader(ImageReader):
 
         # Handle all different modes as RGB for consistency
         self._metadata["original_mode"] = self._png.mode
-        if self._png.mode not in ["RGB", "RGBA"]:
+        if self._png.mode not in ["RGB", "RGBA", "L"]:
             self._png = self._png.convert("RGB")
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -77,7 +77,10 @@ class PNGReader(ImageReader):
 
     @property
     def axes(self) -> Axes:
-        axes = Axes(["X", "Y", "C"])
+        if self._png.mode == "L":
+            axes = Axes(["X", "Y"])
+        else:
+            axes = Axes(["X", "Y", "C"])
         self._logger.debug(f"Reader axes: {axes}")
         return axes
 
@@ -90,8 +93,16 @@ class PNGReader(ImageReader):
             self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGBA}")
             return "RED", "GREEN", "BLUE", "ALPHA"
         else:
-            self._logger.debug(f"Webp format is not: {WebpInputFormat.WEBP_RGB}")
-        color_map = {"R": "RED", "G": "GREEN", "B": "BLUE", "A": "ALPHA"}
+            self._logger.debug(
+                f"Webp format is not: {WebpInputFormat.WEBP_RGB} / {WebpInputFormat.WEBP_RGBA}"
+            )
+        color_map = {
+            "R": "RED",
+            "G": "GREEN",
+            "B": "BLUE",
+            "A": "ALPHA",
+            "L": "GRAYSCALE",
+        }
         # Use list comprehension to convert the short form to full form
         rgb_full = [color_map[color] for color in self._png.getbands()]
         return rgb_full
@@ -116,9 +127,16 @@ class PNGReader(ImageReader):
         w, h = self._png.size
 
         # Numpy shape is of the format (H, W, D) compared to Pillow (W, H, D)
-        l_shape = (h, w, 3)
-        if self._png.mode == "RGBA":
+        l_shape: Tuple[Any, ...] = ()
+        if self._png.mode == "L":
+            # Grayscale has 1 channel
+            l_shape = (h, w)
+        elif self._png.mode == "RGBA":
+            # RGB has 4 channels
             l_shape = (h, w, 4)
+        else:
+            # RGB has 3 channels
+            l_shape = (h, w, 3)
         self._logger.debug(f"Level {level} shape: {l_shape}")
         return l_shape
 
@@ -211,7 +229,7 @@ class PNGWriter(ImageWriter):
         metadata: Mapping[str, Any],
     ) -> None:
 
-        if metadata["mode"] not in ("RGB", "RGBA"):
+        if metadata["mode"] not in ("RGB", "RGBA", "L"):
             array_img = self._writer(image, mode="RGB")
         else:
             array_img = self._writer(image, mode=metadata["mode"])
