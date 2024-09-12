@@ -138,6 +138,14 @@ def to_bioimg(
             )
         else:
             raise _zarr_exc
+    elif converter is Converters.PNG:
+        if not _png_exc:
+            logger.info("Converting to PNG file")
+            return PNGConverter.from_tiledb(
+                input_path=src, output_path=dest, log=logger, **kwargs
+            )
+        else:
+            raise _png_exc
     else:
         raise NotImplementedError(
             "Openslide Converter does not support exportation back to bio-imaging formats"

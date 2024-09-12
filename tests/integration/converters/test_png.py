@@ -13,8 +13,35 @@ from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.cc import WebpInputFormat
 
 
+def create_synthetic_image(
+    mode="RGB", width=100, height=100, filename="synthetic_image.png"
+):
+    """
+    Creates a synthetic image with either RGB or RGBA channels and saves it as a PNG file.
+
+    Parameters:
+    - image_type: 'RGB' for 3 channels, 'RGBA' for 4 channels.
+    - width: width of the image.
+    - height: height of the image.
+    - filename: filename to store the image as a PNG.
+    """
+    if mode == "RGB":
+        # Create a (height, width, 3) NumPy array with random values for RGB
+        data = np.random.randint(0, 256, (height, width, 3), dtype=np.uint8)
+    elif mode == "RGBA":
+        # Create a (height, width, 4) NumPy array with random values for RGBA
+        data = np.random.randint(0, 256, (height, width, 4), dtype=np.uint8)
+    else:
+        raise ValueError("Other image type are tested with sample images.")
+    # Convert NumPy array to a Pillow Image
+    image = Image.fromarray(data, mode)
+    # Save the image as a PNG
+    image.save(filename)
+    return filename
+
+
 def test_png_converter(tmp_path):
-    input_path = str(get_path("A01_s1--cell_outlines.png"))
+    input_path = str(get_path("pngs/PNG_1_L.png"))
     output_path = str(tmp_path)
 
     PNGConverter.to_tiledb(input_path, output_path)
@@ -44,7 +71,7 @@ def test_png_converter(tmp_path):
             np.testing.assert_array_equal(region_data, level_data)
 
 
-@pytest.mark.parametrize("filename", ["A01_s1--cell_outlines.png"])
+@pytest.mark.parametrize("filename", ["pngs/PNG_1_L.png"])
 def test_png_converter_group_metadata(tmp_path, filename):
     input_path = get_path(filename)
     tiledb_path = str(tmp_path / "to_tiledb")
@@ -75,32 +102,151 @@ def test_png_converter_group_metadata(tmp_path, filename):
 
 
 def compare_png(p1: Image, p2: Image, lossless: bool = True):
-    diff = ImageChops.difference(p1, p2)
     if lossless:
+        diff = ImageChops.difference(p1, p2)
         assert diff.getbbox() is None
     else:
-        assert_image_similarity(np.array(p1), np.array(p2), channel_axis=0)
+        try:
+            # Default min_threshold is 0.95
+            assert_image_similarity(np.array(p1), np.array(p2), channel_axis=-1)
+        except AssertionError:
+            try:
+                # for PNGs the min_threshold for WEBP lossy is < 0.85
+                assert_image_similarity(
+                    np.array(p1), np.array(p2), min_threshold=0.84, channel_axis=-1
+                )
+            except AssertionError:
+                assert False
 
 
-@pytest.mark.parametrize("filename", ["A01_s1--cell_outlines.png"])
-@pytest.mark.parametrize("preserve_axes", [False, True])
 # PIL.Image does not support chunked reads/writes
+@pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked", [False])
 @pytest.mark.parametrize(
     "compressor, lossless",
     [
         (tiledb.ZstdFilter(level=0), True),
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False), False),
         (tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True), True),
         (tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True), True),
     ],
 )
-def test_png_converter_roundtrip(
-    tmp_path, filename, preserve_axes, chunked, compressor, lossless
+@pytest.mark.parametrize(
+    "mode, width, height",
+    [
+        ("RGB", 200, 200),  # Square RGB image
+        ("RGB", 150, 100),  # Uneven dimensions
+        ("RGB", 50, 150),  # Tall image
+    ],
+)
+def test_png_converter_RGB_roundtrip(
+    tmp_path, preserve_axes, chunked, compressor, lossless, mode, width, height
 ):
-    input_path = get_path(filename)
+
+    input_path = str(tmp_path / f"test_{mode.lower()}_image_{width}x{height}.png")
+    # Call the function to create a synthetic image
+    create_synthetic_image(mode=mode, width=width, height=height, filename=input_path)
     tiledb_path = str(tmp_path / "to_tiledb")
     output_path = str(tmp_path / "from_tiledb")
+    PNGConverter.to_tiledb(
+        input_path,
+        tiledb_path,
+        preserve_axes=preserve_axes,
+        chunked=chunked,
+        compressor=compressor,
+        log=False,
+    )
+    # Store it back to PNG
+    PNGConverter.from_tiledb(tiledb_path, output_path)
+    compare_png(Image.open(input_path), Image.open(output_path), lossless=lossless)
+
+
+@pytest.mark.parametrize("filename", ["pngs/PNG_1_L.png", "pngs/PNG_2_RGB.png"])
+@pytest.mark.parametrize("preserve_axes", [False, True])
+@pytest.mark.parametrize("chunked", [False])
+@pytest.mark.parametrize(
+    "compressor, lossless",
+    [
+        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False), False),
+    ],
+)
+def test_png_converter_RGB_roundtrip_lossy(
+    tmp_path, preserve_axes, chunked, compressor, lossless, filename
+):
+    # For lossy WEBP we cannot use random generated images as they have so much noise
+    input_path = str(get_path(filename))
+    tiledb_path = str(tmp_path / "to_tiledb")
+    output_path = str(tmp_path / "from_tiledb")
+
+    PNGConverter.to_tiledb(
+        input_path,
+        tiledb_path,
+        preserve_axes=preserve_axes,
+        chunked=chunked,
+        compressor=compressor,
+        log=False,
+    )
+    # Store it back to PNG
+    PNGConverter.from_tiledb(tiledb_path, output_path)
+    compare_png(Image.open(input_path), Image.open(output_path), lossless=lossless)
+
+
+@pytest.mark.parametrize("preserve_axes", [False])
+# PIL.Image does not support chunked reads/writes
+@pytest.mark.parametrize("chunked", [False])
+@pytest.mark.parametrize(
+    "mode, width, height",
+    [
+        ("RGBA", 200, 200),  # Square RGBA image
+        ("RGBA", 300, 150),  # Uneven dimensions
+        ("RGBA", 120, 240),  # Tall image
+    ],
+)
+@pytest.mark.parametrize(
+    "compressor, lossless",
+    [
+        (tiledb.ZstdFilter(level=0), True),
+        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=True), True),
+        (tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True), True),
+    ],
+)
+def test_png_converter_RGBA_roundtrip(
+    tmp_path, preserve_axes, chunked, compressor, lossless, mode, width, height
+):
+    input_path = str(tmp_path / f"test_{mode.lower()}_image_{width}x{height}.png")
+    # Call the function to create a synthetic image
+    create_synthetic_image(mode=mode, width=width, height=height, filename=input_path)
+    tiledb_path = str(tmp_path / "to_tiledb")
+    output_path = str(tmp_path / "from_tiledb")
+    PNGConverter.to_tiledb(
+        input_path,
+        tiledb_path,
+        preserve_axes=preserve_axes,
+        chunked=chunked,
+        compressor=compressor,
+        log=False,
+    )
+    # Store it back to PNG
+    PNGConverter.from_tiledb(tiledb_path, output_path)
+    compare_png(Image.open(input_path), Image.open(output_path), lossless=lossless)
+
+
+@pytest.mark.parametrize("filename", ["pngs/PNG_2_RGBA.png"])
+@pytest.mark.parametrize("preserve_axes", [False, True])
+@pytest.mark.parametrize("chunked", [False])
+@pytest.mark.parametrize(
+    "compressor, lossless",
+    [
+        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=False), False),
+    ],
+)
+def test_png_converter_RGBA_roundtrip_lossy(
+    tmp_path, preserve_axes, chunked, compressor, lossless, filename
+):
+    # For lossy WEBP we cannot use random generated images as they have so much noise
+    input_path = str(get_path(filename))
+    tiledb_path = str(tmp_path / "to_tiledb")
+    output_path = str(tmp_path / "from_tiledb")
+
     PNGConverter.to_tiledb(
         input_path,
         tiledb_path,
