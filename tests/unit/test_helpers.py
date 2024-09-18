@@ -8,9 +8,10 @@ from tiledb.bioimg.helpers import (
     get_rgba,
     iter_color,
     merge_ned_ranges,
+    remove_ome_image_metadata,
 )
 
-from .. import generate_test_case
+from .. import generate_test_case, generate_xml
 
 
 def test_color_iterator():
@@ -56,3 +57,20 @@ def test_get_pixel_depth():
 def test_validate_ingestion(num_axes, num_ranges, max_value):
     input_ranges, expected_output = generate_test_case(num_axes, num_ranges, max_value)
     assert merge_ned_ranges(input_ranges) == expected_output
+
+
+@pytest.mark.parametrize("macro", [True, False])
+@pytest.mark.parametrize("has_label", [True, False])
+@pytest.mark.parametrize("num_images", [1, 2, 3])
+@pytest.mark.parametrize("root_tag", ["OME", "InvalidRoot"])
+def test_remove_ome_image_metadata(macro, has_label, num_images, root_tag):
+    original_xml_string = generate_xml(
+        has_macro=macro, has_label=has_label, num_images=1, root_tag=root_tag
+    )
+    if root_tag == "OME":
+        assert (
+            remove_ome_image_metadata(original_xml_string)
+            == '<ns0:OME xmlns:ns0="http://www.openmicroscopy.org/Schemas/OME/2016-06" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Creator="tifffile.py 2023.7.4" UUID="urn:uuid:40348664-c1f8-11ee-a19b-58112295faaf" xsi:schemaLocation="http://www.openmicroscopy.org/Schemas/OME/2016-06 http://www.openmicroscopy.org/Schemas/OME/2016-06/ome.xsd"><ns0:Instrument ID="Instrument:95"><ns0:Objective ID="Objective:95" NominalMagnification="40.0" /></ns0:Instrument><ns0:Image ID="Image:0" Name="Image0"><ns0:Pixels DimensionOrder="XYCZT" ID="Pixels:0" SizeC="3" SizeT="1" SizeX="86272" SizeY="159488" SizeZ="1" Type="uint8" Interleaved="true" PhysicalSizeX="0.2827" PhysicalSizeY="0.2827"><ns0:Channel ID="Channel:0:0" SamplesPerPixel="3" /><ns0:TiffData PlaneCount="1" /></ns0:Pixels></ns0:Image></ns0:OME>'
+        )
+    else:
+        assert remove_ome_image_metadata(original_xml_string) is None

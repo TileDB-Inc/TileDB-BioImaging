@@ -482,4 +482,7 @@ def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
             root.remove(image)
 
     # Return the modified XML as a string
-    return ET.tostring(root, encoding="unicode")
+    return ET.tostring(
+        root,
+        encoding="unicode",
+    )

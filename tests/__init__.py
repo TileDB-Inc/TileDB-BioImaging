@@ -8,6 +8,7 @@ import tiledb
 from tiledb.bioimg import ATTR_NAME
 from tiledb.cc import WebpInputFormat
 from tiledb.bioimg.helpers import merge_ned_ranges
+import xml.etree.ElementTree as ET
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -112,3 +113,96 @@ def generate_test_case(num_axes, num_ranges, max_value):
     expected_output = merge_ned_ranges(input_ranges)
 
     return input_ranges, expected_output
+
+
+def generate_xml(has_macro=True, has_label=True, root_tag="OME", num_images=1):
+    """Generate synthetic XML strings with options to include 'macro' and 'label' images."""
+
+    # Create the root element
+    ome = ET.Element(
+        root_tag,
+        {
+            "xmlns": "http://www.openmicroscopy.org/Schemas/OME/2016-06",
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "Creator": "tifffile.py 2023.7.4",
+            "UUID": "urn:uuid:40348664-c1f8-11ee-a19b-58112295faaf",
+            "xsi:schemaLocation": "http://www.openmicroscopy.org/Schemas/OME/2016-06 http://www.openmicroscopy.org/Schemas/OME/2016-06/ome.xsd",
+        },
+    )
+
+    # Create an instrument element
+    instrument = ET.SubElement(ome, "Instrument", ID="Instrument:95")
+    objective = ET.SubElement(
+        instrument, "Objective", ID="Objective:95", NominalMagnification="40.0"
+    )
+
+    # Create standard image elements
+    for i in range(num_images):
+        image = ET.SubElement(ome, "Image", ID=f"Image:{i}", Name=f"Image{i}")
+        pixels = ET.SubElement(
+            image,
+            "Pixels",
+            DimensionOrder="XYCZT",
+            ID=f"Pixels:{i}",
+            SizeC="3",
+            SizeT="1",
+            SizeX="86272",
+            SizeY="159488",
+            SizeZ="1",
+            Type="uint8",
+            Interleaved="true",
+            PhysicalSizeX="0.2827",
+            PhysicalSizeY="0.2827",
+        )
+        channel = ET.SubElement(
+            pixels, "Channel", ID=f"Channel:{i}:0", SamplesPerPixel="3"
+        )
+        tiffdata = ET.SubElement(pixels, "TiffData", PlaneCount="1")
+
+    # Conditionally add 'macro' and 'label' images
+    if has_label:
+        label_image = ET.SubElement(ome, "Image", ID="Image:label", Name="label")
+        pixels = ET.SubElement(
+            label_image,
+            "Pixels",
+            DimensionOrder="XYCZT",
+            ID="Pixels:label",
+            SizeC="3",
+            SizeT="1",
+            SizeX="604",
+            SizeY="594",
+            SizeZ="1",
+            Type="uint8",
+            Interleaved="true",
+            PhysicalSizeX="43.0",
+            PhysicalSizeY="43.0",
+        )
+        channel = ET.SubElement(
+            pixels, "Channel", ID="Channel:label:0", SamplesPerPixel="3"
+        )
+        tiffdata = ET.SubElement(pixels, "TiffData", IFD="1", PlaneCount="1")
+
+    if has_macro:
+        macro_image = ET.SubElement(ome, "Image", ID="Image:macro", Name="macro")
+        pixels = ET.SubElement(
+            macro_image,
+            "Pixels",
+            DimensionOrder="XYCZT",
+            ID="Pixels:macro",
+            SizeC="3",
+            SizeT="1",
+            SizeX="604",
+            SizeY="1248",
+            SizeZ="1",
+            Type="uint8",
+            Interleaved="true",
+            PhysicalSizeX="43.0",
+            PhysicalSizeY="43.0",
+        )
+        channel = ET.SubElement(
+            pixels, "Channel", ID="Channel:macro:0", SamplesPerPixel="3"
+        )
+        tiffdata = ET.SubElement(pixels, "TiffData", IFD="2", PlaneCount="1")
+
+    # Convert the ElementTree to a string
+    return ET.tostring(ome, encoding="unicode")
