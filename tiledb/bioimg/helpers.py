@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import (
     Any,
@@ -14,6 +15,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Union,
 )
 from urllib.parse import urlparse
 
@@ -456,3 +458,28 @@ def merge_ned_ranges(
     merged_ranges_per_axis = [merge_ranges(ranges) for ranges in ranges_per_axis]
 
     return tuple(merged_ranges_per_axis)
+
+
+def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
+
+    if not xml_string.lstrip().startswith("<OME") or not xml_string:
+        return None
+
+    # Parse the XML string
+    root = ET.fromstring(xml_string)
+
+    # Extract the namespace from the root element's tag
+    namespace = root.tag.split("}")[0].strip("{")  # Extract namespace
+    ns = {"ome": namespace}
+
+    # Find all images
+    images = root.findall("ome:Image", ns)
+
+    # Iterate over images and remove those with Name 'macro' or 'label'
+    for image in images:
+        name = image.attrib.get("Name")
+        if name in ["macro", "label"]:
+            root.remove(image)
+
+    # Return the modified XML as a string
+    return ET.tostring(root, encoding="unicode")
