@@ -5,19 +5,21 @@ import logging
 import os
 import threading
 import warnings
-from abc import ABC, abstractmethod
 from concurrent.futures import Future, ThreadPoolExecutor
 from operator import itemgetter
 from typing import (
     Any,
     Dict,
+    Generic,
     Iterator,
     Mapping,
     MutableMapping,
     Optional,
+    Protocol,
     Sequence,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 
@@ -25,6 +27,7 @@ import jsonpickle
 import numpy as np
 from numpy._typing import NDArray
 from tqdm import tqdm
+from typing_extensions import Self
 
 from .scale import Scaler
 
@@ -57,57 +60,42 @@ from . import DATASET_TYPE, DEFAULT_SCRATCH_SPACE, FMT_VERSION
 from .axes import Axes
 from .tiles import iter_tiles, num_tiles
 
+# Define covariant type variables
+TReader = TypeVar("TReader", bound="ImageReader")
+TWriter = TypeVar("TWriter", bound="ImageWriter")
 
-class ImageReader(ABC):
-    @abstractmethod
-    def __init__(
-        self,
-        input_path: str,
-        *,
-        logger: Optional[logging.Logger],
-        source_config: Optional[tiledb.Config] = None,
-        source_ctx: Optional[tiledb.Ctx] = None,
-        dest_config: Optional[tiledb.Config] = None,
-        dest_ctx: Optional[tiledb.Config] = None,
-        **kwargs: Any,
-    ):
-        """Initialize this ImageReader"""
 
-    def __enter__(self) -> ImageReader:
-        return self
+class ImageReader(Protocol):
+    _logger: logging.Logger
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        pass
+    def __enter__(self) -> Self: ...
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
     @property
-    @abstractmethod
     def source_ctx(self) -> tiledb.Ctx:
         """The ctx of the source path of this image reader."""
+        ...
 
     @property
-    @abstractmethod
     def dest_ctx(self) -> tiledb.Ctx:
         """The ctx of the dest path of this image reader."""
+        ...
 
     @property
-    @abstractmethod
     def logger(self) -> Optional[logging.Logger]:
         """The logger of this image reader."""
-
-    @logger.setter
-    @abstractmethod
-    def logger(self, default_logger: logging.Logger) -> None:
-        """The setter for the logger of this image reader"""
+        ...
 
     @property
-    @abstractmethod
     def axes(self) -> Axes:
         """The axes of this multi-resolution image."""
+        ...
 
     @property
-    @abstractmethod
     def channels(self) -> Sequence[str]:
         """Names of the channels (C axis) of this multi-resolution image."""
+        ...
 
     @property
     def webp_format(self) -> WebpInputFormat:
@@ -115,23 +103,22 @@ class ImageReader(ABC):
         return WebpInputFormat.WEBP_NONE
 
     @property
-    @abstractmethod
     def level_count(self) -> int:
         """
         The number of levels for this multi-resolution image.
 
         Levels are numbered from 0 (highest resolution) to level_count - 1 (lowest resolution).
         """
+        ...
 
-    @abstractmethod
     def level_dtype(self, level: int) -> np.dtype:
         """Return the dtype of the image for the given level."""
+        ...
 
-    @abstractmethod
     def level_shape(self, level: int) -> Tuple[int, ...]:
         """Return the shape of the image for the given level."""
+        ...
 
-    @abstractmethod
     def level_image(
         self, level: int, tile: Optional[Tuple[slice, ...]] = None
     ) -> np.ndarray:
@@ -143,27 +130,27 @@ class ImageReader(ABC):
         :param tile: If not None, a tuple of slices (one per each axes) that specify the
             subregion of the image to return.
         """
+        ...
 
-    @abstractmethod
     def level_metadata(self, level: int) -> Dict[str, Any]:
         """Return the metadata for the given level."""
+        ...
 
     @property
-    @abstractmethod
     def group_metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
+        ...
 
     @property
-    @abstractmethod
     def image_metadata(self) -> Dict[str, Any]:
         """Return the metadata for the whole multi-resolution image."""
+        ...
 
     @property
-    @abstractmethod
     def original_metadata(self) -> Dict[str, Any]:
         """Return the metadata of the original file."""
+        ...
 
-    @abstractmethod
     def optimal_reader(
         self, level: int, max_workers: int = 0
     ) -> Union[None, Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
@@ -173,25 +160,19 @@ class ImageReader(ABC):
         :param level: The overview to read from
         :param max_workers: The number of thread to spawn to read from the file
         """
+        ...
 
 
-class ImageWriter(ABC):
-    @abstractmethod
-    def __init__(self, output_path: str, logger: logging.Logger, **kwargs: Any):
-        """Initialize this ImageWriter"""
-        self.logger = logger
+class ImageWriter(Protocol):
 
-    def __enter__(self) -> ImageWriter:
-        return self
+    def __enter__(self) -> Self: ...
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        pass
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
-    @abstractmethod
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         """Write metadata for the whole multi-resolution image."""
+        ...
 
-    @abstractmethod
     def compute_level_metadata(
         self,
         baseline: bool,
@@ -208,8 +189,8 @@ class ImageWriter(ABC):
         :param group_metadata: The TileDB group pyramid metadata
         :param array_metadata: The TileDB array level metadata
         """
+        ...
 
-    @abstractmethod
     def write_level_image(
         self,
         image: np.ndarray,
@@ -224,13 +205,25 @@ class ImageWriter(ABC):
         :param metadata: Metadata for the given level
         :param image_mask: Mask the original image depending on export format requirements
         """
+        ...
 
 
-class ImageConverter:
+class ImageConverter(Protocol[TReader, TWriter]):
+    _ImageReaderType: Optional[Type[TReader]] = None
+    _ImageWriterType: Optional[Type[TWriter]] = None
+
+    @classmethod
+    def from_tiledb(cls, input_path: str, output_path: str) -> Type[Self]: ...
+
+    @classmethod
+    def to_tiledb(cls, source: str, output_path: str) -> Type[Self]: ...
+
+
+class ImageConverterMixin(Generic[TReader, TWriter]):
     # setting a tile to "infinite" effectively makes it equal to the dimension size
     _DEFAULT_TILES = {"T": 1, "C": np.inf, "Z": 1, "Y": 1024, "X": 1024}
-    _ImageReaderType: Optional[Type[ImageReader]] = None
-    _ImageWriterType: Optional[Type[ImageWriter]] = None
+    _ImageReaderType: Optional[Type[TReader]] = None
+    _ImageWriterType: Optional[Type[TWriter]] = None
 
     @classmethod
     def from_tiledb(
@@ -245,14 +238,14 @@ class ImageConverter:
         scratch_space: str = DEFAULT_SCRATCH_SPACE,
         log: Optional[Union[bool, logging.Logger]] = None,
         **writer_kwargs: Mapping[str, Any],
-    ) -> Type[ImageConverter]:
+    ) -> Type[ImageConverterMixin[TReader, TWriter]]:
         """
         Convert a TileDB Group of Arrays back to other format images, one per level
         :param input_path: path to the TileDB group of arrays
         :param output_path: path to the image
         :param level_min: minimum level of the image to be converted. By default set to 0
             to convert all levels
-        :param attr: attribute name for backwards compatiblity support
+        :param attr: attribute name for backwards compatibility support
         :param config: tiledb configuration either a dict or a tiledb.Config of source
         :param output_config: tiledb configuration either a dict or a tiledb.Config of destination
         :param scratch_space: shared memory or cache space for cloud random access export support
@@ -261,15 +254,15 @@ class ImageConverter:
         DEBUG logging level.
         """
 
+        if cls._ImageWriterType is None:
+            raise NotImplementedError(f"{cls} does not support exporting")
+
         # Initializes the logger depending on the API path chosen
         if log:
             logger = get_logger_wrapper(log) if isinstance(log, bool) else log
         else:
             default_verbose = False
             logger = get_logger_wrapper(default_verbose)
-
-        if cls._ImageWriterType is None:
-            raise NotImplementedError(f"{cls} does not support exporting")
 
         out_uri_res, scheme = resolve_path(output_path)
         logger.debug(f"Resolving output path {out_uri_res}, with scheme {scheme}")
@@ -288,7 +281,7 @@ class ImageConverter:
             output_config = config
 
         slide = TileDBOpenSlide(input_path, attr=attr, config=config)
-        writer = cls._ImageWriterType(destination_uri, logger)
+        writer = cls._ImageWriterType(destination_uri, logger, **(writer_kwargs or {}))
 
         with slide, writer:
             writer.write_group_metadata(slide.properties)
@@ -321,7 +314,7 @@ class ImageConverter:
     @classmethod
     def to_tiledb(
         cls,
-        source: Union[str, ImageReader],
+        source: str,
         output_path: str,
         *,
         level_min: int = 0,
@@ -337,7 +330,7 @@ class ImageConverter:
         log: Optional[Union[bool, logging.Logger]] = None,
         reader_kwargs: Optional[MutableMapping[str, Any]] = None,
         pyramid_kwargs: Optional[Mapping[str, Any]] = None,
-    ) -> Type[ImageConverter]:
+    ) -> Type[ImageConverterMixin[TReader, TWriter]]:
         """
                 Convert an image to a TileDB Group of Arrays, one per level.
 
@@ -384,6 +377,9 @@ class ImageConverter:
                         on the machine, multiplied by 5.
         """
 
+        if cls._ImageReaderType is None:
+            raise NotImplementedError(f"{cls} does not support importing")
+
         if log:
             logger = get_logger_wrapper(log) if isinstance(log, bool) else log
         else:
@@ -399,18 +395,9 @@ class ImageConverter:
                     common_cfg
                 )
 
-        if isinstance(source, ImageReader):
-            if cls._ImageReaderType != source.__class__:
-                raise ValueError("Image reader should match converter on source format")
-            if not source.logger:
-                source.logger = logger
-            reader = source
-        elif cls._ImageReaderType is not None:
-            reader = cls._ImageReaderType(
-                source, logger=logger, **reader_kwargs if reader_kwargs else {}
-            )
-        else:
-            raise NotImplementedError(f"{cls} does not support importing")
+        reader = cls._ImageReaderType(
+            source, logger, **reader_kwargs if reader_kwargs else {}
+        )
 
         max_tiles = cls._DEFAULT_TILES.copy()
         logger.debug(f"Max tiles:{max_tiles}")
@@ -419,7 +406,6 @@ class ImageConverter:
         logger.debug(f"Updated max tiles:{max_tiles}")
 
         rw_group = ReadWriteGroup(output_path, ctx=reader.dest_ctx)
-
         metadata = {}
         original_metadata = {}
 
@@ -488,7 +474,7 @@ class ImageConverter:
                         f"The image contains multiple levels but only level {level_min} "
                         "will be considered for generating the image pyramid"
                     )
-                level_meta = _convert_level_to_tiledb(level_min, **convert_kwargs)  # type: ignore
+                level_meta = _convert_level_to_tiledb(level_min, **convert_kwargs)
 
                 scaled_compressors, levels_meta = _create_image_pyramid(
                     reader,
@@ -506,7 +492,7 @@ class ImageConverter:
             else:
                 for level in range(level_min, reader.level_count):
                     logger.info(f"Converting level: {level}")
-                    level_meta = _convert_level_to_tiledb(level, **convert_kwargs)  # type: ignore
+                    level_meta = _convert_level_to_tiledb(level, **convert_kwargs)
                     channel_min_max.append(level_meta["channelMinMax"])
                     logger.debug(
                         f'Level {level} channel MinMax: {level_meta["channelMinMax"]}'

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import decimal
 import logging
 import math
@@ -34,17 +36,20 @@ from tiledb.highlevel import _get_ctx
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
 from .axes import Axes
-from .base import ImageConverter, ImageReader, ImageWriter
+from .base import ImageConverterMixin
 from .io import as_array
 from .metadata import qpi_image_meta, qpi_original_meta
 
 
-class OMETiffReader(ImageReader):
+class OMETiffReader:
+
+    _logger: logging.Logger
+
     def __init__(
         self,
         input_path: str,
-        *,
         logger: Optional[logging.Logger] = None,
+        *,
         source_config: Optional[Config] = None,
         source_ctx: Optional[Ctx] = None,
         dest_config: Optional[Config] = None,
@@ -76,6 +81,9 @@ class OMETiffReader(ImageReader):
         omexml = self._tiff.ome_metadata
         self._metadata = tifffile.xml2dict(omexml) if omexml else {}
 
+    def __enter__(self) -> OMETiffReader:
+        return self
+
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._tiff.close()
         self._vfs.close(file=self._vfs_fh)
@@ -91,10 +99,6 @@ class OMETiffReader(ImageReader):
     @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
-
-    @logger.setter
-    def logger(self, default_logger: logging.Logger) -> None:
-        self._logger = default_logger
 
     @property
     def axes(self) -> Axes:
@@ -395,11 +399,17 @@ class OMETiffReader(ImageReader):
         return chunk_iterator()
 
 
-class OMETiffWriter(ImageWriter):
+class OMETiffWriter:
     def __init__(self, output_path: str, logger: logging.Logger, ome: bool = True):
         self._logger = logger
         self._output_path = output_path
         self._ome = ome
+
+    def __enter__(self) -> OMETiffWriter:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._writer.close()
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         self._writer = tifffile.TiffWriter(
@@ -499,11 +509,8 @@ class OMETiffWriter(ImageWriter):
         write_kwargs: Dict[str, Any] = dict(metadata)
         self._writer.write(image, **write_kwargs)
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        self._writer.close()
 
-
-class OMETiffConverter(ImageConverter):
+class OMETiffConverter(ImageConverterMixin[OMETiffReader, OMETiffWriter]):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
     _ImageReaderType = OMETiffReader
