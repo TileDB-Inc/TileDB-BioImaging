@@ -10,7 +10,7 @@ import warnings
 from typing import Optional
 from .types import Converters
 
-osd_exc: Optional[ImportError]
+_osd_exc: Optional[ImportError]
 
 if hasattr(os, "add_dll_directory"):
     # Python >= 3.8 on Windows
@@ -22,9 +22,9 @@ if hasattr(os, "add_dll_directory"):
                 "Openslide Converter requires 'openslide-python' package. "
                 "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
             )
-            osd_exc = err_osd
+            _osd_exc = err_osd
         else:
-            osd_exc = None
+            _osd_exc = None
 else:
     try:
         importlib.util.find_spec("openslide")
@@ -33,8 +33,8 @@ else:
             "Openslide Converter requires 'openslide-python' package. "
             "You can install 'tiledb-bioimg' with the 'openslide' or 'full' flag"
         )
-        osd_exc = err_osd
+        _osd_exc = err_osd
     else:
-        osd_exc = None
+        _osd_exc = None
 
 from .wrappers import *

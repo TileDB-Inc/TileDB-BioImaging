@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 from functools import partial
@@ -9,7 +11,6 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
-    Union,
 )
 
 import numpy as np
@@ -22,15 +23,18 @@ from tiledb.highlevel import _get_ctx
 
 from ..helpers import get_logger_wrapper, iter_color
 from .axes import Axes
-from .base import ImageConverter, ImageReader, ImageWriter
+from .base import ImageConverterMixin
 
 
-class PNGReader(ImageReader):
+class PNGReader:
+
+    _logger: logging.Logger
+
     def __init__(
         self,
         input_path: str,
-        *,
         logger: Optional[logging.Logger] = None,
+        *,
         source_config: Optional[Config] = None,
         source_ctx: Optional[Ctx] = None,
         dest_config: Optional[Config] = None,
@@ -56,6 +60,9 @@ class PNGReader(ImageReader):
         if self._png.mode not in ["RGB", "RGBA", "L"]:
             self._png = self._png.convert("RGB")
 
+    def __enter__(self) -> PNGReader:
+        return self
+
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._vfs.close(file=self._vfs_fh)
 
@@ -70,10 +77,6 @@ class PNGReader(ImageReader):
     @property
     def logger(self) -> Optional[logging.Logger]:
         return self._logger
-
-    @logger.setter
-    def logger(self, default_logger: logging.Logger) -> None:
-        self._logger = default_logger
 
     @property
     def axes(self) -> Axes:
@@ -118,11 +121,9 @@ class PNGReader(ImageReader):
         self._logger.debug(f"Level {level} dtype: {dtype}")
         return dtype
 
-    def level_shape(self, level: int = 0) -> Union[Tuple[int, ...], Any]:
+    def level_shape(self, level: int = 0) -> Tuple[int, ...]:
         if level != 0:
-            raise ValueError(
-                "PNG images are not pyramidal and consist of only one level"
-            )
+            return ()
         # Even after converting to RGB the size is not updated to 3d from 2d
         w, h = self._png.size
 
@@ -186,7 +187,7 @@ class PNGReader(ImageReader):
         return self._metadata
 
     @property
-    def original_metadata(self) -> Dict[str, Any]:
+    def original_metadata(self) -> Any:
         self._logger.debug(f"Original Image metadata: {self._metadata}")
         return self._metadata
 
@@ -196,13 +197,16 @@ class PNGReader(ImageReader):
         return None
 
 
-class PNGWriter(ImageWriter):
+class PNGWriter:
 
     def __init__(self, output_path: str, logger: logging.Logger):
         self._logger = logger
         self._output_path = output_path
         self._group_metadata: Dict[str, Any] = {}
         self._writer = partial(Image.fromarray)
+
+    def __enter__(self) -> PNGWriter:
+        return self
 
     def compute_level_metadata(
         self,
@@ -240,7 +244,7 @@ class PNGWriter(ImageWriter):
         pass
 
 
-class PNGConverter(ImageConverter):
+class PNGConverter(ImageConverterMixin[PNGReader, PNGWriter]):
     """Converter of Tiff-supported images to TileDB Groups of Arrays"""
 
     _ImageReaderType = PNGReader

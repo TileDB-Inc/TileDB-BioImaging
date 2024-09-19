@@ -1,29 +1,26 @@
 from __future__ import annotations
 
-from typing import Any, Type
-
-from .converters.base import ImageConverter
+import importlib.util
+from typing import Any, Optional
 
 try:
-    from .converters.ome_tiff import OMETiffConverter
+    importlib.util.find_spec("tifffile")
+    importlib.util.find_spec("imagecodecs")
 except ImportError as err_tiff:
-    _tiff_exc = err_tiff
+    _tiff_exc: Optional[ImportError] = err_tiff
 else:
-    _tiff_exc = None  # type: ignore
+    _tiff_exc = None
 try:
-    from .converters.ome_zarr import OMEZarrConverter
+    importlib.util.find_spec("zarr")
+    importlib.util.find_spec("ome-zarr")
 except ImportError as err_zarr:
-    _zarr_exc = err_zarr
+    _zarr_exc: Optional[ImportError] = err_zarr
 else:
-    _zarr_exc = None  # type: ignore
-try:
-    from .converters.openslide import OpenSlideConverter
-except ImportError as err_osd:
-    _osd_exc = err_osd
-else:
-    _osd_exc = None  # type: ignore
+    _zarr_exc = None
 
+from . import _osd_exc
 from .helpers import get_logger_wrapper
+from .plugin_manager import load_converters
 from .types import Converters
 
 
@@ -36,7 +33,7 @@ def from_bioimg(
     exclude_metadata: bool = False,
     tile_scale: int = 1,
     **kwargs: Any,
-) -> Type[ImageConverter]:
+) -> Any:
     """
     This function is a wrapper and serves as an all-inclusive API for encapsulating the
     ingestion of different file formats
@@ -58,11 +55,11 @@ def from_bioimg(
     reader_kwargs["dest_config"] = kwargs.pop(
         "dest_config", reader_kwargs["source_config"]
     )
-
+    converters = load_converters()
     if converter is Converters.OMETIFF:
         if not _tiff_exc:
             logger.info("Converting OME-TIFF file")
-            return OMETiffConverter.to_tiledb(
+            return converters["tiff_converter"].to_tiledb(
                 source=src,
                 output_path=dest,
                 log=logger,
@@ -76,7 +73,7 @@ def from_bioimg(
     elif converter is Converters.OMEZARR:
         if not _zarr_exc:
             logger.info("Converting OME-Zarr file")
-            return OMEZarrConverter.to_tiledb(
+            return converters["zarr_converter"].to_tiledb(
                 source=src,
                 output_path=dest,
                 log=logger,
@@ -87,10 +84,10 @@ def from_bioimg(
             )
         else:
             raise _zarr_exc
-    else:
+    elif converter is Converters.OSD:
         if not _osd_exc:
             logger.info("Converting Openslide")
-            return OpenSlideConverter.to_tiledb(
+            return converters["osd_converter"].to_tiledb(
                 source=src,
                 output_path=dest,
                 log=logger,
@@ -101,6 +98,18 @@ def from_bioimg(
             )
         else:
             raise _osd_exc
+    else:
+
+        logger.info("Converting PNG")
+        return converters["png_converter"].to_tiledb(
+            source=src,
+            output_path=dest,
+            log=logger,
+            exclude_metadata=exclude_metadata,
+            tile_scale=tile_scale,
+            reader_kwargs=reader_kwargs,
+            **kwargs,
+        )
 
 
 def to_bioimg(
@@ -110,7 +119,7 @@ def to_bioimg(
     *,
     verbose: bool = False,
     **kwargs: Any,
-) -> Type[ImageConverter]:
+) -> Any:
     """
     This function is a wrapper and serves as an all-inclusive API for encapsulating the
     exportation of TileDB ingested bio-images back into different file formats
@@ -121,11 +130,12 @@ def to_bioimg(
     :param kwargs: keyword arguments for custom exportation behaviour
     :return: None
     """
+    converters = load_converters()
     logger = get_logger_wrapper(verbose)
     if converter is Converters.OMETIFF:
         if not _tiff_exc:
             logger.info("Converting to OME-TIFF file")
-            return OMETiffConverter.from_tiledb(
+            return converters["tiff_converter"].from_tiledb(
                 input_path=src, output_path=dest, log=logger, **kwargs
             )
         else:
@@ -133,19 +143,16 @@ def to_bioimg(
     elif converter is Converters.OMEZARR:
         if not _zarr_exc:
             logger.info("Converting to OME-Zarr file")
-            return OMEZarrConverter.from_tiledb(
+            return converters["zarr_converter"].from_tiledb(
                 input_path=src, output_path=dest, log=logger, **kwargs
             )
         else:
             raise _zarr_exc
     elif converter is Converters.PNG:
-        if not _png_exc:
-            logger.info("Converting to PNG file")
-            return PNGConverter.from_tiledb(
-                input_path=src, output_path=dest, log=logger, **kwargs
-            )
-        else:
-            raise _png_exc
+        logger.info("Converting to PNG file")
+        return converters["png_converter"].from_tiledb(
+            input_path=src, output_path=dest, log=logger, **kwargs
+        )
     else:
         raise NotImplementedError(
             "Openslide Converter does not support exportation back to bio-imaging formats"
