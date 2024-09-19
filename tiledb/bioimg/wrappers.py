@@ -18,8 +18,7 @@ except ImportError as err_zarr:
 else:
     _zarr_exc = None
 
-
-from . import osd_exc
+from . import _osd_exc
 from .helpers import get_logger_wrapper
 from .plugin_manager import load_converters
 from .types import Converters
@@ -41,16 +40,9 @@ def from_bioimg(
     :param src: The source path for the file to be ingested *.tiff, *.zarr, *.svs etc..
     :param dest: The destination path where the TileDB image will be stored
     :param converter: The converter type to be used (tentative) soon automatically detected
-    :param exclude_metadata: Excluding metadata from the original image
-    :param tile_scale: Number of tiles to fetch in memory during chunked ingestion
     :param verbose: verbose logging, defaults to False
     :param kwargs: keyword arguments for custom ingestion behaviour
     :return: The converter class that was used for the ingestion
-
-    Parameters
-    ----------
-    tile_scale
-    exclude_metadata
     """
 
     logger = get_logger_wrapper(verbose)
@@ -92,8 +84,8 @@ def from_bioimg(
             )
         else:
             raise _zarr_exc
-    else:
-        if not osd_exc:
+    elif converter is Converters.OSD:
+        if not _osd_exc:
             logger.info("Converting Openslide")
             return converters["osd_converter"].to_tiledb(
                 source=src,
@@ -105,7 +97,19 @@ def from_bioimg(
                 **kwargs,
             )
         else:
-            raise osd_exc
+            raise _osd_exc
+    else:
+
+        logger.info("Converting PNG")
+        return converters["png_converter"].to_tiledb(
+            source=src,
+            output_path=dest,
+            log=logger,
+            exclude_metadata=exclude_metadata,
+            tile_scale=tile_scale,
+            reader_kwargs=reader_kwargs,
+            **kwargs,
+        )
 
 
 def to_bioimg(
@@ -126,7 +130,6 @@ def to_bioimg(
     :param kwargs: keyword arguments for custom exportation behaviour
     :return: None
     """
-
     converters = load_converters()
     logger = get_logger_wrapper(verbose)
     if converter is Converters.OMETIFF:
@@ -145,6 +148,11 @@ def to_bioimg(
             )
         else:
             raise _zarr_exc
+    elif converter is Converters.PNG:
+        logger.info("Converting to PNG file")
+        return converters["png_converter"].from_tiledb(
+            input_path=src, output_path=dest, log=logger, **kwargs
+        )
     else:
         raise NotImplementedError(
             "Openslide Converter does not support exportation back to bio-imaging formats"
