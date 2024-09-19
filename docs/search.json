@@ -18,21 +18,21 @@
     "href": "documentation/api/from_bioimg.html",
     "title": "from_bioimg",
     "section": "",
-    "text": "bioimg.wrappers.from_bioimg(src, dest, converter=Converters.OMETIFF, *, verbose=False, exclude_metadata=False, tile_scale=1, **kwargs)\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the ingestion of different file formats\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path for the file to be ingested .tiff, .zarr, *.svs etc..\nrequired\n\n\ndest\nstr\nThe destination path where the TileDB image will be stored\nrequired\n\n\nconverter\nConverters\nThe converter type to be used (tentative) soon automatically detected\nConverters.OMETIFF\n\n\nexclude_metadata\nbool\nExcluding metadata from the original image\nFalse\n\n\ntile_scale\nint\nNumber of tiles to fetch in memory during chunked ingestion\n1\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom ingestion behaviour\n{}\n\n\n\n\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nAny\nThe converter class that was used for the ingestion Parameters ———- tile_scale exclude_metadata"
+    "text": "bioimg.wrappers.from_bioimg(src, dest, converter=Converters.OMETIFF, *, verbose=False, exclude_metadata=False, tile_scale=1, **kwargs)\nThis function is a wrapper and serves as an all-inclusive API for encapsulating the ingestion of different file formats\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path for the file to be ingested .tiff, .zarr, *.svs etc..\nrequired\n\n\ndest\nstr\nThe destination path where the TileDB image will be stored\nrequired\n\n\nconverter\nConverters\nThe converter type to be used (tentative) soon automatically detected\nConverters.OMETIFF\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom ingestion behaviour\n{}\n\n\n\n\n\n\n\n\n\nType\nDescription\n\n\n\n\nAny\nThe converter class that was used for the ingestion"
   },
   {
     "objectID": "documentation/api/from_bioimg.html#parameters",
     "href": "documentation/api/from_bioimg.html#parameters",
     "title": "from_bioimg",
     "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path for the file to be ingested .tiff, .zarr, *.svs etc..\nrequired\n\n\ndest\nstr\nThe destination path where the TileDB image will be stored\nrequired\n\n\nconverter\nConverters\nThe converter type to be used (tentative) soon automatically detected\nConverters.OMETIFF\n\n\nexclude_metadata\nbool\nExcluding metadata from the original image\nFalse\n\n\ntile_scale\nint\nNumber of tiles to fetch in memory during chunked ingestion\n1\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom ingestion behaviour\n{}"
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nsrc\nstr\nThe source path for the file to be ingested .tiff, .zarr, *.svs etc..\nrequired\n\n\ndest\nstr\nThe destination path where the TileDB image will be stored\nrequired\n\n\nconverter\nConverters\nThe converter type to be used (tentative) soon automatically detected\nConverters.OMETIFF\n\n\nverbose\nbool\nverbose logging, defaults to False\nFalse\n\n\nkwargs\nAny\nkeyword arguments for custom ingestion behaviour\n{}"
   },
   {
     "objectID": "documentation/api/from_bioimg.html#returns",
     "href": "documentation/api/from_bioimg.html#returns",
     "title": "from_bioimg",
     "section": "",
-    "text": "Type\nDescription\n\n\n\n\nAny\nThe converter class that was used for the ingestion Parameters ———- tile_scale exclude_metadata"
+    "text": "Type\nDescription\n\n\n\n\nAny\nThe converter class that was used for the ingestion"
   },
   {
     "objectID": "documentation/api/to_bioimg.html",
