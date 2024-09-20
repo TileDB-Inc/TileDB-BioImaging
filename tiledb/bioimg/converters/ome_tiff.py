@@ -34,7 +34,12 @@ from tiledb.cc import WebpInputFormat
 from tiledb.highlevel import _get_ctx
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
-from ..helpers import get_decimal_from_rgba, get_logger_wrapper, get_rgba, iter_color
+from ..helpers import (
+    get_decimal_from_rgba,
+    get_logger_wrapper,
+    get_rgba,
+    iter_color,
+)
 from .axes import Axes
 from .base import ImageConverterMixin
 from .io import as_array

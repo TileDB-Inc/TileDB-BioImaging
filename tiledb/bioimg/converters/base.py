@@ -51,6 +51,7 @@ from ..helpers import (
     iter_levels_meta,
     iter_pixel_depths_meta,
     open_bioimg,
+    remove_ome_image_metadata,
     resolve_path,
     validate_ingestion,
 )
@@ -512,6 +513,12 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
 
             if not exclude_metadata:
                 original_metadata = reader.original_metadata
+            else:
+                if ome_xml := reader.original_metadata.get("ome_metadata"):
+                    pruned_metadata = remove_ome_image_metadata(ome_xml)
+                    original_metadata = (
+                        {"ome_metadata": pruned_metadata} if pruned_metadata else {}
+                    )
 
         with rw_group:
             rw_group.w_group.meta.update(
