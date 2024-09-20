@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -461,7 +462,12 @@ def merge_ned_ranges(
 
 
 def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
-
+    """
+    This functions parses an OME-XML file and removes the `macro` and `label` metadata
+    of the image that it accompanies.
+    :param xml_string: OME-XML string to remove metadata from
+    :return: OME-XML string with metadata removed
+    """
     if not xml_string.lstrip().startswith("<OME") or not xml_string:
         return None
 
@@ -482,7 +488,15 @@ def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
             root.remove(image)
 
     # Return the modified XML as a string
-    return ET.tostring(
-        root,
-        encoding="unicode",
+    # Regular expression pattern to match 'ns0', 'ns0:', or ':ns0'
+    pattern = r"ns0:|:ns0|ns0"
+
+    # Substitute the matches with an empty string
+    return re.sub(
+        pattern,
+        "",
+        ET.tostring(
+            root,
+            encoding="unicode",
+        ),
     )

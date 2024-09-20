@@ -1,3 +1,5 @@
+import xml.etree.ElementTree as ET
+
 import numpy as np
 import pytest
 
@@ -67,10 +69,25 @@ def test_remove_ome_image_metadata(macro, has_label, num_images, root_tag):
     original_xml_string = generate_xml(
         has_macro=macro, has_label=has_label, num_images=1, root_tag=root_tag
     )
+
+    excluded_metadata = remove_ome_image_metadata(original_xml_string)
     if root_tag == "OME":
+        parsed_excluded = ET.fromstring(excluded_metadata)
+
+        # Assert if "label" subelement is present
         assert (
-            remove_ome_image_metadata(original_xml_string)
-            == '<ns0:OME xmlns:ns0="http://www.openmicroscopy.org/Schemas/OME/2016-06" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Creator="tifffile.py 2023.7.4" UUID="urn:uuid:40348664-c1f8-11ee-a19b-58112295faaf" xsi:schemaLocation="http://www.openmicroscopy.org/Schemas/OME/2016-06 http://www.openmicroscopy.org/Schemas/OME/2016-06/ome.xsd"><ns0:Instrument ID="Instrument:95"><ns0:Objective ID="Objective:95" NominalMagnification="40.0" /></ns0:Instrument><ns0:Image ID="Image:0" Name="Image0"><ns0:Pixels DimensionOrder="XYCZT" ID="Pixels:0" SizeC="3" SizeT="1" SizeX="86272" SizeY="159488" SizeZ="1" Type="uint8" Interleaved="true" PhysicalSizeX="0.2827" PhysicalSizeY="0.2827"><ns0:Channel ID="Channel:0:0" SamplesPerPixel="3" /><ns0:TiffData PlaneCount="1" /></ns0:Pixels></ns0:Image></ns0:OME>'
+            parsed_excluded.find(
+                ".//{http://www.openmicroscopy.org/Schemas/OME/2016-06}Image[@ID='Image:label'][@Name='label']"
+            )
+            is None
+        )
+
+        # Assert if "macro" subelement is present
+        assert (
+            parsed_excluded.find(
+                ".//{http://www.openmicroscopy.org/Schemas/OME/2016-06}Image[@ID='Image:macro'][@Name='macro']"
+            )
+            is None
         )
     else:
         assert remove_ome_image_metadata(original_xml_string) is None
