@@ -25,6 +25,12 @@ Python package for:
 - [TileDB Cloud](https://cloud.tiledb.com) includes a built-in, pyramidal multi-resolution viewer: log in to TileDB Cloud to see an example image preview [here](https://cloud.tiledb.com/biomedical-imaging/TileDB-Inc/dbb7dfcc-28b3-40e5-916f-6509a666d950/preview)
 - Napari: https://github.com/TileDB-Inc/napari-tiledb-bioimg
 
+## Installation Prerequisites
+
+OpenSlide Python requires that OpenSlide be installed separately prior to its installation.
+
+Prior to proceeding with the below installation instructions, please [install OpenSlide as recommended by the OpenSlide Python library](https://openslide.org/api/python/#:~:text=OpenSlide%20Python%20requires%20OpenSlide%2C%20which%20must%20be%20installed%20separately).
+
 ## Quick Installation
 
 - From PyPI:
