@@ -14,7 +14,7 @@ except ImportError:
 import json
 
 import tiledb
-from tiledb import Config, Ctx
+from tiledb import Config, Ctx, TileDBError
 from tiledb.highlevel import _get_ctx
 
 from . import ATTR_NAME
@@ -83,8 +83,8 @@ class TileDBOpenSlide:
         return tuple(map(attrgetter("level"), self._levels))
 
     @property
-    def dimensions(self) -> Tuple[int, int]:
-        """A (width, height) tuple for level 0 of the slide."""
+    def dimensions(self) -> Tuple[int, ...]:
+        """A (width, height, depth - (if exists)) tuple for level 0 of the slide."""
         return self._levels[0].dimensions
 
     @property
@@ -191,12 +191,19 @@ class TileDBOpenSlideLevel:
         return int(self._tdb.meta["level"])
 
     @property
-    def dimensions(self) -> Tuple[int, int]:
+    def dimensions(self) -> Tuple[int, ...]:
         a = self._tdb
         dims = list(a.domain)
         width = a.shape[dims.index(a.dim("X"))]
         height = a.shape[dims.index(a.dim("Y"))]
-        return width // self._pixel_depth, height
+        try:
+            depth = a.shape[dims.index(a.dim("Z"))]
+        # The Z dim does not exist
+        except TileDBError:
+            depth = None
+        d1, d2 = width // self._pixel_depth, height
+        dimensions = (d1, d2) if depth is None else d1, d2, depth
+        return dimensions
 
     @property
     def properties(self) -> Mapping[str, Any]:

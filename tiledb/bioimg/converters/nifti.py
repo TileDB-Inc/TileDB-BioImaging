@@ -1,0 +1,277 @@
+from __future__ import annotations
+
+import base64
+import json
+import logging
+from functools import partial
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
+
+import nibabel as nib
+import numpy as np
+from black.trans import defaultdict
+from nibabel import Nifti1Image
+from numpy._typing import NDArray
+
+from tiledb import VFS, Config, Ctx
+from tiledb.cc import WebpInputFormat
+from tiledb.highlevel import _get_ctx
+
+from ..helpers import get_logger_wrapper, iter_color
+from .axes import Axes
+from .base import ImageConverterMixin
+
+
+class NiftiReader:
+    _logger: logging.Logger
+
+    def __init__(
+        self,
+        input_path: str,
+        logger: Optional[logging.Logger] = None,
+        *,
+        source_config: Optional[Config] = None,
+        source_ctx: Optional[Ctx] = None,
+        dest_config: Optional[Config] = None,
+        dest_ctx: Optional[Ctx] = None,
+    ):
+        self._logger = get_logger_wrapper(False) if not logger else logger
+        self._input_path = input_path
+        self._source_ctx = _get_ctx(source_ctx, source_config)
+        self._source_cfg = self._source_ctx.config()
+        self._dest_ctx = _get_ctx(dest_ctx, dest_config)
+        self._dest_cfg = self._dest_ctx.config()
+        self._vfs = VFS(config=self._source_cfg, ctx=self._source_ctx)
+        self._vfs_fh = self._vfs.open(input_path, mode="rb")
+        self._nib_image = Nifti1Image.from_stream(self._vfs_fh)
+        self._metadata: Dict[str, Any] = self._serialize_header(self.nifti1_hdr_2_dict())
+        self._mode = "".join(self._nib_image.dataobj.dtype.names)
+
+    def __enter__(self) -> NiftiReader:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._vfs.close(file=self._vfs_fh)
+
+    @property
+    def source_ctx(self) -> Ctx:
+        return self._source_ctx
+
+    @property
+    def dest_ctx(self) -> Ctx:
+        return self._dest_ctx
+
+    @property
+    def logger(self) -> Optional[logging.Logger]:
+        return self._logger
+
+    @property
+    def group_metadata(self) -> Dict[str, Any]:
+        writer_kwargs = dict(metadata=self._metadata)
+        self._logger.debug(f"Group metadata: {writer_kwargs}")
+        return {"json_write_kwargs": json.dumps(writer_kwargs)}
+
+    @property
+    def image_metadata(self) -> Dict[str, Any]:
+        self._logger.debug(f"Image metadata: {self._metadata}")
+        color_generator = iter_color(np.dtype(np.uint8), len(self.channels))
+
+        channels = []
+        for idx, channel in enumerate(self.channels):
+            channel_metadata = {
+                "id": f"{idx}",
+                "name": f"Channel {idx}",
+                "color": (next(color_generator)),
+            }
+            channels.append(channel_metadata)
+        self._metadata["channels"] = channels
+        return self._metadata
+
+    @property
+    def axes(self) -> Axes:
+        if self._mode == "L":
+            axes = Axes(["X", "Y", "Z"])
+        else:
+            axes = Axes(["X", "Y", "Z", "C"])
+        self._logger.debug(f"Reader axes: {axes}")
+        return axes
+
+    @property
+    def channels(self) -> Sequence[str]:
+        if self.webp_format is WebpInputFormat.WEBP_RGB:
+            self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGB}")
+            return "RED", "GREEN", "BLUE"
+        elif self.webp_format is WebpInputFormat.WEBP_RGBA:
+            self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGBA}")
+            return "RED", "GREEN", "BLUE", "ALPHA"
+        else:
+            self._logger.debug(
+                f"Webp format is not: {WebpInputFormat.WEBP_RGB} / {WebpInputFormat.WEBP_RGBA}"
+            )
+        color_map = {
+            "R": "RED",
+            "G": "GREEN",
+            "B": "BLUE",
+            "A": "ALPHA",
+            "L": "GRAYSCALE",
+        }
+        # Use list comprehension to convert the short form to full form
+        rgb_full = [color_map[color] for color in self._mode]
+        return rgb_full
+
+    @property
+    def level_count(self) -> int:
+        level_count = 1
+        self._logger.debug(f"Level count: {level_count}")
+        return level_count
+
+    def level_dtype(self, level: int = 0) -> np.dtype:
+        header_dict = self.nifti1_hdr_2_dict()
+
+        # Check the header first
+        if (dtype := header_dict["data_type"].dtype) == np.dtype("S10"):
+            dtype = np.uint8
+
+        # TODO: Compare with the dtype of fields
+        # dict(self._nib_image.dataobj.dtype.fields)
+        self._logger.debug(f"Level {level} dtype: {dtype}")
+        return dtype
+
+    def level_shape(self, level: int = 0) -> Tuple[int, ...]:
+        if level != 0:
+            return ()
+
+        original_shape = self._nib_image.shape
+        fields = self._nib_image.dataobj.dtype.fields
+        if len(fields) == 3:
+            # RGB convert the shape from to stack 3 channels
+            l_shape = (*original_shape[:-1], 3)
+        elif len(fields) == 4:
+            # RGBA
+            l_shape = (*original_shape[:-1], 4)
+        else:
+            # Grayscale
+            l_shape = original_shape
+        self._logger.debug(f"Level {level} shape: {l_shape}")
+        return l_shape
+
+    @property
+    def webp_format(self) -> WebpInputFormat:
+        self._logger.debug(f"Channel Mode: {self._mode}")
+        if self._mode == "RGB":
+            return WebpInputFormat.WEBP_RGB
+        elif self._mode == "RGBA":
+            return WebpInputFormat.WEBP_RGBA
+        return WebpInputFormat.WEBP_NONE
+
+    def level_image(
+        self, level: int = 0, tile: Optional[Tuple[slice, ...]] = None
+    ) -> np.ndarray:
+
+        unscaled_img = self._nib_image.dataobj.get_unscaled()
+        raw_data_contiguous = np.ascontiguousarray(unscaled_img)
+        numerical_data = np.frombuffer(raw_data_contiguous, dtype=self.level_dtype())
+        numerical_data = numerical_data.reshape(self.level_shape())
+
+        if tile is None:
+            return numerical_data
+        else:
+            return numerical_data[tile]
+
+    def level_metadata(self, level: int) -> Dict[str, Any]:
+        # Common with group metadata since there are no multiple levels
+        writer_kwargs = dict(metadata=self._metadata)
+        return {"json_write_kwargs": json.dumps(writer_kwargs)}
+
+    @property
+    def original_metadata(self) -> Any:
+        self._logger.debug(f"Original Image metadata: {self._metadata}")
+        return self._metadata
+
+    def optimal_reader(
+        self, level: int, max_workers: int = 0
+    ) -> Optional[Iterator[Tuple[Tuple[slice, ...], NDArray[Any]]]]:
+        # if self.chunk_size is None:
+        #     raise ValueError("chunk_size must be set for chunked reading.")
+        #
+        # array = self._nib_image.get_fdata()
+        # total_slices = array.shape[-1]
+        # for i in range(0, total_slices, self.chunk_size):
+        #     chunk = array[..., i : i + self.chunk_size]
+        #     yield chunk
+        return None
+
+    def nifti1_hdr_2_dict(self) -> Dict[str, Any]:
+        structured_header_arr = self._nib_image.header.structarr
+        return {
+            field: structured_header_arr[field]
+            for field in structured_header_arr.dtype.names
+        }
+
+    @staticmethod
+    def _serialize_header(header_dict: [Dict, Any]) -> Dict[str, Any]:
+        serialized_header = defaultdict(dict)
+        for k,v in header_dict.items():
+            if isinstance(v, np.ndarray):
+                serialized_header[k] = v.tolist()
+                if isinstance(serialized_header[k], bytes):
+                    serialized_header[k] = base64.b64encode(serialized_header[k]).decode('utf-8')
+            else:
+                serialized_header[k] = v
+        return serialized_header
+
+
+class NiftiWriter:
+    def __init__(self, output_path: str, logger: logging.Logger):
+        self._logger = logger
+        self._output_path = output_path
+        self._group_metadata: Dict[str, Any] = {}
+        self._writer = partial(nib.Nifti1Image)
+
+    def __enter__(self) -> NiftiWriter:
+        return self
+
+    def compute_level_metadata(
+        self,
+        baseline: bool,
+        num_levels: int,
+        image_dtype: np.dtype,
+        group_metadata: Mapping[str, Any],
+        array_metadata: Mapping[str, Any],
+        **writer_kwargs: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+
+        writer_metadata: Dict[str, Any] = {}
+        original_mode = group_metadata.get("original_mode", "RGB")
+        writer_metadata["mode"] = original_mode
+        self._logger.debug(f"Writer metadata: {writer_metadata}")
+        return writer_metadata
+
+    def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
+        self._group_metadata = json.loads(metadata["json_write_kwargs"])
+
+    def write_level_image(
+        self,
+        image: np.ndarray,
+        metadata: Mapping[str, Any],
+    ) -> None:
+        nib_image = self._writer(image, metadata["affine"])
+        nib.save(nib_image, self._output_path)
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        pass
+
+
+class NiftiConverter(ImageConverterMixin[NiftiReader, NiftiWriter]):
+    """Converter of Tiff-supported images to TileDB Groups of Arrays"""
+
+    # https://nifti.nimh.nih.gov/pub/dist/src/niftilib/nifti1.h
+    _ImageReaderType = NiftiReader
+    _ImageWriterType = NiftiWriter
