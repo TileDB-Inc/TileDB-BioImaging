@@ -202,7 +202,7 @@ class TileDBOpenSlideLevel:
         except TileDBError:
             depth = None
         d1, d2 = width // self._pixel_depth, height
-        dimensions = (d1, d2) if depth is None else d1, d2, depth
+        dimensions = (d1, d2) if depth is None else (d1, d2, depth)
         return dimensions
 
     @property
