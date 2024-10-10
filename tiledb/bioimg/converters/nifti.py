@@ -17,6 +17,7 @@ from typing import (
 import nibabel as nib
 import numpy as np
 from nibabel import Nifti1Image
+from nibabel.analyze import _dtdefs
 from numpy._typing import NDArray
 
 from tiledb import VFS, Config, Ctx
@@ -56,7 +57,11 @@ class NiftiReader:
         self._binary_header = base64.b64encode(
             self._nib_image.header.binaryblock
         ).decode("utf-8")
-        self._mode = "".join(self._nib_image.dataobj.dtype.names)
+        self._mode = (
+            "".join(self._nib_image.dataobj.dtype.names)
+            if self._nib_image.dataobj.dtype.names is not None
+            else ""
+        )
 
     def __enter__(self) -> NiftiReader:
         return self
@@ -100,10 +105,40 @@ class NiftiReader:
 
     @property
     def axes(self) -> Axes:
-        if self._mode == "L":
-            axes = Axes(["X", "Y", "Z"])
+        header_dict = self.nifti1_hdr_2_dict()
+        # The 0-index holds information about the number of dimensions
+        # according the spec https://nifti.nimh.nih.gov/pub/dist/src/niftilib/nifti1.h
+        dims_number = header_dict["dim"][0]
+        if dims_number == 4:
+            # According to standard the 4th dimension corresponds to 'T' time
+            # but in special cases can be degnerate into channels
+            if header_dict["dim"][dims_number] == 1:
+                # The time dimension does not correspond to time
+                if self._mode == "RGB" or self._mode == "RGBA":
+                    # [..., ..., ..., 1, 3] or [..., ..., ..., 1, 4]
+                    axes = Axes(["X", "Y", "Z", "T", "C"])
+                else:
+                    # The image is single-channel with 1 value in Temporal dimension
+                    # instead of channel. So we map T to be channel.
+                    # [..., ..., ..., 1]
+                    axes = Axes(["X", "Y", "Z", "C"])
+            else:
+                # The time dimension does correspond to time
+                axes = Axes(["X", "Y", "Z", "T"])
+        elif dims_number < 4:
+            # Only spatial dimensions
+            if self._mode == "RGB" or self._mode == "RGBA":
+                axes = Axes(["X", "Y", "Z", "C"])
+            else:
+                axes = Axes(["X", "Y", "Z"])
         else:
-            axes = Axes(["X", "Y", "Z", "C"])
+            # Has more dimensions that belong to spatial-temporal unknown attributes
+            # TODO: investigate sample images of this format.
+            if self._mode == "RGB" or self._mode == "RGBA":
+                axes = Axes(["X", "Y", "Z", "C"])
+            else:
+                axes = Axes(["X", "Y", "Z"])
+
         self._logger.debug(f"Reader axes: {axes}")
         return axes
 
@@ -124,7 +159,6 @@ class NiftiReader:
             "G": "GREEN",
             "B": "BLUE",
             "A": "ALPHA",
-            "L": "GRAYSCALE",
         }
         # Use list comprehension to convert the short form to full form
         rgb_full = [color_map[color] for color in self._mode]
@@ -139,12 +173,11 @@ class NiftiReader:
     def level_dtype(self, level: int = 0) -> np.dtype:
         header_dict = self.nifti1_hdr_2_dict()
 
-        # Check the header first
-        if (dtype := header_dict["data_type"].dtype) == np.dtype("S10"):
+        dtype = self.get_dtype_from_code(header_dict["datatype"])
+        if dtype == np.dtype([("R", "u1"), ("G", "u1"), ("B", "u1")]):
             dtype = np.uint8
-
         # TODO: Compare with the dtype of fields
-        # dict(self._nib_image.dataobj.dtype.fields)
+
         self._logger.debug(f"Level {level} dtype: {dtype}")
         return dtype
 
@@ -153,15 +186,17 @@ class NiftiReader:
             return ()
 
         original_shape = self._nib_image.shape
-        fields = self._nib_image.dataobj.dtype.fields
-        if len(fields) == 3:
-            # RGB convert the shape from to stack 3 channels
-            l_shape = (*original_shape[:-1], 3)
-        elif len(fields) == 4:
-            # RGBA
-            l_shape = (*original_shape[:-1], 4)
+        if (fields := self._nib_image.dataobj.dtype.fields) is not None:
+            if len(fields) == 3:
+                # RGB convert the shape from to stack 3 channels
+                l_shape = (*original_shape, 3)
+            elif len(fields) == 4:
+                # RGBA
+                l_shape = (*original_shape, 4)
+            else:
+                # Grayscale
+                l_shape = original_shape
         else:
-            # Grayscale
             l_shape = original_shape
         self._logger.debug(f"Level {level} shape: {l_shape}")
         return l_shape
@@ -221,6 +256,13 @@ class NiftiReader:
             for field in structured_header_arr.dtype.names
         }
 
+    # Function to find and return the third value based on the first value
+    def get_dtype_from_code(self, dtype_code: int) -> np.dtype:
+        for item in _dtdefs:
+            if item[0] == dtype_code:  # Check if the first value matches the input code
+                return item[2]  # Return the third value (dtype)
+        return None  # Return None if the code is not foun
+
     @staticmethod
     def _serialize_header(header_dict: Mapping[str, Any]) -> Dict[str, Any]:
         serialized_header = {
@@ -265,9 +307,13 @@ class NiftiWriter:
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
         self._group_metadata = json.loads(metadata["json_write_kwargs"])
 
-    def _structured_dtype(self) -> np.dtype:
+    def _structured_dtype(self) -> Optional[np.dtype]:
         if self._original_mode == "RGB":
             return np.dtype([("R", "u1"), ("G", "u1"), ("B", "u1")])
+        elif self._original_mode == "RGBA":
+            return np.dtype([("R", "u1"), ("G", "u1"), ("B", "u1"), ("A", "u1")])
+        else:
+            return None
 
     def write_level_image(
         self,
@@ -278,9 +324,14 @@ class NiftiWriter:
             binaryblock=base64.b64decode(self._group_metadata["binaryblock"])
         )
         contiguous_image = np.ascontiguousarray(image)
-        structured_arr = contiguous_image.view(dtype=self._structured_dtype()).reshape(
-            *image.shape[:-1]
+        structured_arr = contiguous_image.view(
+            dtype=self._structured_dtype() if self._structured_dtype() else image.dtype
         )
+        if len(image.shape) > 3:
+            # If temporal is 1 and extra dim for channels RGB/RGBA
+            if image.shape[3] == 1 and (image.shape[4] == 3 or 4):
+                structured_arr = structured_arr.reshape(*image.shape[:4])
+
         nib_image = self._writer(
             structured_arr, header=header, affine=header.get_best_affine()
         )
