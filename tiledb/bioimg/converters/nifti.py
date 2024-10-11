@@ -29,6 +29,14 @@ from .axes import Axes
 from .base import ImageConverterMixin
 
 
+# Function to find and return the third value based on the first value
+def get_dtype_from_code(dtype_code: int) -> Optional[np.dtype]:
+    for item in _dtdefs:
+        if item[0] == dtype_code:  # Check if the first value matches the input code
+            return item[2]  # Return the third value (dtype)
+    return None  # Return None if the code is not found
+
+
 class NiftiReader:
     _logger: logging.Logger
 
@@ -83,7 +91,12 @@ class NiftiReader:
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
-        writer_kwargs = dict(metadata=self._metadata, binaryblock=self._binary_header)
+        writer_kwargs = dict(
+            metadata=self._metadata,
+            binaryblock=self._binary_header,
+            slope=self._nib_image.dataobj.slope,
+            inter=self._nib_image.dataobj.inter,
+        )
         self._logger.debug(f"Group metadata: {writer_kwargs}")
         return {"json_write_kwargs": json.dumps(writer_kwargs)}
 
@@ -173,7 +186,7 @@ class NiftiReader:
     def level_dtype(self, level: int = 0) -> np.dtype:
         header_dict = self.nifti1_hdr_2_dict()
 
-        dtype = self.get_dtype_from_code(header_dict["datatype"])
+        dtype = get_dtype_from_code(header_dict["datatype"])
         if dtype == np.dtype([("R", "u1"), ("G", "u1"), ("B", "u1")]):
             dtype = np.uint8
         # TODO: Compare with the dtype of fields
@@ -218,7 +231,13 @@ class NiftiReader:
         self._metadata["original_mode"] = self._mode
         raw_data_contiguous = np.ascontiguousarray(unscaled_img)
         numerical_data = np.frombuffer(raw_data_contiguous, dtype=self.level_dtype())
+        # Account endianness
+        numerical_data = numerical_data.view(
+            numerical_data.dtype.newbyteorder(self._nib_image.header.endianness)
+        )
         numerical_data = numerical_data.reshape(self.level_shape())
+
+        # Bug! data might have slope and inter and header not contain them.
 
         if tile is None:
             return numerical_data
@@ -255,13 +274,6 @@ class NiftiReader:
             field: structured_header_arr[field]
             for field in structured_header_arr.dtype.names
         }
-
-    # Function to find and return the third value based on the first value
-    def get_dtype_from_code(self, dtype_code: int) -> np.dtype:
-        for item in _dtdefs:
-            if item[0] == dtype_code:  # Check if the first value matches the input code
-                return item[2]  # Return the third value (dtype)
-        return None  # Return None if the code is not foun
 
     @staticmethod
     def _serialize_header(header_dict: Mapping[str, Any]) -> Dict[str, Any]:
@@ -334,6 +346,10 @@ class NiftiWriter:
 
         nib_image = self._writer(
             structured_arr, header=header, affine=header.get_best_affine()
+        )
+
+        nib_image.header.set_slope_inter(
+            self._group_metadata["slope"], self._group_metadata["inter"]
         )
         nib.save(nib_image, self._output_path)
 

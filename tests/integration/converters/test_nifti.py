@@ -7,35 +7,43 @@ from tests import get_path
 from tiledb.bioimg.converters.nifti import NiftiConverter
 
 
-def compare_nifti_images(file1, file2):
+def compare_nifti_images(file1, file2, scaled_test):
     img1 = nib.load(file1)
     img2 = nib.load(file2)
 
-    # Compare the headers (metadata)
-    if img1.header != img2.header:
-        return False
-
     # Compare the affine matrices (spatial information)
-    if not np.array_equal(img1.affine, img2.affine):
-        return False
+    assert np.array_equal(img1.affine, img2.affine)
 
     # Compare the image data (voxel data)
-    data1 = img1.get_fdata()
-    data2 = img2.get_fdata()
-    if not np.array_equal(data1, data2):
-        return False
-    return True
+    data1 = np.array(img1.dataobj, dtype=img1.get_data_dtype())
+    data2 = np.array(img2.dataobj, dtype=img2.get_data_dtype())
+
+    assert np.array_equal(data1, data2)
+
+    # Compare the image data scaled (voxel data)
+    if scaled_test:
+        data_sc = img1.get_fdata()
+        data_sc_2 = img2.get_fdata()
+
+        assert np.array_equal(data_sc, data_sc_2)
 
 
 @pytest.mark.parametrize(
-    "filename", ["nifti/example4d.nii", "nifti/functional.nii", "nifti/standard.nii"]
+    "filename",
+    [
+        "nifti/example4d.nii",
+        "nifti/functional.nii",
+        "nifti/standard.nii",
+        "nifti/visiblehuman.nii",
+        "nifti/anatomical.nii",
+    ],
 )
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked", [False])
 @pytest.mark.parametrize(
     "compressor, lossless",
     [
-        (tiledb.ZstdFilter(level=0), True),
+        (tiledb.ZstdFilter(level=0), False),
         # WEBP is not supported for Grayscale images
     ],
 )
@@ -57,4 +65,9 @@ def test_nifti_converter_roundtrip(
     )
     # Store it back to PNG
     NiftiConverter.from_tiledb(tiledb_path, output_path)
-    compare_nifti_images(input_path, output_path)
+    # The dtype of this image is complex and nibabel breaks originally
+    compare_nifti_images(
+        input_path,
+        output_path,
+        scaled_test=False if filename == "nifti/visiblehuman.nii" else True,
+    )
