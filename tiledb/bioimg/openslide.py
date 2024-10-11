@@ -83,7 +83,7 @@ class TileDBOpenSlide:
         return tuple(map(attrgetter("level"), self._levels))
 
     @property
-    def dimensions(self) -> Tuple[int, int]:
+    def dimensions(self) -> Tuple[int, ...]:
         """A (width, height) tuple for level 0 of the slide."""
         return self._levels[0].dimensions
 
@@ -191,7 +191,7 @@ class TileDBOpenSlideLevel:
         return int(self._tdb.meta["level"])
 
     @property
-    def dimensions(self) -> Tuple[int, int]:
+    def dimensions(self) -> Tuple[int, ...]:
         a = self._tdb
         dims = list(a.domain)
         width = a.shape[dims.index(a.dim("X"))]
