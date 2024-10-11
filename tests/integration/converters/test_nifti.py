@@ -1,10 +1,14 @@
+import json
+
 import nibabel as nib
 import numpy as np
 import pytest
 
 import tiledb
 from tests import get_path
+from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.nifti import NiftiConverter
+from tiledb.bioimg.openslide import TileDBOpenSlide
 
 
 def compare_nifti_images(file1, file2, scaled_test):
@@ -43,8 +47,8 @@ def compare_nifti_images(file1, file2, scaled_test):
 @pytest.mark.parametrize(
     "compressor, lossless",
     [
-        (tiledb.ZstdFilter(level=0), False),
-        # WEBP is not supported for Grayscale images
+        (tiledb.ZstdFilter(level=0), True),
+        # WEBP is not supported for these images
     ],
 )
 def test_nifti_converter_roundtrip(
@@ -71,3 +75,40 @@ def test_nifti_converter_roundtrip(
         output_path,
         scaled_test=False if filename == "nifti/visiblehuman.nii" else True,
     )
+
+
+@pytest.mark.parametrize(
+    "filename, axes, canonical",
+    [
+        ("nifti/example4d.nii", "XYZT", "TZYX"),
+        ("nifti/functional.nii", "XYZT", "TZYX"),
+        ("nifti/standard.nii", "XYZ", "ZYX"),
+        ("nifti/visiblehuman.nii", "XYZTC", "CZYX"),
+        ("nifti/anatomical.nii", "XYZ", "ZYX"),
+    ],
+)
+def test_nifti_converter_group_metadata(tmp_path, filename, axes, canonical):
+    input_path = get_path(filename)
+    tiledb_path = str(tmp_path / "to_tiledb")
+    NiftiConverter.to_tiledb(input_path, tiledb_path, preserve_axes=False)
+
+    with TileDBOpenSlide(tiledb_path) as t:
+        group_properties = t.properties
+        assert group_properties["dataset_type"] == DATASET_TYPE
+        assert group_properties["fmt_version"] == FMT_VERSION
+        assert isinstance(group_properties["pkg_version"], str)
+        assert group_properties["axes"] == axes
+
+        levels_group_meta = json.loads(group_properties["levels"])
+        assert t.level_count == len(levels_group_meta)
+        for level, level_meta in enumerate(levels_group_meta):
+            assert level_meta["level"] == level
+            assert level_meta["name"] == f"l_{level}.tdb"
+
+            level_axes = level_meta["axes"]
+            shape = level_meta["shape"]
+            level_width, level_height = t.level_dimensions[level]
+            assert level_axes == canonical
+            assert len(shape) == len(level_axes)
+            assert shape[level_axes.index("X")] == level_width
+            assert shape[level_axes.index("Y")] == level_height
