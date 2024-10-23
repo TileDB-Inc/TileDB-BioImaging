@@ -420,6 +420,10 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                 # Overwrite destination group
                 rw_group.m_group.delete(recursive=True)
                 overwrite = True
+            else:
+                # If group is valid we remove the KV and we will re-introduce it
+                # after the current ingestion process as the final step
+                del rw_group.w_group.meta["valid"]
 
         if overwrite:
             # Re-initializes the destination Group for re-ingestion
