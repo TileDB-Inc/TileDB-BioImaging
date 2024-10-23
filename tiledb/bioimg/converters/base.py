@@ -410,6 +410,22 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
         metadata = {}
         original_metadata = {}
 
+        # Checks group validity
+        overwrite = False
+        with rw_group:
+            if not rw_group.valid_group:
+                logger.debug(
+                    f"Already existing on disk Group at {output_path} evaluated as corrupted."
+                )
+                # Overwrite destination group
+                rw_group.m_group.delete(recursive=True)
+                overwrite = True
+
+        if overwrite:
+            # Re-initializes the destination Group for re-ingestion
+            logger.debug(f"Group {output_path} will be overwritten.")
+            rw_group = ReadWriteGroup(output_path, ctx=reader.dest_ctx)
+
         with rw_group, reader:
             # Update MIME type
             rw_group.w_group.meta.update(dataset_type=DATASET_TYPE)
@@ -541,6 +557,11 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                 metadata=jsonpickle.encode(metadata, unpicklable=False),
                 original_metadata=jsonpickle.encode(original_metadata),
             )
+
+        # This is the last step of the ingestion unless the following metadata KV
+        # is not stored then we consider the ingested asset as corrupted
+        with rw_group:
+            rw_group.w_group.meta.update(valid=True)
         return cls
 
 
