@@ -297,3 +297,28 @@ def test_ome_tiff_converter_different_compressors(
             with open_bioimg(str(tmp_path / "l_1.tdb")) as A:
                 assert len(A.schema.attr(0).filters) == 1
                 assert isinstance(A.schema.attr(0).filters[0], type(single_compressor))
+
+
+@pytest.mark.parametrize(
+    "filename", ["CMU-1-Small-Region.ome.tiff", "CMU-1-Small-Region-rgb.ome.tiff"]
+)
+def test_valid_ingestion_check(tmp_path, filename):
+    input_path = str(get_path(filename))
+    output_path = str(tmp_path)
+    OMETiffConverter.to_tiledb(input_path, output_path, compressor=None)
+
+    with tiledb.Group(output_path, "r") as grp:
+        # Check that ingestion was successful
+        assert grp.meta.get("valid")
+
+    # Manually change the valid KV simulating ingestion was not completed
+    with tiledb.Group(output_path, "w") as grp:
+        grp.meta.update(valid=False)
+
+    # Initialize ingestion again - Simulating a retry on the same destination path
+    OMETiffConverter.to_tiledb(input_path, output_path, compressor=None)
+
+    # Check that ingestion was successful after the group was overwritten
+    with tiledb.Group(output_path, "r") as grp:
+        # Check that ingestion was successful
+        assert grp.meta.get("valid")

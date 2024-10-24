@@ -41,16 +41,29 @@ class ReadWriteGroup:
         # Windows paths produce single letter scheme matching the drive letter
         # Unix absolute path produce an empty scheme
         self._ctx = ctx
+        self._group_exists = False
+
+        # At construction time we consider it as valid, this value will be valuated upon
+        # opening the Group under a context
+        self._valid_group = True
         if len(parsed_uri.scheme) < 2 or parsed_uri.scheme == "file":
             uri = str(Path(parsed_uri.path).resolve()).replace("\\", "/")
         if tiledb.object_type(uri, ctx=ctx) != "group":
             tiledb.group_create(uri, ctx=ctx)
+        else:
+            # The destination path is already a group thus we check the validity of
+            # a previously successful ingestion by checking the existence of
+            # the ACK metadata KV
+            self._group_exists = True
         self._uri = uri if uri.endswith("/") else uri + "/"
         self._is_cloud = parsed_uri.scheme == "tiledb"
 
     def __enter__(self) -> ReadWriteGroup:
         self.r_group = tiledb.Group(self._uri, "r", ctx=self._ctx)
         self.w_group = tiledb.Group(self._uri, "w", ctx=self._ctx)
+        self.m_group = tiledb.Group(self._uri, "m", ctx=self._ctx)
+        if self._group_exists:
+            self._valid_group = self.r_group.meta.get("valid", False)
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -92,6 +105,10 @@ class ReadWriteGroup:
             else:
                 self.w_group.add(name, name, relative=True)
         return uri, create
+
+    @property
+    def valid_group(self) -> bool:
+        return self._valid_group
 
 
 def validate_ingestion(uri: str, ctx: tiledb.Ctx = None) -> bool:
