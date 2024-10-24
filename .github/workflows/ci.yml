@@ -65,7 +65,7 @@ jobs:
       shell: "bash -l {0}"
       run: |
         pip install --no-cache-dir --upgrade tifffile "imagecodecs>=2023.7.10"
-        pip install .[full]
+        pip install -e .[full]
 
     - name: Run tests with coverage
       id: stats
@@ -99,7 +99,7 @@ jobs:
 
     - name: Create Test Coverage Badge
       if: ${{ env.run_coverage == 'true' && matrix.sys.os == 'ubuntu-latest' }}
-      uses: schneegans/dynamic-badges-action@v1.1.0
+      uses: schneegans/dynamic-badges-action@v1.7.0
       with:
         auth: ${{ secrets.COVERAGE_SECRET }}
         gistID: 32d48185733a4e7375e80e3e35fab452
