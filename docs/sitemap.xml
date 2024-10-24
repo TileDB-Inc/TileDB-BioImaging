@@ -2,42 +2,42 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/openslide.OpenSlideConverter.html</loc>
-    <lastmod>2024-10-24T11:25:43.298Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.139Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/from_bioimg.html</loc>
-    <lastmod>2024-10-24T11:25:43.326Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.167Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/TileDBOpenSlide.html</loc>
-    <lastmod>2024-10-24T11:25:43.318Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.159Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/ome_zarr.OMEZarrConverter.html</loc>
-    <lastmod>2024-10-24T11:25:43.286Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.123Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/examples/OMETiff-Converter-Demo.html</loc>
-    <lastmod>2024-10-24T11:24:51.414Z</lastmod>
+    <lastmod>2024-10-24T15:12:41.095Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/index.html</loc>
-    <lastmod>2024-10-24T11:24:51.414Z</lastmod>
+    <lastmod>2024-10-24T15:12:41.095Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/examples/OMEZarr-Converter-Demo.html</loc>
-    <lastmod>2024-10-24T11:24:51.414Z</lastmod>
+    <lastmod>2024-10-24T15:12:41.095Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/to_bioimg.html</loc>
-    <lastmod>2024-10-24T11:25:43.330Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.171Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/ome_tiff.OMETiffConverter.html</loc>
-    <lastmod>2024-10-24T11:25:43.270Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.111Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/index.html</loc>
-    <lastmod>2024-10-24T11:25:43.246Z</lastmod>
+    <lastmod>2024-10-24T15:13:25.079Z</lastmod>
   </url>
 </urlset>
