@@ -98,7 +98,7 @@ jobs:
         micromamba run -n test pytest --nbmake examples
 
     - name: Create Test Coverage Badge
-      if: ${{ fromJSON(env.run_coverage) && matrix.sys.os == 'ubuntu-latest'}}
+      if: ${{ env.run_coverage == 'true' && matrix.sys.os == 'ubuntu-latest' }}
       uses: schneegans/dynamic-badges-action@v1.1.0
       with:
         auth: ${{ secrets.COVERAGE_SECRET }}
