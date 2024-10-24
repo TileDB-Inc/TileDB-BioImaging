@@ -65,7 +65,7 @@ jobs:
       shell: "bash -l {0}"
       run: |
         pip install --no-cache-dir --upgrade tifffile "imagecodecs>=2023.7.10"
-        pip install .[full]
+        pip install -e .[full]
 
     - name: Run tests with coverage
       id: stats
