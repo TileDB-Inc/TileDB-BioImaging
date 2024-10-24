@@ -17,6 +17,12 @@ except ImportError as err_zarr:
     _zarr_exc: Optional[ImportError] = err_zarr
 else:
     _zarr_exc = None
+try:
+    importlib.util.find_spec("nibabel")
+except ImportError as err_nifti:
+    _nifti_exc: Optional[ImportError] = err_nifti
+else:
+    _nifti_exc = None
 
 from . import _osd_exc
 from .helpers import get_logger_wrapper
@@ -98,10 +104,21 @@ def from_bioimg(
             )
         else:
             raise _osd_exc
-    else:
+    elif converter is Converters.PNG:
 
         logger.info("Converting PNG")
         return converters["png_converter"].to_tiledb(
+            source=src,
+            output_path=dest,
+            log=logger,
+            exclude_metadata=exclude_metadata,
+            tile_scale=tile_scale,
+            reader_kwargs=reader_kwargs,
+            **kwargs,
+        )
+    else:
+        logger.info("Converting Nifti")
+        return converters["nifti_converter"].to_tiledb(
             source=src,
             output_path=dest,
             log=logger,
@@ -153,6 +170,14 @@ def to_bioimg(
         return converters["png_converter"].from_tiledb(
             input_path=src, output_path=dest, log=logger, **kwargs
         )
+    elif converter is Converters.NIFTI:
+        if not _nifti_exc:
+            logger.info("Converting to Nifti file")
+            return converters["nifti_converter"].from_tiledb(
+                input_path=src, output_path=dest, log=logger, **kwargs
+            )
+        else:
+            raise _nifti_exc
     else:
         raise NotImplementedError(
             "Openslide Converter does not support exportation back to bio-imaging formats"
