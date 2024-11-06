@@ -79,6 +79,11 @@ def as_array(
 
         segment_cache[segment[1]] = segment
 
+        print(segment[1])
+
+        if segment[1] == 1:
+            print(segment[1])
+
         while (offsets := has_row(segment_cache, page)) is not None:
             y_offset, z_offset = offsets
 
@@ -173,7 +178,7 @@ def as_array(
                 data, (_, z, y, x, s), size = keyframe.decode(
                     *segment_cache[idx], **decodeargs
                 )
-                buffer[0, 0 : size[0], y : y + size[1], 0 : size[2]] = data[
+                buffer[0, z : z + size[0], 0 : 0 + size[1], 0 : size[2]] = data[
                     : keyframe.imagedepth - z,
                     : keyframe.imagelength - y,
                     : keyframe.imagewidth - x,
@@ -198,6 +203,8 @@ def has_row(
     segments: Sequence[Optional[Tuple[Optional[bytes], int]]], page: TiffPage
 ) -> Optional[Tuple[int, int]]:
     # TODO: Check bitarray for performance improvement
+    if "X" not in page.axes:
+        return None
 
     x_chunks = page.chunked[page.axes.index("X")] if "X" in page.axes else 1
     y_chunks = page.chunked[page.axes.index("Y")] if "Y" in page.axes else 1
@@ -220,6 +227,8 @@ def has_column(
     segments: Sequence[Optional[Tuple[Optional[bytes], int]]], page: TiffPage
 ) -> Optional[Tuple[int, int]]:
     # TODO: Check bitarray for performance improvement
+    if "Y" not in page.axes:
+        return None
 
     x_chunks = page.chunked[page.axes.index("X")] if "X" in page.axes else 1
     y_chunks = page.chunked[page.axes.index("Y")] if "Y" in page.axes else 1
@@ -242,6 +251,8 @@ def has_depth(
     segments: Sequence[Optional[Tuple[Optional[bytes], int]]], page: TiffPage
 ) -> Optional[Tuple[int, int]]:
     # TODO: Check bitarray for performance improvement
+    if "Z" not in page.axes:
+        return None
 
     x_chunks = page.chunked[page.axes.index("X")] if "X" in page.axes else 1
     y_chunks = page.chunked[page.axes.index("Y")] if "Y" in page.axes else 1
