@@ -79,11 +79,6 @@ def as_array(
 
         segment_cache[segment[1]] = segment
 
-        print(segment[1])
-
-        if segment[1] == 1:
-            print(segment[1])
-
         while (offsets := has_row(segment_cache, page)) is not None:
             y_offset, z_offset = offsets
 
