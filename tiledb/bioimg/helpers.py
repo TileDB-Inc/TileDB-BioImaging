@@ -69,6 +69,7 @@ class ReadWriteGroup:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.r_group.close()
         self.w_group.close()
+        self.m_group.close()
 
     def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
         create = False
