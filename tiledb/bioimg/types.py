@@ -6,3 +6,4 @@ class Converters(enum.Enum):
     OMEZARR = enum.auto()
     OSD = enum.auto()
     PNG = enum.auto()
+    NIFTI = enum.auto()
