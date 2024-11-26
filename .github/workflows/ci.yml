@@ -27,9 +27,9 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Install Conda environment with Micromamba
-      uses: mamba-org/setup-micromamba@v1.9.0
+      uses: mamba-org/setup-micromamba@v2.0.2
       with:
-        micromamba-version:  1.5.10-0
+        micromamba-version: latest
         environment-name: test
         cache-downloads: true
         create-args: >-
