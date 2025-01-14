@@ -24,7 +24,7 @@ import numpy as np
 
 import tiledb
 from tiledb import Config, Ctx
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper

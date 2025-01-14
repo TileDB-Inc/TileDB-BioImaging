@@ -30,7 +30,7 @@ except ImportError as err:
     raise err
 
 from tiledb import VFS, Config, Ctx
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 from tiledb.highlevel import _get_ctx
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA

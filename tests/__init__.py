@@ -6,7 +6,7 @@ from skimage.metrics import structural_similarity
 
 import tiledb
 from tiledb.bioimg import ATTR_NAME
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 from tiledb.bioimg.helpers import merge_ned_ranges
 import xml.etree.ElementTree as ET
 

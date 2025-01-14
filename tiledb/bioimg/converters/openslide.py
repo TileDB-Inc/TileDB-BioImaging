@@ -8,7 +8,7 @@ import openslide as osd
 from numpy._typing import NDArray
 
 from tiledb import Config, Ctx
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 from tiledb.highlevel import _get_ctx
 
 from ..helpers import cache_filepath, get_logger_wrapper, is_remote_protocol, iter_color

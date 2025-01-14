@@ -10,7 +10,7 @@ from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
