@@ -32,8 +32,8 @@ except ImportError as err:
     raise err
 
 from tiledb import Config, Ctx
-from tiledb.libtiledb import WebpInputFormat
 from tiledb.highlevel import _get_ctx
+from tiledb.libtiledb import WebpInputFormat
 
 from .. import WHITE_RGB
 from ..helpers import get_logger_wrapper, get_rgba, translate_config_to_s3fs
