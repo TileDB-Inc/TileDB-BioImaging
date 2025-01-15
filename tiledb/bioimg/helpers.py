@@ -215,7 +215,7 @@ def iter_levels_meta(
     for o in group:
         with open_bioimg(o.uri, config=config, ctx=ctx) as array:
             try:
-                level = array.meta["level"]
+                level = int(array.meta["level"])
             except KeyError as exc:
                 raise RuntimeError(
                     "Key: 'level' not found in array metadata. Make sure that levels have been "
