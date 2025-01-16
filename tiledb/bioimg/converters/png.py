@@ -18,8 +18,8 @@ from numpy._typing import NDArray
 from PIL import Image
 
 from tiledb import VFS, Config, Ctx
-from tiledb.cc import WebpInputFormat
 from tiledb.highlevel import _get_ctx
+from tiledb.libtiledb import WebpInputFormat
 
 from ..helpers import get_logger_wrapper, iter_color
 from .axes import Axes

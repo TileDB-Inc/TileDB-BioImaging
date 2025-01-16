@@ -37,7 +37,7 @@ except ImportError:
     register_group = None
 
 import tiledb
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 
 from .. import ATTR_NAME
 from ..helpers import (

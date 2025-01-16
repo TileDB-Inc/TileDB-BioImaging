@@ -24,7 +24,7 @@ import numpy as np
 
 import tiledb
 from tiledb import Config, Ctx
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
@@ -215,7 +215,7 @@ def iter_levels_meta(
     for o in group:
         with open_bioimg(o.uri, config=config, ctx=ctx) as array:
             try:
-                level = array.meta["level"]
+                level = int(array.meta["level"])
             except KeyError as exc:
                 raise RuntimeError(
                     "Key: 'level' not found in array metadata. Make sure that levels have been "

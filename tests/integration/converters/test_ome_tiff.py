@@ -12,7 +12,7 @@ from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 
 
 def test_ome_tiff_converter(tmp_path):

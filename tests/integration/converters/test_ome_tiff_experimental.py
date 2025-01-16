@@ -7,7 +7,7 @@ from tests import assert_image_similarity, get_path
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.cc import WebpInputFormat
+from tiledb.libtiledb import WebpInputFormat
 
 
 # We need to expand on the test files. Most of the test files we have currently are not memory
