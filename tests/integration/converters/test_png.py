@@ -10,7 +10,7 @@ from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.png import PNGConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 
 def create_synthetic_image(
@@ -125,8 +125,8 @@ def compare_png(p1: Image, p2: Image, lossless: bool = True):
     "compressor, lossless",
     [
         (tiledb.ZstdFilter(level=0), True),
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True), True),
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True), True),
+        (tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=True), True),
+        (tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_NONE, lossless=True), True),
     ],
 )
 @pytest.mark.parametrize(
@@ -196,7 +196,7 @@ def test_png_converter_L_roundtrip(
 @pytest.mark.parametrize(
     "compressor, lossless",
     [
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False), False),
+        (tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=False), False),
     ],
 )
 def test_png_converter_RGB_roundtrip_lossy(
@@ -235,8 +235,8 @@ def test_png_converter_RGB_roundtrip_lossy(
     "compressor, lossless",
     [
         (tiledb.ZstdFilter(level=0), True),
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=True), True),
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True), True),
+        (tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGBA, lossless=True), True),
+        (tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_NONE, lossless=True), True),
     ],
 )
 def test_png_converter_RGBA_roundtrip(
@@ -266,7 +266,10 @@ def test_png_converter_RGBA_roundtrip(
 @pytest.mark.parametrize(
     "compressor, lossless",
     [
-        (tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=False), False),
+        (
+            tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGBA, lossless=False),
+            False,
+        ),
     ],
 )
 def test_png_converter_RGBA_roundtrip_lossy(

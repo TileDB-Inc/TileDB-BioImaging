@@ -37,7 +37,7 @@ except ImportError:
     register_group = None
 
 import tiledb
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 from .. import ATTR_NAME
 from ..helpers import (
@@ -99,9 +99,9 @@ class ImageReader(Protocol):
         ...
 
     @property
-    def webp_format(self) -> WebpInputFormat:
+    def webp_format(self) -> WebpFilter.WebpInputFormat:
         """WebpInputFormat of this multi-resolution image. Defaults to WEBP_NONE."""
-        return WebpInputFormat.WEBP_NONE
+        return WebpFilter.WebpInputFormat.WEBP_NONE
 
     @property
     def level_count(self) -> int:
@@ -457,7 +457,8 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                 elif isinstance(compressor, tiledb.Filter):
                     if (
                         isinstance(compressor, tiledb.WebpFilter)
-                        and compressor.input_format == WebpInputFormat.WEBP_NONE
+                        and compressor.input_format
+                        == WebpFilter.WebpInputFormat.WEBP_NONE
                     ):
                         compressor = tiledb.WebpFilter(
                             input_format=reader.webp_format,

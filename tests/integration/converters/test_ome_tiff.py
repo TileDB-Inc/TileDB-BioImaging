@@ -12,7 +12,7 @@ from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 
 def test_ome_tiff_converter(tmp_path):
@@ -101,9 +101,9 @@ def test_ome_tiff_converter_group_metadata(tmp_path, filename):
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=False),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_ome_tiff_converter_exclude_original_metadata(
@@ -138,9 +138,9 @@ def test_ome_tiff_converter_exclude_original_metadata(
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=False),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_ome_tiff_converter_roundtrip(
@@ -235,8 +235,8 @@ def compare_tiff(t1: tifffile.TiffFile, t2: tifffile.TiffFile, lossless: bool = 
 compressors = [
     None,
     tiledb.ZstdFilter(level=0),
-    tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
-    tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+    tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=False),
+    tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=True),
 ]
 
 

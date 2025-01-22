@@ -10,7 +10,7 @@ from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.openslide import OpenSlideConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 
 @pytest.mark.parametrize("preserve_axes", [False, True])
@@ -19,9 +19,9 @@ from tiledb.libtiledb import WebpInputFormat
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=False),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGBA, lossless=True),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGBA, lossless=False),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGBA, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_openslide_converter(tmp_path, preserve_axes, chunked, max_workers, compressor):

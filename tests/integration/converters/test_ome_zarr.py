@@ -11,7 +11,7 @@ from tiledb.bioimg.converters import DATASET_TYPE, FMT_VERSION
 from tiledb.bioimg.converters.ome_zarr import OMEZarrConverter
 from tiledb.bioimg.helpers import iter_color, open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
@@ -98,9 +98,9 @@ def test_ome_zarr_converter(tmp_path, series_idx, preserve_axes):
     "compressor",
     [
         tiledb.ZstdFilter(level=0),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
-        tiledb.WebpFilter(WebpInputFormat.WEBP_NONE, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=False),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=True),
+        tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_NONE, lossless=True),
     ],
 )
 def test_ome_zarr_converter_rountrip(
