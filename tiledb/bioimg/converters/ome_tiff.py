@@ -30,8 +30,8 @@ except ImportError as err:
     raise err
 
 from tiledb import VFS, Config, Ctx
+from tiledb.filter import WebpFilter
 from tiledb.highlevel import _get_ctx
-from tiledb.libtiledb import WebpInputFormat
 
 from .. import ATTR_NAME, EXPORT_TILE_SIZE, WHITE_RGBA
 from ..helpers import (
@@ -114,12 +114,12 @@ class OMETiffReader:
     @property
     def channels(self) -> Sequence[str]:
         # channel names are fixed if this is an RGB image
-        if self.webp_format is WebpInputFormat.WEBP_RGB:
-            self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGB}")
+        if self.webp_format is WebpFilter.WebpInputFormat.WEBP_RGB:
+            self._logger.debug(f"Webp format: {WebpFilter.WebpInputFormat.WEBP_RGB}")
             return "RED", "GREEN", "BLUE"
 
         # otherwise try to infer them from the OME-XML metadata
-        self._logger.debug(f"Webp format is not: {WebpInputFormat.WEBP_RGB}")
+        self._logger.debug(f"Webp format is not: {WebpFilter.WebpInputFormat.WEBP_RGB}")
         try:
             channels = self._metadata["OME"]["Image"][0]["Pixels"]["Channel"]
             if not isinstance(channels, Sequence):
@@ -130,16 +130,16 @@ class OMETiffReader:
         return tuple(c.get("Name") or f"Channel {i}" for i, c in enumerate(channels))
 
     @property
-    def webp_format(self) -> WebpInputFormat:
+    def webp_format(self) -> WebpFilter.WebpInputFormat:
         self._logger.debug(f"Keyframe photometric: {self._series.keyframe.photometric}")
         if self._series.keyframe.photometric == tifffile.PHOTOMETRIC.RGB:
-            return WebpInputFormat.WEBP_RGB
+            return WebpFilter.WebpInputFormat.WEBP_RGB
         # XXX: it is possible that instead of a single RGB channel (samplesperpixel==3)
         # there are 3 MINISBLACK channels (samplesperpixel=1). In this case look for the
         # photometric interpretation in the original metadata
         if self._original_metadata("PhotometricInterpretation") == "RGB":
-            return WebpInputFormat.WEBP_RGB
-        return WebpInputFormat.WEBP_NONE
+            return WebpFilter.WebpInputFormat.WEBP_RGB
+        return WebpFilter.WebpInputFormat.WEBP_NONE
 
     @property
     def level_count(self) -> int:

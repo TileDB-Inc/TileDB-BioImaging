@@ -18,8 +18,8 @@ from numpy._typing import NDArray
 from PIL import Image
 
 from tiledb import VFS, Config, Ctx
+from tiledb.filter import WebpFilter
 from tiledb.highlevel import _get_ctx
-from tiledb.libtiledb import WebpInputFormat
 
 from ..helpers import get_logger_wrapper, iter_color
 from .axes import Axes
@@ -89,15 +89,15 @@ class PNGReader:
 
     @property
     def channels(self) -> Sequence[str]:
-        if self.webp_format is WebpInputFormat.WEBP_RGB:
-            self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGB}")
+        if self.webp_format is WebpFilter.WebpInputFormat.WEBP_RGB:
+            self._logger.debug(f"Webp format: {WebpFilter.WebpInputFormat.WEBP_RGB}")
             return "RED", "GREEN", "BLUE"
-        elif self.webp_format is WebpInputFormat.WEBP_RGBA:
-            self._logger.debug(f"Webp format: {WebpInputFormat.WEBP_RGBA}")
+        elif self.webp_format is WebpFilter.WebpInputFormat.WEBP_RGBA:
+            self._logger.debug(f"Webp format: {WebpFilter.WebpInputFormat.WEBP_RGBA}")
             return "RED", "GREEN", "BLUE", "ALPHA"
         else:
             self._logger.debug(
-                f"Webp format is not: {WebpInputFormat.WEBP_RGB} / {WebpInputFormat.WEBP_RGBA}"
+                f"Webp format is not: {WebpFilter.WebpInputFormat.WEBP_RGB} / {WebpFilter.WebpInputFormat.WEBP_RGBA}"
             )
         color_map = {
             "R": "RED",
@@ -142,13 +142,13 @@ class PNGReader:
         return l_shape
 
     @property
-    def webp_format(self) -> WebpInputFormat:
+    def webp_format(self) -> WebpFilter.WebpInputFormat:
         self._logger.debug(f"Channel Mode: {self._png.mode}")
         if self._png.mode == "RGB":
-            return WebpInputFormat.WEBP_RGB
+            return WebpFilter.WebpInputFormat.WEBP_RGB
         elif self._png.mode == "RGBA":
-            return WebpInputFormat.WEBP_RGBA
-        return WebpInputFormat.WEBP_NONE
+            return WebpFilter.WebpInputFormat.WEBP_RGBA
+        return WebpFilter.WebpInputFormat.WEBP_NONE
 
     def level_image(
         self, level: int = 0, tile: Optional[Tuple[slice, ...]] = None

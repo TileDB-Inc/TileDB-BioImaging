@@ -32,8 +32,8 @@ except ImportError as err:
     raise err
 
 from tiledb import Config, Ctx
+from tiledb.filter import WebpFilter
 from tiledb.highlevel import _get_ctx
-from tiledb.libtiledb import WebpInputFormat
 
 from .. import WHITE_RGB
 from ..helpers import get_logger_wrapper, get_rgba, translate_config_to_s3fs
@@ -105,14 +105,14 @@ class OMEZarrReader:
         )
 
     @property
-    def webp_format(self) -> WebpInputFormat:
+    def webp_format(self) -> WebpFilter.WebpInputFormat:
         channels = self._omero.image_data.get("channels", ()) if self._omero else ()
         colors = tuple(channel.get("color") for channel in channels)
         self._logger.debug(f"Webp format - channels: {channels},  colors:{colors}")
 
         if colors == ("FF0000", "00FF00", "0000FF"):
-            return WebpInputFormat.WEBP_RGB
-        return WebpInputFormat.WEBP_NONE
+            return WebpFilter.WebpInputFormat.WEBP_RGB
+        return WebpFilter.WebpInputFormat.WEBP_NONE
 
     @property
     def level_count(self) -> int:

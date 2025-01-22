@@ -24,7 +24,7 @@ import numpy as np
 
 import tiledb
 from tiledb import Config, Ctx
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
@@ -238,11 +238,17 @@ def get_pixel_depth(compressor: tiledb.Filter) -> int:
     if not isinstance(compressor, tiledb.WebpFilter):
         return 1
     webp_format = compressor.input_format
-    if webp_format in (WebpInputFormat.WEBP_RGB, WebpInputFormat.WEBP_BGR):
+    if webp_format in (
+        WebpFilter.WebpInputFormat.WEBP_RGB,
+        WebpFilter.WebpInputFormat.WEBP_BGR,
+    ):
         return 3
-    if webp_format in (WebpInputFormat.WEBP_RGBA, WebpInputFormat.WEBP_BGRA):
+    if webp_format in (
+        WebpFilter.WebpInputFormat.WEBP_RGBA,
+        WebpFilter.WebpInputFormat.WEBP_BGRA,
+    ):
         return 4
-    raise ValueError(f"Invalid WebpInputFormat: {compressor.input_format}")
+    raise ValueError(f"Invalid WebpFilter.WebpInputFormat: {compressor.input_format}")
 
 
 def get_axes_translation(

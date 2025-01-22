@@ -8,8 +8,8 @@ import openslide as osd
 from numpy._typing import NDArray
 
 from tiledb import Config, Ctx
+from tiledb.filter import WebpFilter
 from tiledb.highlevel import _get_ctx
-from tiledb.libtiledb import WebpInputFormat
 
 from ..helpers import cache_filepath, get_logger_wrapper, is_remote_protocol, iter_color
 from . import DEFAULT_SCRATCH_SPACE
@@ -79,9 +79,9 @@ class OpenSlideReader:
         return "RED", "GREEN", "BLUE", "ALPHA"
 
     @property
-    def webp_format(self) -> WebpInputFormat:
-        self._logger.debug(f"Webp Input Format: {WebpInputFormat.WEBP_RGBA}")
-        return WebpInputFormat.WEBP_RGBA
+    def webp_format(self) -> WebpFilter.WebpInputFormat:
+        self._logger.debug(f"Webp Input Format: {WebpFilter.WebpInputFormat.WEBP_RGBA}")
+        return WebpFilter.WebpInputFormat.WEBP_RGBA
 
     @property
     def level_count(self) -> int:

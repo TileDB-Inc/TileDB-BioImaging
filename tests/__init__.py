@@ -6,7 +6,7 @@ from skimage.metrics import structural_similarity
 
 import tiledb
 from tiledb.bioimg import ATTR_NAME
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 from tiledb.bioimg.helpers import merge_ned_ranges
 import xml.etree.ElementTree as ET
 
@@ -24,11 +24,11 @@ def get_schema(x_size, y_size, c_size=3, compressor=tiledb.ZstdFilter(level=0)):
     if isinstance(compressor, tiledb.WebpFilter):
         x_size *= c_size
         x_tile *= c_size
-        if compressor.input_format == WebpInputFormat.WEBP_NONE:
+        if compressor.input_format == WebpFilter.WebpInputFormat.WEBP_NONE:
             if c_size == 3:
-                input_format = WebpInputFormat.WEBP_RGB
+                input_format = WebpFilter.WebpInputFormat.WEBP_RGB
             elif c_size == 4:
-                input_format = WebpInputFormat.WEBP_RGBA
+                input_format = WebpFilter.WebpInputFormat.WEBP_RGBA
             else:
                 assert False, f"No WebpInputFormat with pixel_depth={c_size}"
             compressor = tiledb.WebpFilter(

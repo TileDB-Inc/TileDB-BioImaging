@@ -7,7 +7,7 @@ from tests import assert_image_similarity, get_path
 from tiledb.bioimg.converters.ome_tiff import OMETiffConverter
 from tiledb.bioimg.helpers import open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
-from tiledb.libtiledb import WebpInputFormat
+from tiledb.filter import WebpFilter
 
 
 # We need to expand on the test files. Most of the test files we have currently are not memory
@@ -169,6 +169,6 @@ def compare_tiff(t1: tifffile.TiffFile, t2: tifffile.TiffFile, lossless: bool = 
 compressors = [
     None,
     tiledb.ZstdFilter(level=0),
-    tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=False),
-    tiledb.WebpFilter(WebpInputFormat.WEBP_RGB, lossless=True),
+    tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=False),
+    tiledb.WebpFilter(WebpFilter.WebpInputFormat.WEBP_RGB, lossless=True),
 ]
