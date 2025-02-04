@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Tuple
+from typing import Any, Iterable, Iterator, MutableSequence, Sequence, Set, Tuple
 
 import numpy as np
 from pyeditdistance.distance import levenshtein
@@ -209,10 +209,26 @@ class Axes:
         for required_axis in "X", "Y":
             if required_axis not in axes:
                 raise ValueError(f"Missing required axis {required_axis!r}")
+
         axes.difference_update(self.CANONICAL_DIMS)
         if axes:
-            raise ValueError(f"{axes.pop()!r} is not a valid Axis")
+            if len(axes) == 1:
+                # Assign extra/custom dimension as Time TBC
+                dims = self._canonical_transformation(dims, axes)
+            else:
+                raise ValueError(f"{axes.pop()!r} is not a valid Axis")
         object.__setattr__(self, "dims", dims)
+
+    @staticmethod
+    def _canonical_transformation(dims: str, axes: Set[str]) -> str:
+        custom_axis = f"{axes.pop()}".replace("'", "")
+        if "T" not in dims:
+            dims.replace(custom_axis, "T")
+        elif "Z" not in dims:
+            dims.replace(custom_axis, "Z")
+        else:
+            raise ValueError(f"{custom_axis!r} cannot be mapped to a canonical value")
+        return dims
 
     def canonical(self, shape: Tuple[int, ...]) -> Axes:
         """
