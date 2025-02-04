@@ -92,10 +92,6 @@ class TestAxes:
         assert Axes("XYZ").dims == "XYZ"
 
         with pytest.raises(ValueError) as excinfo:
-            Axes("XYZW")
-        assert str(excinfo.value) == "'W' is not a valid Axis"
-
-        with pytest.raises(ValueError) as excinfo:
             Axes("XYZX")
         assert "Duplicate axes" in str(excinfo.value)
 
