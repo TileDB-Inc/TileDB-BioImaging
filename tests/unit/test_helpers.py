@@ -79,8 +79,8 @@ def test_remove_ome_image_metadata(macro, has_label, annotations, num_images, ro
 
     namespaces = {"ome": "http://www.openmicroscopy.org/Schemas/OME/2016-06"}
 
-    barcode_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='barcode_value']"  # f-string for variable
-    label_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='barcode_value']"  # f-string for variable
+    barcode_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='barcode_value']"
+    label_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='label_text']"
 
     if root_tag == "OME":
         parsed_excluded = ET.fromstring(excluded_metadata)
