@@ -504,12 +504,26 @@ def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
 
     # Find all images
     images = root.findall("ome:Image", ns)
+    structured_annotations = root.findall("ome:StructuredAnnotations", ns)
 
     # Iterate over images and remove those with Name 'macro' or 'label'
     for image in images:
         name = image.attrib.get("Name")
         if name in ["macro", "label"]:
             root.remove(image)
+
+    # Iterate over structured annotations and remove those with name `macro-text` and `label`
+    for sa in structured_annotations:
+        comment_annotations = sa.findall("ome:CommentAnnotation", ns)
+        comments_left = len(comment_annotations)
+        for comment_annot in sa.findall("ome:CommentAnnotation", ns):
+            desc = comment_annot.find("ome:Description", ns)
+            if desc:
+                if "barcode" in str(desc.text) or "label" in str(desc.text):
+                    sa.remove(comment_annot)
+                    comments_left -= 1
+        if comments_left == 0:
+            root.remove(sa)
 
     # Return the modified XML as a string
     # Regular expression pattern to match 'ns0', 'ns0:', or ':ns0'

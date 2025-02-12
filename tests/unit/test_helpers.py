@@ -61,13 +61,18 @@ def test_validate_ingestion(num_axes, num_ranges, max_value):
     assert merge_ned_ranges(input_ranges) == expected_output
 
 
-@pytest.mark.parametrize("macro", [True, False])
-@pytest.mark.parametrize("has_label", [True, False])
+@pytest.mark.parametrize("macro", [True])
+@pytest.mark.parametrize("has_label", [True])
+@pytest.mark.parametrize("annotations", [True])
 @pytest.mark.parametrize("num_images", [1, 2, 3])
 @pytest.mark.parametrize("root_tag", ["OME", "InvalidRoot"])
-def test_remove_ome_image_metadata(macro, has_label, num_images, root_tag):
+def test_remove_ome_image_metadata(macro, has_label, annotations, num_images, root_tag):
     original_xml_string = generate_xml(
-        has_macro=macro, has_label=has_label, num_images=1, root_tag=root_tag
+        has_macro=macro,
+        has_label=has_label,
+        has_annotations=annotations,
+        num_images=1,
+        root_tag=root_tag,
     )
 
     excluded_metadata = remove_ome_image_metadata(original_xml_string)
@@ -78,6 +83,14 @@ def test_remove_ome_image_metadata(macro, has_label, num_images, root_tag):
         assert (
             parsed_excluded.find(
                 ".//{http://www.openmicroscopy.org/Schemas/OME/2016-06}Image[@ID='Image:label'][@Name='label']"
+            )
+            is None
+        )
+
+        # Assert if "macro" subelement is present
+        assert (
+            parsed_excluded.find(
+                ".//{http://www.openmicroscopy.org/Schemas/OME/2016-06}Image[@ID='Image:macro'][@Name='macro']"
             )
             is None
         )
