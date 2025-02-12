@@ -76,6 +76,15 @@ def test_remove_ome_image_metadata(macro, has_label, annotations, num_images, ro
     )
 
     excluded_metadata = remove_ome_image_metadata(original_xml_string)
+
+    namespaces = {
+        "ome": "http://www.openmicroscopy.org/Schemas/OME/2016-06"
+    }  # Crucial: Define the namespace!
+
+    # More robust XPath: checks within StructuredAnnotations
+    barcode_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='barcode_value']"  # f-string for variable
+    label_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='barcode_value']"  # f-string for variable
+
     if root_tag == "OME":
         parsed_excluded = ET.fromstring(excluded_metadata)
 
@@ -95,12 +104,9 @@ def test_remove_ome_image_metadata(macro, has_label, annotations, num_images, ro
             is None
         )
 
-        # Assert if "macro" subelement is present
-        assert (
-            parsed_excluded.find(
-                ".//{http://www.openmicroscopy.org/Schemas/OME/2016-06}Image[@ID='Image:macro'][@Name='macro']"
-            )
-            is None
-        )
+        # Assert if "barcode_value" subelement is present
+        assert parsed_excluded.find(barcode_xpath, namespaces=namespaces) is None
+        assert parsed_excluded.find(label_xpath, namespaces=namespaces) is None
+
     else:
         assert remove_ome_image_metadata(original_xml_string) is None

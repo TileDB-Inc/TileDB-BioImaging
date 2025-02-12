@@ -518,7 +518,7 @@ def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
         comments_left = len(comment_annotations)
         for comment_annot in sa.findall("ome:CommentAnnotation", ns):
             desc = comment_annot.find("ome:Description", ns)
-            if desc:
+            if desc is not None:
                 if "barcode" in str(desc.text) or "label" in str(desc.text):
                     sa.remove(comment_annot)
                     comments_left -= 1
