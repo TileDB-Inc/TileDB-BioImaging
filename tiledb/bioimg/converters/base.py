@@ -9,6 +9,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from operator import itemgetter
 from typing import (
     Any,
+    Callable,
     Dict,
     Generic,
     Iterator,
@@ -324,7 +325,7 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
         preserve_axes: bool = False,
         chunked: bool = False,
         max_workers: int = 0,
-        exclude_metadata: bool = False,
+        exclude_metadata: Union[bool, Callable[[str], str], None] = None,
         experimental_reader: bool = False,
         experimental_queue_limit: Tuple[int, int] = (10, 20),
         compressor: Optional[Union[Mapping[int, Any], Any]] = None,
@@ -350,7 +351,14 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                     original ones.
                 :param max_workers: Maximum number of threads that can be used for conversion.
                     Applicable only if chunked=True.
-                :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
+                :param exclude_metadata: An optional argument that specifies how to transform the original metadata.
+                    It can be one of the following:
+                    *   A callable (function, method, etc.) that takes an OME-XML string and returns it as a string, while removing
+                        some of the original metadata and excluding them from being ingested.
+                    *   A boolean value:
+                        *   ``True``: Indicates a specific built-in transformation should be applied. see: `remove_ome_image_metadata`
+                        *   ``False``: Indicates no transformation should be applied.
+                    *   ``None``: Indicates no transformation should be applied (same as ``False``).
                 :param experimental_reader: If true, use the experimental tiff reader optimized for s3 reads.
                     Experimental feature, use with caution
                 :param experimental_queue_limit: When using the experimental reader, define the minimum and maximum number of
@@ -536,7 +544,10 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                 original_metadata = reader.original_metadata
             else:
                 if ome_xml := reader.original_metadata.get("ome_metadata"):
-                    pruned_metadata = remove_ome_image_metadata(ome_xml)
+                    if isinstance(exclude_metadata, bool):
+                        pruned_metadata = remove_ome_image_metadata(ome_xml)
+                    else:
+                        pruned_metadata = exclude_metadata(ome_xml)
                     original_metadata = (
                         {"ome_metadata": pruned_metadata} if pruned_metadata else {}
                     )
