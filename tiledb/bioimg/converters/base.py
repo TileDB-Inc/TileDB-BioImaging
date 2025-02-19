@@ -546,8 +546,10 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                 if ome_xml := reader.original_metadata.get("ome_metadata"):
                     if isinstance(exclude_metadata, bool):
                         pruned_metadata = remove_ome_image_metadata(ome_xml)
-                    else:
+                    elif callable(exclude_metadata):
                         pruned_metadata = exclude_metadata(ome_xml)
+                    else:
+                        raise TypeError("exclude_metadata must be bool or callable")
                     original_metadata = (
                         {"ome_metadata": pruned_metadata} if pruned_metadata else {}
                     )
