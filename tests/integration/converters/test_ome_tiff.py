@@ -130,6 +130,7 @@ def test_ome_tiff_converter_exclude_original_metadata(
 
     # Exclude with a custom function applies only to images with OME-XML metadata
     if filename != "UTM2GTIF.tiff":
+
         def custom_pruning_function(xml_string: str):
             return "custom_metadata"
 
@@ -147,8 +148,10 @@ def test_ome_tiff_converter_exclude_original_metadata(
         )
 
         with TileDBOpenSlide(str(tiledb_path)) as t:
-            assert t.properties["original_metadata"] == '{"ome_metadata": "custom_metadata"}'
-
+            assert (
+                t.properties["original_metadata"]
+                == '{"ome_metadata": "custom_metadata"}'
+            )
 
 
 @pytest.mark.parametrize(
