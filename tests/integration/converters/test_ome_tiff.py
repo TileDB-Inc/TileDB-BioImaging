@@ -128,6 +128,28 @@ def test_ome_tiff_converter_exclude_original_metadata(
     with TileDBOpenSlide(str(tiledb_path)) as t:
         assert t.properties["original_metadata"] == "{}"
 
+    # Exclude with a custom function applies only to images with OME-XML metadata
+    if filename != "UTM2GTIF.tiff":
+        def custom_pruning_function(xml_string: str):
+            return "custom_metadata"
+
+        input_path = get_path(filename)
+        tiledb_path = tmp_path / "to_tiledb_custom_metadata"
+        OMETiffConverter.to_tiledb(
+            input_path,
+            str(tiledb_path),
+            preserve_axes=preserve_axes,
+            chunked=chunked,
+            max_workers=max_workers,
+            compressor=compressor,
+            log=False,
+            exclude_metadata=custom_pruning_function,
+        )
+
+        with TileDBOpenSlide(str(tiledb_path)) as t:
+            assert t.properties["original_metadata"] == '{"ome_metadata": "custom_metadata"}'
+
+
 
 @pytest.mark.parametrize(
     "filename,num_series", [("CMU-1-Small-Region.ome.tiff", 3), ("UTM2GTIF.tiff", 1)]
