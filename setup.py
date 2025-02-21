@@ -14,6 +14,7 @@ setuptools.setup(
         "write_to": "tiledb/bioimg/version.py",
     },
     install_requires=[
+        "openslide-bin",
         "pyeditdistance",
         "tiledb>=0.19",
         "tqdm",
