@@ -37,25 +37,6 @@ jobs:
           pre-commit
           pytest-cov
           pytest-mock
-    
-#    - name: Install openslide for non-Win
-#      run: |
-#        sudo apt install openslide-tools
-#        micromamba install openslide
-#        echo ${{ matrix.sys.os }}
-#      if: ${{ matrix.sys.os != 'windows-latest' }}
-#
-#    - name: Install openslide for Win
-#      run: |
-#        choco install wget --no-progress
-#        wget https://github.com/openslide/openslide-winbuild/releases/download/v20221217/openslide-win64-20221217.zip
-#        7z x openslide-win64-20221217.zip -oD:\openslide\
-#        mklink /D C:\openslide-win64\ D:\openslide\openslide-win64-20221217\
-#        cd C:\openslide-win64\
-#        dir
-#        set openslide_path=%cd%
-#        echo %openslide_path%
-#      if: ${{ matrix.sys.os == 'windows-latest' }}
 
     - name: Run pre-commit hooks
       run: | 
