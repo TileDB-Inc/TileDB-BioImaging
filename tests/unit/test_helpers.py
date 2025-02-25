@@ -63,14 +63,25 @@ def test_validate_ingestion(num_axes, num_ranges, max_value):
 
 @pytest.mark.parametrize("macro", [True, False])
 @pytest.mark.parametrize("has_label", [True, False])
+@pytest.mark.parametrize("annotations", [True, False])
 @pytest.mark.parametrize("num_images", [1, 2, 3])
 @pytest.mark.parametrize("root_tag", ["OME", "InvalidRoot"])
-def test_remove_ome_image_metadata(macro, has_label, num_images, root_tag):
+def test_remove_ome_image_metadata(macro, has_label, annotations, num_images, root_tag):
     original_xml_string = generate_xml(
-        has_macro=macro, has_label=has_label, num_images=1, root_tag=root_tag
+        has_macro=macro,
+        has_label=has_label,
+        has_annotations=annotations,
+        num_images=1,
+        root_tag=root_tag,
     )
 
     excluded_metadata = remove_ome_image_metadata(original_xml_string)
+
+    namespaces = {"ome": "http://www.openmicroscopy.org/Schemas/OME/2016-06"}
+
+    barcode_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='barcode_value']"
+    label_xpath = ".//ome:StructuredAnnotations/ome:CommentAnnotation[ome:Description='label_text']"
+
     if root_tag == "OME":
         parsed_excluded = ET.fromstring(excluded_metadata)
 
@@ -89,5 +100,10 @@ def test_remove_ome_image_metadata(macro, has_label, num_images, root_tag):
             )
             is None
         )
+
+        # Assert if "barcode_value" and "label_text" subelement is present
+        assert parsed_excluded.find(barcode_xpath, namespaces=namespaces) is None
+        assert parsed_excluded.find(label_xpath, namespaces=namespaces) is None
+
     else:
         assert remove_ome_image_metadata(original_xml_string) is None

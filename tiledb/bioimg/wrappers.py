@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Union
 
 try:
     importlib.util.find_spec("tifffile")
@@ -30,7 +30,7 @@ def from_bioimg(
     converter: Converters = Converters.OMETIFF,
     *,
     verbose: bool = False,
-    exclude_metadata: bool = False,
+    exclude_metadata: Union[bool, Callable[[str], str], None] = None,
     tile_scale: int = 1,
     **kwargs: Any,
 ) -> Any:
@@ -41,6 +41,14 @@ def from_bioimg(
     :param dest: The destination path where the TileDB image will be stored
     :param converter: The converter type to be used (tentative) soon automatically detected
     :param verbose: verbose logging, defaults to False
+    :param exclude_metadata: An optional argument that specifies how to transform the original metadata.
+        It can be one of the following:
+        *   A callable (function, method, etc.) that takes an OME-XML string and returns it as a string, while removing
+            some of the original metadata and excluding them from being ingested.
+        *   A boolean value:
+            *   ``True``: Indicates a specific built-in transformation should be applied. see: `remove_ome_image_metadata`
+            *   ``False``: Indicates no transformation should be applied.
+        *   ``None``: Indicates no transformation should be applied (same as ``False``).
     :param kwargs: keyword arguments for custom ingestion behaviour
     :return: The converter class that was used for the ingestion
     """

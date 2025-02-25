@@ -115,7 +115,9 @@ def generate_test_case(num_axes, num_ranges, max_value):
     return input_ranges, expected_output
 
 
-def generate_xml(has_macro=True, has_label=True, root_tag="OME", num_images=1):
+def generate_xml(
+    has_macro=True, has_label=True, has_annotations=True, root_tag="OME", num_images=1
+):
     """Generate synthetic XML strings with options to include 'macro' and 'label' images."""
 
     # Create the root element
@@ -203,6 +205,38 @@ def generate_xml(has_macro=True, has_label=True, root_tag="OME", num_images=1):
             pixels, "Channel", ID="Channel:macro:0", SamplesPerPixel="3"
         )
         tiffdata = ET.SubElement(pixels, "TiffData", IFD="2", PlaneCount="1")
+
+    if has_annotations:
+        annotations = ET.SubElement(ome, "StructuredAnnotations")
+        if has_macro:
+            macro_annot = ET.SubElement(
+                annotations,
+                "CommentAnnotation",
+                ID=f"Annotation:{random.randint}",
+                Namespace="",
+            )
+            description = ET.SubElement(macro_annot, "Description")
+
+            # Based on standard
+            description.text = "barcode_value"
+            value = ET.SubElement(macro_annot, "Value")
+            value.text = "random_text"
+        if has_label:
+            label_annot = ET.SubElement(
+                annotations,
+                "CommentAnnotation",
+                ID=f"Annotation:{random.randint}",
+                Namespace="",
+            )
+            description = ET.SubElement(
+                label_annot,
+                "Description",
+            )
+            value = ET.SubElement(label_annot, "Value")
+
+            # Based on standard
+            description.text = "label_text"
+            value.text = "random_text"
 
     # Convert the ElementTree to a string
     return ET.tostring(ome, encoding="unicode")
