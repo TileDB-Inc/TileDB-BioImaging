@@ -538,3 +538,16 @@ def remove_ome_image_metadata(xml_string: str) -> Union[str, Any]:
             encoding="unicode",
         ),
     )
+
+
+class MetadataCallbackError(Exception):
+    """
+    Custom exception class for specific error conditions.
+    """
+
+    def __init__(self, message: str = ""):
+        self.message = f"OME XML callback function failed {message}"
+        super().__init__(self.message)
+
+    def __str__(self) -> str:
+        return f"MetadataCallbackError: {self.message}"

@@ -42,6 +42,7 @@ from tiledb.filter import WebpFilter
 
 from .. import ATTR_NAME
 from ..helpers import (
+    MetadataCallbackError,
     ReadWriteGroup,
     compute_channel_minmax,
     get_axes_mapper,
@@ -547,7 +548,10 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
                     if isinstance(exclude_metadata, bool):
                         pruned_metadata = remove_ome_image_metadata(ome_xml)
                     elif callable(exclude_metadata):
-                        pruned_metadata = exclude_metadata(ome_xml)
+                        try:
+                            pruned_metadata = exclude_metadata(ome_xml)
+                        except Exception as exc:
+                            raise MetadataCallbackError(str(exc))
                     else:
                         raise TypeError("exclude_metadata must be bool or callable")
                     original_metadata = (
