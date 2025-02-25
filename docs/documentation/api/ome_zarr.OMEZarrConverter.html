@@ -324,7 +324,7 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="tiledb.bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb" class="level3">
 <h3 class="anchored" data-anchor-id="tiledb.bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb">to_tiledb</h3>
-<p><code>bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=False, experimental_reader=False, experimental_queue_limit=(10, 20), compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)</code></p>
+<p><code>bioimg.converters.ome_zarr.OMEZarrConverter.to_tiledb(source, output_path, *, level_min=0, tiles=None, tile_scale=1, preserve_axes=False, chunked=False, max_workers=0, exclude_metadata=None, experimental_reader=False, experimental_queue_limit=(10, 20), compressor=None, log=None, reader_kwargs=None, pyramid_kwargs=None)</code></p>
 <pre><code>    Convert an image to a TileDB Group of Arrays, one per level.
 
     :param source: path to the input image or ImageReader object
@@ -342,7 +342,14 @@ ul.task-list li input[type="checkbox"] {
         original ones.
     :param max_workers: Maximum number of threads that can be used for conversion.
         Applicable only if chunked=True.
-    :param exclude_metadata: If true, drop original metadata of the images and exclude them from being ingested.
+    :param exclude_metadata: An optional argument that specifies how to transform the original metadata.
+        It can be one of the following:
+        *   A callable (function, method, etc.) that takes an OME-XML string and returns it as a string, while removing
+            some of the original metadata and excluding them from being ingested.
+        *   A boolean value:
+            *   ``True``: Indicates a specific built-in transformation should be applied. see: `remove_ome_image_metadata`
+            *   ``False``: Indicates no transformation should be applied.
+        *   ``None``: Indicates no transformation should be applied (same as ``False``).
     :param experimental_reader: If true, use the experimental tiff reader optimized for s3 reads.
         Experimental feature, use with caution
     :param experimental_queue_limit: When using the experimental reader, define the minimum and maximum number of
