@@ -2,42 +2,42 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/examples/OMEZarr-Converter-Demo.html</loc>
-    <lastmod>2025-02-25T16:40:27.972Z</lastmod>
-  </url>
-  <url>
-    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/ome_zarr.OMEZarrConverter.html</loc>
-    <lastmod>2025-02-25T16:41:09.989Z</lastmod>
-  </url>
-  <url>
-    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/TileDBOpenSlide.html</loc>
-    <lastmod>2025-02-25T16:41:10.015Z</lastmod>
-  </url>
-  <url>
-    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/index.html</loc>
-    <lastmod>2025-02-25T16:41:09.957Z</lastmod>
+    <lastmod>2025-03-10T21:10:33.701Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/ome_tiff.OMETiffConverter.html</loc>
-    <lastmod>2025-02-25T16:41:09.978Z</lastmod>
-  </url>
-  <url>
-    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/index.html</loc>
-    <lastmod>2025-02-25T16:40:27.972Z</lastmod>
-  </url>
-  <url>
-    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/from_bioimg.html</loc>
-    <lastmod>2025-02-25T16:41:10.019Z</lastmod>
+    <lastmod>2025-03-10T21:11:13.280Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/openslide.OpenSlideConverter.html</loc>
-    <lastmod>2025-02-25T16:41:10.001Z</lastmod>
+    <lastmod>2025-03-10T21:11:13.301Z</lastmod>
+  </url>
+  <url>
+    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/index.html</loc>
+    <lastmod>2025-03-10T21:11:13.259Z</lastmod>
+  </url>
+  <url>
+    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/TileDBOpenSlide.html</loc>
+    <lastmod>2025-03-10T21:11:13.316Z</lastmod>
+  </url>
+  <url>
+    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/index.html</loc>
+    <lastmod>2025-03-10T21:10:33.701Z</lastmod>
+  </url>
+  <url>
+    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/ome_zarr.OMEZarrConverter.html</loc>
+    <lastmod>2025-03-10T21:11:13.291Z</lastmod>
+  </url>
+  <url>
+    <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/from_bioimg.html</loc>
+    <lastmod>2025-03-10T21:11:13.320Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/api/to_bioimg.html</loc>
-    <lastmod>2025-02-25T16:41:10.022Z</lastmod>
+    <lastmod>2025-03-10T21:11:13.324Z</lastmod>
   </url>
   <url>
     <loc>https://tiledb-inc.github.io/tiledb-quarto-template/documentation/examples/OMETiff-Converter-Demo.html</loc>
-    <lastmod>2025-02-25T16:40:27.972Z</lastmod>
+    <lastmod>2025-03-10T21:10:33.701Z</lastmod>
   </url>
 </urlset>
