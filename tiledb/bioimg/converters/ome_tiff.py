@@ -436,7 +436,9 @@ class OMETiffWriter:
         writer_metadata: Dict[str, Any] = {}
 
         if baseline:
-            writer_metadata["subifds"] = num_levels - 1 if num_levels > 1 else None
+            writer_metadata["subifds"] = (
+                num_levels - 1 if num_levels > 1 and self._ome else None
+            )
         else:
             writer_metadata["subfiletype"] = tifffile.FILETYPE.REDUCEDIMAGE
 
