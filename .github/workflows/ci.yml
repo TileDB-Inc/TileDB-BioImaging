@@ -12,6 +12,7 @@ jobs:
         sys:
           - { os: windows-latest, shell: 'cmd /C call {0}' }
           - { os: ubuntu-24.04,  shell: "bash -l {0}" }
+        python-version: [3.9, 3.12]
       fail-fast: false
     defaults:
       run:
@@ -26,6 +27,11 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
     - name: Install Conda environment with Micromamba
       uses: mamba-org/setup-micromamba@v2.0.2
       with:
@@ -33,7 +39,6 @@ jobs:
         environment-name: test
         cache-downloads: true
         create-args: >-
-          python=3.9
           pre-commit
           pytest-cov
           pytest-mock
