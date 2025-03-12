@@ -1,11 +1,18 @@
-import importlib.metadata
+import sys
 from typing import Any, Mapping, Type
 
 from .converters.base import ImageConverterMixin, ImageReader, ImageWriter
 
 
 def _load_entrypoints(name: str) -> Mapping[str, Any]:
-    eps = importlib.metadata.entry_points()[name]
+    if sys.version_info < (3, 12):
+        import importlib
+
+        eps = importlib.metadata.entry_points()[name]
+    else:
+        from importlib.metadata import entry_points
+
+        eps = entry_points(group=name)
     return {ep.name: ep.load() for ep in eps}
 
 
