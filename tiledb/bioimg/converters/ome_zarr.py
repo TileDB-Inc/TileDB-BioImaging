@@ -216,7 +216,7 @@ class OMEZarrReader:
 
 
 class OMEZarrWriter:
-    def __init__(self, output_path: str, logger: logging.Logger):
+    def __init__(self, output_path: str, logger: logging.Logger, **kwargs: Any) -> None:
         """
         OME-Zarr image writer from TileDB
 
