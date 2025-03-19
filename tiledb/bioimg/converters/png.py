@@ -199,7 +199,7 @@ class PNGReader:
 
 class PNGWriter:
 
-    def __init__(self, output_path: str, logger: logging.Logger):
+    def __init__(self, output_path: str, logger: logging.Logger, **kwargs: Any) -> None:
         self._logger = logger
         self._output_path = output_path
         self._group_metadata: Dict[str, Any] = {}

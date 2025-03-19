@@ -405,7 +405,9 @@ class OMETiffReader:
 
 
 class OMETiffWriter:
-    def __init__(self, output_path: str, logger: logging.Logger, ome: bool = True):
+    def __init__(
+        self, output_path: str, logger: logging.Logger, ome: bool = True, **kwargs: Any
+    ) -> None:
         self._logger = logger
         self._output_path = output_path
         self._ome = ome
