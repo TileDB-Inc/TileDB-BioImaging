@@ -487,26 +487,25 @@ class OMETiffWriter:
                     "timeIncrementUnit", "s"
                 )
 
-            writer_metadata.update(writer_kwargs.get("tiff_options", {}))
-
-            if (
-                "C" in original_axes
-                and original_shape[original_axes.index("C")] == 3
-                and image_dtype == np.dtype(np.uint8)
-            ):
-                writer_metadata.setdefault("compression", tifffile.COMPRESSION.JPEG)
-                writer_metadata.setdefault("compressionargs", {"level": 70})
-                writer_metadata.setdefault("photometric", tifffile.PHOTOMETRIC.RGB)
-            else:
-                writer_metadata.setdefault(
-                    "compression", tifffile.COMPRESSION.ADOBE_DEFLATE
-                )
-                writer_metadata.setdefault(
-                    "photometric",
-                    json.loads(array_metadata.get("json_write_kwargs", "{}")).get(
-                        "photometric", tifffile.PHOTOMETRIC.MINISBLACK
-                    ),
-                )
+        if (
+            "C" in original_axes
+            and original_shape[original_axes.index("C")] == 3
+            and image_dtype == np.dtype(np.uint8)
+        ):
+            writer_metadata.setdefault("compression", tifffile.COMPRESSION.JPEG)
+            writer_metadata.setdefault("compressionargs", {"level": 70})
+            writer_metadata.setdefault("photometric", tifffile.PHOTOMETRIC.RGB)
+        else:
+            writer_metadata.setdefault(
+                "compression", tifffile.COMPRESSION.ADOBE_DEFLATE
+            )
+            writer_metadata.setdefault(
+                "photometric",
+                json.loads(array_metadata.get("json_write_kwargs", "{}")).get(
+                    "photometric", tifffile.PHOTOMETRIC.MINISBLACK
+                ),
+            )
+        writer_metadata.update(writer_kwargs.get("tiff_options", {}))
         self._logger.debug(f"Writer metadata: {writer_metadata}")
         return writer_metadata
 
