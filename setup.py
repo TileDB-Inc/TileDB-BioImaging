@@ -1,8 +1,8 @@
 import setuptools
 
-zarr = ["ome-zarr>=0.9.0"]
+zarr = ["ome-zarr>=0.9.0,<=0.10.3"]
 openslide = ["openslide-python"]
-tiff = ["tifffile", "imagecodecs"]
+tiff = ["tifffile==v2025.5.10", "imagecodecs"]
 cloud = ["tiledb-cloud"]
 
 full = sorted({*zarr, *openslide, *tiff})
@@ -21,7 +21,6 @@ setuptools.setup(
         "scikit-image",
         "jsonpickle",
         "requires",
-        "urllib3>=2.0",
     ],
     extras_require={
         "zarr": zarr,
