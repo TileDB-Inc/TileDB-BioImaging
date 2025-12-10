@@ -107,7 +107,6 @@ def from_bioimg(
         else:
             raise _osd_exc
     else:
-
         logger.info("Converting PNG")
         return converters["png_converter"].to_tiledb(
             source=src,

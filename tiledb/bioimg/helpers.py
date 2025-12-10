@@ -28,6 +28,7 @@ from tiledb.filter import WebpFilter
 
 from . import ATTR_NAME
 from .converters.axes import Axes, AxesMapper
+from .types import DataProtocol
 from .version import version_tuple
 
 SUPPORTED_PROTOCOLS = ("s3://", "gcs://", "azure://")
@@ -71,6 +72,53 @@ class ReadWriteGroup:
         self.w_group.close()
         self.m_group.close()
 
+    def data_protocol(self, uri: str) -> DataProtocol:
+        """Return the data protocol in use for this URI and context.
+
+        Return value will be a data model identifier. Currently one of:
+        * `tiledbv2` - the legacy data model, supported on all storage platforms except Carrara
+        * `tiledbv3` - the new, and currently Carrara-specific, data model.
+
+        Args:
+            uri:
+                An object URI
+
+        Returns:
+            The protocol identifier, currently one of `tiledbv2` or `tiledbv3`
+        ---
+
+        IMPORTANT: the API signature may change slightly in the near future
+        to align with TileDB-Py.
+
+        In addition, the implementation will evolve to use a new Core API.
+        """
+        if not uri.startswith("tiledb://"):
+            return "tiledbv2"
+
+        # The original, absolute-only, URIs had the format:
+        #     tiledb://ORG/UUID
+        # The new URIs are:
+        #     tiledb://WORKSPACE/TEAMSPACE/optional-path-elements/
+        # The current methodology to distinguish between these is to look at the run-time
+        # environment, and determine if we are running on Cloud or Carrara.
+        #
+        # NB: this method will change shortly to use a new Core API.
+
+        CLOUD_DEPLOYMENTS = {"https://api.carrara.com", "https://api.staging.tiledb.io"}
+        if self._ctx:
+            if self._ctx.config()["rest.server_address"] in CLOUD_DEPLOYMENTS:
+                return "tiledbv3"
+
+        return "tiledbv2"
+
+    def is_tiledbv2_uri(self, uri: str) -> bool:
+        """Return True if the URI will use `tiledbv2` semantics."""
+        return self.data_protocol(uri) == "tiledbv2"
+
+    def is_tiledbv3_uri(self, uri: str) -> bool:
+        """Return True if the URI will use `tiledbv3` semantics."""
+        return self.data_protocol(uri) == "tiledbv3"
+
     def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
         create = False
         if name in self.r_group:
@@ -100,10 +148,15 @@ class ReadWriteGroup:
                             # (to allow the add operation)
                             self.w_group.close()
                             self.w_group.open("w")
-            # register the uri with the given name
-            if self._is_cloud:
+                            if self.is_tiledbv3_uri(uri):
+                                self.w_group.add(uri, name=uri, relative=True)
+
+            # In tiledbv3 mode, the array is created with the uri==name and relative=True and registered to the group as a member with the given name from the uri.
+            # so we don't need to add it to the group manually.
+            if self.is_tiledbv2_uri(uri):
+                # register the uri with the given name
                 self.w_group.add(uri, name, relative=False)
-            else:
+            if not self._is_cloud:
                 self.w_group.add(name, name, relative=True)
         return uri, create
 

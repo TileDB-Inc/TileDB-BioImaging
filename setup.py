@@ -21,6 +21,7 @@ setuptools.setup(
         "scikit-image",
         "jsonpickle",
         "requires",
+        "urllib3>=2.0",
     ],
     extras_require={
         "zarr": zarr,
