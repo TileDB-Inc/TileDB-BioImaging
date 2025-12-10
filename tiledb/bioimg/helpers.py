@@ -104,12 +104,12 @@ class ReadWriteGroup:
         #
         # NB: this method will change shortly to use a new Core API.
 
-        CLOUD_DEPLOYMENTS = {"https://api.carrara.com", "https://api.staging.tiledb.io"}
+        CLOUD_DEPLOYMENTS = {"https://api.tiledb.com", "https://api.dev.tiledb.io"}
         if self._ctx:
             if self._ctx.config()["rest.server_address"] in CLOUD_DEPLOYMENTS:
-                return "tiledbv3"
+                return "tiledbv2"
 
-        return "tiledbv2"
+        return "tiledbv3"
 
     def is_tiledbv2_uri(self, uri: str) -> bool:
         """Return True if the URI will use `tiledbv2` semantics."""
@@ -148,12 +148,12 @@ class ReadWriteGroup:
                             # (to allow the add operation)
                             self.w_group.close()
                             self.w_group.open("w")
-                            if self.is_tiledbv3_uri(uri):
+                            if self._is_cloud and self.is_tiledbv3_uri(uri):
                                 self.w_group.add(uri, name=uri, relative=True)
 
             # In tiledbv3 mode, the array is created with the uri==name and relative=True and registered to the group as a member with the given name from the uri.
-            # so we don't need to add it to the group manually.
-            if self.is_tiledbv2_uri(uri):
+            # so we don't need to add it to the group manually
+            if self._is_cloud and self.is_tiledbv2_uri(uri):
                 # register the uri with the given name
                 self.w_group.add(uri, name, relative=False)
             if not self._is_cloud:
