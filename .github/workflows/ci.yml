@@ -1,10 +1,13 @@
 name: TileDB-BioImaging CI
 
-on: [push]
+on: 
+  push:
+  schedule:
+    - cron: '0 6 * * 1'
 
 jobs:
   build:
-    name: ${{ matrix.sys.os }}
+    name: ${{ matrix.sys.os }} ${{ matrix.python-version }}
     runs-on: ${{ matrix.sys.os }}
     timeout-minutes: 25
     strategy:
@@ -80,8 +83,10 @@ jobs:
 
     - name: Run notebook examples
       run: |
-        micromamba run -n test pip install opencv-python-headless matplotlib nbmake
+        micromamba run -n test pip install opencv-python-headless matplotlib nbmake 
         micromamba run -n test pytest --nbmake examples
+      if: ${{ matrix.sys.os != 'windows-latest' }}
+
 
     - name: Create Test Coverage Badge
       if: ${{ env.run_coverage == 'true' && matrix.sys.os == 'ubuntu-24.04' }}

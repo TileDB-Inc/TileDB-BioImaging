@@ -71,6 +71,16 @@ class ReadWriteGroup:
         self.w_group.close()
         self.m_group.close()
 
+    def _is_tiledbv2_uri(self, uri: str, ctx: tiledb.Ctx) -> bool:
+        """Return True if the URI will use `tiledbv2` semantics."""
+        protocol_name: str = ctx.data_protocol(uri).name
+        return protocol_name == "DATA_PROTOCOL_V2"
+
+    def _is_tiledbv3_uri(self, uri: str, ctx: tiledb.Ctx) -> bool:
+        """Return True if the URI will use `tiledbv3` semantics."""
+        protocol_name: str = ctx.data_protocol(uri).name
+        return protocol_name == "DATA_PROTOCOL_V3"
+
     def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
         create = False
         if name in self.r_group:
@@ -78,7 +88,7 @@ class ReadWriteGroup:
         else:
             uri = os.path.join(self._uri, name).replace("\\", "/")
 
-            with tiledb.scope_ctx(self._ctx):
+            with tiledb.scope_ctx(self._ctx) as local_ctx:
                 if not tiledb.array_exists(uri):
                     tiledb.Array.create(uri, schema, ctx=self._ctx)
                     create = True
@@ -100,10 +110,14 @@ class ReadWriteGroup:
                             # (to allow the add operation)
                             self.w_group.close()
                             self.w_group.open("w")
-            # register the uri with the given name
-            if self._is_cloud:
-                self.w_group.add(uri, name, relative=False)
-            else:
+
+                # In tiledbv3 mode, the array is created with the uri==name and relative=True and registered to the group as a member with the given name from the uri.
+                # so we don't need to add it to the group manually
+
+                if self._is_cloud and self._is_tiledbv2_uri(uri, local_ctx):
+                    # register the uri with the given name
+                    self.w_group.add(uri, name, relative=False)
+            if not self._is_cloud:
                 self.w_group.add(name, name, relative=True)
         return uri, create
 
