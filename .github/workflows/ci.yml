@@ -1,10 +1,13 @@
 name: TileDB-BioImaging CI
 
-on: [push]
+on: 
+  push:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Sunday
 
 jobs:
   build:
-    name: ${{ matrix.sys.os - matrix.python-version}}
+    name: ${{ matrix.sys.os }} ${{ matrix.python-version }}
     runs-on: ${{ matrix.sys.os }}
     timeout-minutes: 25
     strategy:
