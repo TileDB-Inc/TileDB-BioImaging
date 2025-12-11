@@ -71,28 +71,14 @@ class ReadWriteGroup:
         self.w_group.close()
         self.m_group.close()
 
-    def is_tiledbv2_uri(self, uri: str, ctx: tiledb.Ctx = None) -> bool:
+    def _is_tiledbv2_uri(self, uri: str, ctx: tiledb.Ctx) -> bool:
         """Return True if the URI will use `tiledbv2` semantics."""
-        active_ctx = self._ctx or ctx
-
-        if active_ctx is None:
-            raise ValueError(
-                "TileDB URIs require a context to determine the data protocol being used"
-            )
-
-        protocol_name: str = active_ctx.data_protocol(uri).name
+        protocol_name: str = ctx.data_protocol(uri).name
         return protocol_name == "DATA_PROTOCOL_V2"
 
-    def is_tiledbv3_uri(self, uri: str, ctx: tiledb.Ctx = None) -> bool:
+    def _is_tiledbv3_uri(self, uri: str, ctx: tiledb.Ctx) -> bool:
         """Return True if the URI will use `tiledbv3` semantics."""
-        active_ctx = self._ctx or ctx
-
-        if active_ctx is None:
-            raise ValueError(
-                "TileDB URIs require a context to determine the data protocol being used"
-            )
-
-        protocol_name: str = active_ctx.data_protocol(uri).name
+        protocol_name: str = ctx.data_protocol(uri).name
         return protocol_name == "DATA_PROTOCOL_V3"
 
     def get_or_create(self, name: str, schema: tiledb.ArraySchema) -> Tuple[str, bool]:
@@ -124,13 +110,11 @@ class ReadWriteGroup:
                             # (to allow the add operation)
                             self.w_group.close()
                             self.w_group.open("w")
-                            if self._is_cloud and self.is_tiledbv3_uri(uri, local_ctx):
-                                self.w_group.add(uri, name=uri, relative=True)
 
                 # In tiledbv3 mode, the array is created with the uri==name and relative=True and registered to the group as a member with the given name from the uri.
                 # so we don't need to add it to the group manually
 
-                if self._is_cloud and self.is_tiledbv2_uri(uri, local_ctx):
+                if self._is_cloud and self._is_tiledbv2_uri(uri, local_ctx):
                     # register the uri with the given name
                     self.w_group.add(uri, name, relative=False)
             if not self._is_cloud:
