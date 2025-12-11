@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   build:
-    name: ${{ matrix.sys.os }}
+    name: ${{ matrix.sys.os - matrix.python-version}}
     runs-on: ${{ matrix.sys.os }}
     timeout-minutes: 25
     strategy:
