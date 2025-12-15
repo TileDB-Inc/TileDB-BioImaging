@@ -24,7 +24,7 @@ try:
     from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
     from ome_zarr.writer import write_multiscale
     from zarr.codecs import Blosc
-    from zarr.storage import FSStore
+    from zarr.storage import FsspecStore  # zarr.storage.FsspecStore
 except ImportError as err:
     warnings.warn(
         "OMEZarr Converter requires 'ome-zarr' package. "
@@ -66,7 +66,9 @@ class OMEZarrReader:
         self._dest_ctx = _get_ctx(dest_ctx, dest_config)
         self._dest_cfg = self._dest_ctx.config()
         storage_options = translate_config_to_s3fs(self._source_cfg)
-        input_fh = FSStore(input_path, check=True, create=True, **storage_options)
+        input_fh = FsspecStore.from_url(
+            input_path, storage_options=dict(storage_options)
+        )
         self._root_node = next(Reader(ZarrLocation(input_fh))())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
