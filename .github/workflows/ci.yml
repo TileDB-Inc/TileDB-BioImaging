@@ -42,6 +42,7 @@ jobs:
         environment-name: test
         cache-downloads: true
         create-args: >-
+          python=${{ matrix.python-version }}
           pre-commit
           pytest-cov
           pytest-mock
