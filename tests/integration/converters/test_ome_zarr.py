@@ -1,10 +1,11 @@
 import json
+import sys
 
 import numpy as np
 import PIL.Image
 import pytest
 import zarr
-from ome_zarr.format import FormatV04, FormatV05
+from ome_zarr.format import FormatV04
 
 import tiledb
 from tests import assert_image_similarity, get_path, get_schema
@@ -14,6 +15,15 @@ from tiledb.bioimg.helpers import iter_color, open_bioimg
 from tiledb.bioimg.openslide import TileDBOpenSlide
 from tiledb.filter import WebpFilter
 
+try:
+    from ome_zarr.format import FormatV05
+
+    HAS_FORMAT_V05 = True
+except ImportError:
+    FormatV05 = None
+
+
+REQUIRED_PYTHON_v3 = (3, 12)
 schemas = (get_schema(2220, 2967), get_schema(387, 463), get_schema(1280, 431))
 
 
@@ -165,6 +175,12 @@ def test_ome_zarr_converter_rountrip_v2(
             np.testing.assert_array_equal(input_array, output_array)
 
 
+# Condition to check if the current Python version is less than the required version
+# The test is skipped if the condition is True
+@pytest.mark.skipif(
+    sys.version_info < REQUIRED_PYTHON_v3,
+    reason=f"This test requires Python version {REQUIRED_PYTHON_v3[0]}.{REQUIRED_PYTHON_v3[1]} or higher.",
+)
 @pytest.mark.parametrize("series_idx", [0, 1, 2])
 @pytest.mark.parametrize("preserve_axes", [False, True])
 @pytest.mark.parametrize("chunked,max_workers", [(False, 0), (True, 0), (True, 4)])

@@ -22,14 +22,7 @@ from numpy._typing import NDArray
 
 try:
     import zarr
-    from ome_zarr.format import (
-        Format,
-        FormatV01,
-        FormatV02,
-        FormatV03,
-        FormatV04,
-        FormatV05,
-    )
+    from ome_zarr.format import Format, FormatV01, FormatV02, FormatV03, FormatV04
     from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
     from ome_zarr.writer import write_multiscale
     from zarr.storage import (
@@ -42,6 +35,18 @@ except ImportError as err:
         "You can install 'tiledb-bioimg' with the 'zarr' or 'full' flag"
     )
     raise err
+
+try:
+    from ome_zarr.format import FormatV05
+except ImportError:
+    warnings.warn(
+        "FormatV05 not available. Zarr v3 format requires ome-zarr>=0.9.0. "
+        "Falling back to FormatV04 (Zarr v2). "
+        "To use Zarr v3, upgrade: pip install --upgrade ome-zarr",
+        UserWarning,
+        stacklevel=2,
+    )
+    FormatV05 = None
 
 from tiledb import Config, Ctx
 from tiledb.filter import WebpFilter
@@ -189,7 +194,7 @@ class OMEZarrReader:
         location = ZarrLocation(self._multiscales.zarr.subpath(dataset), fmt=self._fmt)
         zarr_path = os.path.join(
             location.path,
-            "zarr.json" if isinstance(location.fmt, FormatV05) else ".zarray",
+            "zarr.json" if location.fmt.zarr_format == 3 else ".zarray",
         )
 
         with open(zarr_path, mode="r") as f:
