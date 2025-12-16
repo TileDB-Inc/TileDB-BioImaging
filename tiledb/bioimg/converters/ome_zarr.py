@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import warnings
 from typing import (
     Any,
@@ -21,10 +22,21 @@ from numpy._typing import NDArray
 
 try:
     import zarr
+    from ome_zarr.format import (
+        CurrentFormat,
+        Format,
+        FormatV01,
+        FormatV02,
+        FormatV03,
+        FormatV04,
+        FormatV05,
+    )
     from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
     from ome_zarr.writer import write_multiscale
-    from zarr.codecs import Blosc
-    from zarr.storage import FsspecStore  # zarr.storage.FsspecStore
+    from zarr.storage import (
+        FsspecStore,  # zarr.storage.FsspecStore
+        LocalStore,
+    )
 except ImportError as err:
     warnings.warn(
         "OMEZarr Converter requires 'ome-zarr' package. "
@@ -42,6 +54,27 @@ from .axes import Axes
 from .base import ImageConverterMixin
 
 
+def encode_zarr_format(fmt: Format) -> str:
+    """Encode format as simple string"""
+    return str(fmt.__class__.__name__)
+
+
+def decode_zarr_format(format_name: str) -> Format:
+    """Decode format from string"""
+    formats = {
+        "FormatV01": FormatV01,
+        "FormatV02": FormatV02,
+        "FormatV03": FormatV03,
+        "FormatV04": FormatV04,
+        "FormatV05": FormatV05,
+    }
+
+    if format_name not in formats:
+        raise ValueError(f"Unknown format: {format_name}")
+
+    return formats[format_name]()
+
+
 class OMEZarrReader:
 
     _logger: logging.Logger
@@ -55,6 +88,7 @@ class OMEZarrReader:
         source_ctx: Optional[Ctx] = None,
         dest_config: Optional[Config] = None,
         dest_ctx: Optional[Ctx] = None,
+        fmt: Optional[Format] = None,
     ):
         """
         OME-Zarr image reader
@@ -65,11 +99,23 @@ class OMEZarrReader:
         self._source_cfg = self._source_ctx.config()
         self._dest_ctx = _get_ctx(dest_ctx, dest_config)
         self._dest_cfg = self._dest_ctx.config()
+
+        # Format version
+        if not fmt:
+            self._fmt = CurrentFormat()
+        else:
+            self._fmt = fmt()
+        # Format version encoding
+        fmt_version = {"format": encode_zarr_format(self._fmt)}
+        self._fmt_serial = json.dumps(fmt_version)
+
         storage_options = translate_config_to_s3fs(self._source_cfg)
         input_fh = FsspecStore.from_url(
             input_path, storage_options=dict(storage_options)
         )
-        self._root_node = next(Reader(ZarrLocation(input_fh))())
+
+        location = ZarrLocation(input_fh, fmt=self._fmt)
+        self._root_node = next(Reader(location)())
         self._multiscales = cast(Multiscales, self._root_node.load(Multiscales))
         self._omero = cast(Optional[OMERO], self._root_node.load(OMERO))
 
@@ -141,9 +187,17 @@ class OMEZarrReader:
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         dataset = self._multiscales.datasets[level]
-        location = ZarrLocation(self._multiscales.zarr.subpath(dataset))
-        self._logger.debug(f"Level {level} - Metadata: {json.dumps(location.zarray)}")
-        return {"json_zarray": json.dumps(location.zarray)}
+        location = ZarrLocation(self._multiscales.zarr.subpath(dataset), fmt=self._fmt)
+        zarr_path = os.path.join(
+            location.path,
+            "zarr.json" if isinstance(location.fmt, FormatV05) else ".zarray",
+        )
+
+        with open(zarr_path, mode="r") as f:
+            metadata = json.load(f)
+
+        self._logger.debug(f"Level {level} - Metadata: {json.dumps(metadata)}")
+        return {"json_zarray": json.dumps(metadata)}
 
     @property
     def group_metadata(self) -> Dict[str, Any]:
@@ -156,6 +210,7 @@ class OMEZarrReader:
             name=multiscale.get("name"),
             metadata=multiscale.get("metadata"),
             omero=self._omero.image_data if self._omero else None,
+            fmt=self._fmt_serial,  # serialized format version
         )
         self._logger.debug(f"Group metadata: {writer_kwargs}")
         return {"json_zarrwriter_kwargs": json.dumps(writer_kwargs)}
@@ -224,18 +279,31 @@ class OMEZarrWriter:
         :param output_path: The path to the Zarr image
         """
         self._logger = logger
+
+        metadata = kwargs["metadata"]
+        self._group_metadata: Dict[str, Any] = json.loads(
+            metadata["json_zarrwriter_kwargs"]
+        )
+
+        # Deserialize and decode format version
+        deserial_fmt = json.loads(self._group_metadata.pop("fmt"))
+        self._fmt = decode_zarr_format(deserial_fmt["format"])
+
         self._group = zarr.group(
-            store=zarr.storage.DirectoryStore(path=output_path), overwrite=True
+            store=LocalStore(root=output_path),
+            overwrite=True,
+            zarr_format=self._fmt.zarr_format,
         )
         self._pyramid: List[np.ndarray] = []
         self._storage_options: List[Dict[str, Any]] = []
-        self._group_metadata: Dict[str, Any] = {}
 
     def __enter__(self) -> OMEZarrWriter:
         return self
 
     def write_group_metadata(self, metadata: Mapping[str, Any]) -> None:
-        self._group_metadata = json.loads(metadata["json_zarrwriter_kwargs"])
+        self._group_metadata = self._group_metadata or json.loads(
+            metadata["json_zarrwriter_kwargs"]
+        )
 
     def write_level_image(
         self,
@@ -246,9 +314,10 @@ class OMEZarrWriter:
         self._pyramid.append(image)
         # store the zarray metadata to be written at __exit__
         zarray = dict(metadata)
-        compressor = zarray["compressor"]
-        del compressor["id"]
-        zarray["compressor"] = Blosc.from_config(compressor)
+        # compressor = zarray["compressor"]
+        # del compressor["id"]
+        # from zarr.codecs import BloscCodec
+        # zarray["compressor"] = BloscCodec.from_dict(compressor)
         self._storage_options.append(zarray)
 
     def compute_level_metadata(
@@ -264,14 +333,16 @@ class OMEZarrWriter:
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         group_metadata = self._group_metadata
+
         write_multiscale(
             pyramid=self._pyramid,
             group=self._group,
+            fmt=self._fmt,
             axes=group_metadata["axes"],
             coordinate_transformations=group_metadata["coordinate_transformations"],
-            storage_options=self._storage_options,
+            storage_options=None,  # https://github.com/ome/ome-zarr-py/pull/480
             name=group_metadata["name"],
-            metadata=group_metadata["metadata"],
+            metadata=group_metadata["metadata"] if group_metadata["metadata"] else {},
         )
         if group_metadata["omero"]:
             self._group.attrs["omero"] = group_metadata["omero"]

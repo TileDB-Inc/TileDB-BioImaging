@@ -284,7 +284,9 @@ class ImageConverterMixin(Generic[TReader, TWriter]):
             output_config = config
 
         slide = TileDBOpenSlide(input_path, attr=attr, config=config)
-        writer = cls._ImageWriterType(destination_uri, logger, **(writer_kwargs or {}))
+        writer = cls._ImageWriterType(
+            destination_uri, logger, **(writer_kwargs or {}), metadata=slide.properties
+        )
 
         with slide, writer:
             writer.write_group_metadata(slide.properties)
