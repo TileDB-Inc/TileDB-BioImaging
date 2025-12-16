@@ -125,9 +125,13 @@ class OMEZarrReader:
         self._fmt_serial = json.dumps(fmt_version)
 
         storage_options = translate_config_to_s3fs(self._source_cfg)
-        input_fh = FsspecStore.from_url(
-            input_path, storage_options=dict(storage_options)
-        )
+        if FormatV05 and isinstance(self._fmt, FormatV05):
+            input_fh = FsspecStore.from_url(
+                input_path, storage_options=dict(storage_options)
+            )
+        else:
+            input_fh = FsspecStore(input_path, check=True, create=True, **storage_options)
+            
 
         location = ZarrLocation(input_fh, fmt=self._fmt)
         self._root_node = next(Reader(location)())
