@@ -25,6 +25,10 @@ try:
     from ome_zarr.format import Format, FormatV01, FormatV02, FormatV03, FormatV04
     from ome_zarr.reader import OMERO, Multiscales, Reader, ZarrLocation
     from ome_zarr.writer import write_multiscale
+    from zarr.storage import (
+        FsspecStore,  # zarr.storage.FsspecStore
+        LocalStore,
+    )
 except ImportError as err:
     warnings.warn(
         "OMEZarr Converter requires 'ome-zarr' package. "
@@ -34,8 +38,6 @@ except ImportError as err:
 
 try:
     from ome_zarr.format import FormatV05
-
-    HAS_FORMAT_V05 = True
 except ImportError:
     warnings.warn(
         "FormatV05 not available. Zarr v3 format requires ome-zarr>=0.9.0. "
@@ -45,19 +47,6 @@ except ImportError:
         stacklevel=2,
     )
     FormatV05 = None
-    HAS_FORMAT_V05 = False
-
-if HAS_FORMAT_V05:
-    from zarr.storage import FsspecStore, LocalStore
-else:
-    # Zarr v2 doesn't have these in zarr.storage
-    try:
-        from zarr.storage import DirectoryStore as LocalStore
-        from zarr.storage import FSStore as FsspecStore
-    except ImportError:
-        # Fallback for older Zarr v2
-        FsspecStore = None
-        LocalStore = None
 
 from tiledb import Config, Ctx
 from tiledb.filter import WebpFilter
@@ -125,13 +114,9 @@ class OMEZarrReader:
         self._fmt_serial = json.dumps(fmt_version)
 
         storage_options = translate_config_to_s3fs(self._source_cfg)
-        if FormatV05 and isinstance(self._fmt, FormatV05):
-            input_fh = FsspecStore.from_url(
-                input_path, storage_options=dict(storage_options)
-            )
-        else:
-            input_fh = FsspecStore(input_path, check=True, create=True, **storage_options)
-            
+        input_fh = FsspecStore.from_url(
+            input_path, storage_options=dict(storage_options)
+        )
 
         location = ZarrLocation(input_fh, fmt=self._fmt)
         self._root_node = next(Reader(location)())
