@@ -23,7 +23,6 @@ from numpy._typing import NDArray
 try:
     import zarr
     from ome_zarr.format import (
-        CurrentFormat,
         Format,
         FormatV01,
         FormatV02,
@@ -102,7 +101,7 @@ class OMEZarrReader:
 
         # Format version
         if not fmt:
-            self._fmt = CurrentFormat()
+            self._fmt = FormatV04()
         else:
             self._fmt = fmt()
         # Format version encoding
