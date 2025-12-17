@@ -197,7 +197,7 @@ def test_ome_zarr_converter_rountrip_v2(
 def test_ome_zarr_converter_rountrip_v3(
     tmp_path, series_idx, preserve_axes, chunked, max_workers, compressor
 ):
-    input_path = get_path("6001240.zarr")
+    input_path = get_path("heLa_cells.zarr")
     tiledb_path = tmp_path / "to_tiledb"
     output_path = tmp_path / "from_tiledb"
     OMEZarrConverter.to_tiledb(
@@ -225,7 +225,7 @@ def test_ome_zarr_converter_rountrip_v3(
 
     # Compare the level arrays
     for i in range(len(input_group)):  # TODO: -1 for labels
-        # Compare the .zarray files
+        # TODO: Compare the .zarray files
         # with open(input_path / str(i) / "zarr.json") as f:
         #     input_zarray = json.load(f)
         # with open(output_path / str(i) / "zarr.json") as f:
