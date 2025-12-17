@@ -168,8 +168,8 @@ class OMETiffReader:
             raise ImportError("zarr required for reading a Tiff tile region")
         if not hasattr(self, "_zarr_group"):
             store = self._series.aszarr(multiscales=True)
-            self._zarr_group = zarr.open(store, mode="r")
-        return np.asarray(self._zarr_group[level][tile])
+            self._zarr_group = zarr.open_group(store, mode="r")
+        return np.asarray(self._zarr_group[str(level)][tile])
 
     def level_metadata(self, level: int) -> Dict[str, Any]:
         if level == 0:

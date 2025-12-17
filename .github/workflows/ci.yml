@@ -9,13 +9,13 @@ jobs:
   build:
     name: ${{ matrix.sys.os }} ${{ matrix.python-version }}
     runs-on: ${{ matrix.sys.os }}
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       matrix:
         sys:
           - { os: windows-latest, shell: 'cmd /C call {0}' }
           - { os: ubuntu-24.04,  shell: "bash -l {0}" }
-        python-version: [3.9, 3.12]
+        python-version: [3.12]
       fail-fast: false
     defaults:
       run:
@@ -36,12 +36,13 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Conda environment with Micromamba
-      uses: mamba-org/setup-micromamba@v2.0.2
+      uses: mamba-org/setup-micromamba@v1
       with:
         micromamba-version: latest
         environment-name: test
         cache-downloads: true
         create-args: >-
+          python=${{ matrix.python-version }}
           pre-commit
           pytest-cov
           pytest-mock

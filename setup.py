@@ -1,8 +1,8 @@
 import setuptools
 
-zarr = ["ome-zarr>=0.9.0,<=0.10.3"]
+zarr = ["ome-zarr>=0.9.0"]
 openslide = ["openslide-python"]
-tiff = ["tifffile==v2025.5.10", "imagecodecs"]
+tiff = ["tifffile", "imagecodecs"]
 cloud = ["tiledb-cloud"]
 
 full = sorted({*zarr, *openslide, *tiff})
